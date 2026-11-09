@@ -9,10 +9,6 @@ spec:
   transport: stdio
   groupRef:
     name: all
-  # Intentionally filter BOTH proxy and unified: this backend must not expose
-  # stock diagnostics/writes. Live result-shape acceptance is still required.
-  toolConfigRef:
-    name: opnsense
   env:
     - name: OPNSENSE_URL
       value: https://opnsense.${SECRET_DOMAIN}/api
@@ -33,7 +29,6 @@ spec:
       key: OPNSENSE_API_SECRET
   podTemplateSpec:
     spec:
-      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/arch: amd64
       hostAliases:

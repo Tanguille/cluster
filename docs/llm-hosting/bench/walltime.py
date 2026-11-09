@@ -16,6 +16,7 @@ Usage: walltime.py PORT MODEL [PROMPT_TOKENS] [REPS] [PROMPT_FILE] [GEN]
 import json, sys, time, urllib.request, statistics as st
 
 from _metrics import sample, wait_idle
+from prodshape import WORDS
 
 PORT, MODEL = int(sys.argv[1]), sys.argv[2]
 PROMPT_TOKENS = int(sys.argv[3]) if len(sys.argv) > 3 else 4000
@@ -23,9 +24,6 @@ REPS = int(sys.argv[4]) if len(sys.argv) > 4 else 4
 PROMPT_FILE = sys.argv[5] if len(sys.argv) > 5 else None
 GEN = int(sys.argv[6]) if len(sys.argv) > 6 else 512
 FILE_TEXT = open(PROMPT_FILE).read() if PROMPT_FILE else None
-WORDS = ("storage replication consensus quorum latency throughput partition ledger "
-         "checkpoint compaction manifest snapshot heartbeat gossip shard rebalance "
-         "durability coordinator epoch lease tombstone compress index segment").split()
 
 
 def make_prompt(salt):

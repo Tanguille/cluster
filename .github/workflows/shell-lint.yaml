@@ -30,9 +30,11 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: aqua:koalaman/shellcheck
 
       - name: Lint
         run: |
           set -euo pipefail
           mapfile -t scripts < <(git ls-files '*.sh')
-          mise exec -- shellcheck "${scripts[@]}"
+          shellcheck "${scripts[@]}"

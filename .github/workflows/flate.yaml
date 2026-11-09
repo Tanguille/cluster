@@ -82,71 +82,37 @@ jobs:
           message-path: ${{ runner.temp }}/flate-kustomization.md
 
   pull:
-    # A moved cluster entry lists images as per-cluster objects; image names never contain "{".
     if: >-
       ${{
         needs.flate.outputs.images != '[]' &&
-        !contains(needs.flate.outputs.images, '{') &&
         github.event.pull_request.head.repo.full_name == github.repository
       }}
     needs: flate
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
-      # Only the tuppr upgrade CRs, for the talosctl version below.
+      # Only the mise config and lockfile, for the pinned talosctl.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: kubernetes/apps/system-upgrade/tuppr/upgrades
+          sparse-checkout: |
+            .mise.toml
+            mise.lock
+          sparse-checkout-cone-mode: false
 
-      # 96MiB per run, on every container PR. /tool-cache is a shared RWX cache: optional,
-      # and writable by any job, so every binary is sha256-checked against the release.
-      - name: Install talosctl
-        run: |
-          set -euo pipefail
-          # yq -e, not yq: a plain yq prints "null" and exits 0 for a missing key.
-          # .spec.talosctl.image.tag, NOT .spec.talos.version: the latter carries the -k<kernel>
-          # suffix, which siderolabs never published a release for, so the download 404s.
-          TALOS_VERSION="$(yq -e '.spec.talosctl.image.tag' \
-            kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml)"
-          echo "talosctl ${TALOS_VERSION} (from talosupgrade.yaml)"
-          base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"
-          bin="$HOME/.local/bin"
-          cache="/tool-cache/talosctl-${TALOS_VERSION}"
-          mkdir -p "$bin"
-
-          want=$(curl -fsSL "${base}/sha256sum.txt" | awk '$2 == "talosctl-linux-amd64" { print $1 }')
-          [[ -n "$want" ]] || { echo "no sha256 published for talosctl-linux-amd64"; exit 1; }
-          verify() { [[ -f "$1" ]] && echo "${want}  $1" | sha256sum --check --status; }
-
-          # verify the copy, not the shared entry: check-then-read leaves a swap window
-          if cp "$cache" "$bin/talosctl" 2>/dev/null && verify "$bin/talosctl"; then
-            echo "talosctl ${TALOS_VERSION} served from cache"
-          else
-            curl -fsSL -o "$bin/talosctl" "${base}/talosctl-linux-amd64"
-            verify "$bin/talosctl" || { echo "sha256 mismatch on downloaded talosctl"; exit 1; }
-            if [[ -w /tool-cache ]]; then
-              # mktemp, not $$: PIDs collide across pods sharing the mount
-              tmp=$(mktemp "/tool-cache/.talosctl.XXXXXX")
-              trap 'rm -f -- "$tmp"' EXIT
-              cp "$bin/talosctl" "$tmp"
-              chmod 0644 "$tmp"
-              mv -f "$tmp" "$cache"
-              trap - EXIT
-              # only the pinned version is read; -ignore_readdir_race so a concurrent
-              # pruner removing the same entry is not a failure
-              find /tool-cache -maxdepth 1 -ignore_readdir_race \
-                -name 'talosctl-*' ! -name "talosctl-${TALOS_VERSION}" -delete
-            fi
-          fi
-          chmod +x "$bin/talosctl"
-          echo "$bin" >> "$GITHUB_PATH"
+      # talosctl from the mise pin, checksum-verified against mise.lock. No cache: this job runs on
+      # PRs only, so every PR would save its own copy and crowd the repo's Actions cache quota.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          cache: false
+          install_args: aqua:siderolabs/talos
 
       # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
       # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).
       # yq (not jq): explicitly installed in the home-operations runner image; the guard
       # fails loudly if the flate output doesn't parse (yq is lenient about garbage input).
+      # --talosconfig: mise's [env] points TALOSCONFIG at the repo's talosconfig, absent here.
       - name: Pull Images
         env:
           IMAGES: ${{ needs.flate.outputs.images }}
@@ -157,6 +123,6 @@ jobs:
           rc=0
           while IFS= read -r image; do
             echo "Pulling ${image}"
-            talosctl --nodes "$NODE" image pull "${image}" || rc=1
+            talosctl --talosconfig /var/run/secrets/talos.dev/config --nodes "$NODE" image pull "${image}" || rc=1
           done <<< "$images"
           exit $rc

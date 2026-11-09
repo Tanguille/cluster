@@ -42,7 +42,6 @@ metadata:
   namespace: &namespace actions-runner-system
 spec:
   dependsOn:
-    - name: actions-runner-controller
     # Creates cluster-runner-secret, which rsume-runner borrows.
     - name: actions-runner-controller-runners
   interval: 1h

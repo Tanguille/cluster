@@ -17,6 +17,8 @@ spec:
     controllers:
       main:
         type: deployment
+        # Stateless (postgres backend, no volume); Recreate would drop Hermes recall on every roll.
+        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
 
