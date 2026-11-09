@@ -73,12 +73,16 @@ spec:
                 cpu: 500m
                 memory: 1Gi
     defaultPodOptions:
+      priorityClassName: homelab-critical
       labels:
         egress.home.arpa/dragonfly: allow
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: DoNotSchedule
+          # Skew per ReplicaSet: old replicas on two nodes otherwise pin the surge pod to the third.
+          matchLabelKeys:
+            - pod-template-hash
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: *app
