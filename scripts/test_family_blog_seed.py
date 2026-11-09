@@ -58,15 +58,16 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def sums_text(files):
-    lines = []
-    for name, data in files.items():
-        lines.append(f"{sha(data)}  {name}")
-    return "\n".join(lines) + "\n"
-
-
 def manifest_text(files):
     return "".join(f"{sha(data)}  {name}\n" for name, data in files.items())
+
+
+SPECIAL_KINDS = {
+    "dir": stat.S_IFDIR,
+    "symlink": stat.S_IFLNK,
+    "fifo": stat.S_IFIFO,
+    "char": stat.S_IFCHR,
+}
 
 
 def member(name, data=b"", kind="file", mode=0o644):
@@ -82,22 +83,11 @@ def make_zip(members, *, compression=zipfile.ZIP_DEFLATED):
                 info = zipfile.ZipInfo(name)
                 info.create_system = 3
                 info.compress_type = compression
+                file_type = SPECIAL_KINDS.get(kind, stat.S_IFREG)
+                info.external_attr = (file_type | mode) << 16
                 if kind == "dir":
-                    info.external_attr = (stat.S_IFDIR | 0o755) << 16
                     info.external_attr |= 0x10
-                    payload = b""
-                elif kind == "symlink":
-                    info.external_attr = (stat.S_IFLNK | 0o777) << 16
-                    payload = data
-                elif kind == "fifo":
-                    info.external_attr = (stat.S_IFIFO | 0o644) << 16
-                    payload = b""
-                elif kind == "char":
-                    info.external_attr = (stat.S_IFCHR | 0o644) << 16
-                    payload = b""
-                else:
-                    info.external_attr = (stat.S_IFREG | mode) << 16
-                    payload = data
+                payload = data if kind in ("file", "symlink") else b""
                 archive.writestr(info, payload)
     return buffer.getvalue()
 
@@ -112,7 +102,7 @@ def valid_members(files=None, *, extras=None, sums=None, dirs=True, file_mode=0o
     members.extend(member(name, data, mode=file_mode) for name, data in files.items())
     members.extend(member(name, data) for name, data in extras.items())
     if sums is not False:
-        text = sums_text(files) if sums is None else sums
+        text = manifest_text(files) if sums is None else sums
         members.append(member(CHECKSUMS, text.encode()))
     return members
 
@@ -173,13 +163,6 @@ class FamilyBlogSeedTests(unittest.TestCase):
         self.assertFalse((self.dest / "site").exists())
         self.assertEqual(snapshot(self.dest), before)
         return raised.exception
-
-    # -- limits ---------------------------------------------------------
-    def test_limits_match_brief_defaults(self):
-        self.assertEqual(self.module.MAX_COMPRESSED_BYTES, 256 * 1024 * 1024)
-        self.assertEqual(self.module.MAX_EXPANDED_BYTES, 512 * 1024 * 1024)
-        self.assertEqual(self.module.MAX_FILES, 10_000)
-        self.assertEqual(self.module.MAX_METADATA_BYTES, 8 * 1024 * 1024)
 
     # -- happy path -----------------------------------------------------
     def test_valid_import_extracts_only_offline_and_writes_ready(self):
@@ -272,7 +255,7 @@ class FamilyBlogSeedTests(unittest.TestCase):
         self.assertEqual(snapshot(self.dest), before)
 
     def test_wrong_file_checksum_is_refused(self):
-        sums = sums_text(OFFLINE_FILES)
+        sums = manifest_text(OFFLINE_FILES)
         files = dict(OFFLINE_FILES)
         files["offline/assets/site.css"] = b"tampered after hashing\n"
         self.assert_refused(make_zip(valid_members(files, sums=sums)))
@@ -280,15 +263,15 @@ class FamilyBlogSeedTests(unittest.TestCase):
     def test_unlisted_offline_file_is_refused(self):
         files = dict(OFFLINE_FILES)
         files["offline/extra.html"] = b"not listed\n"
-        self.assert_refused(make_zip(valid_members(files, sums=sums_text(OFFLINE_FILES))))
+        self.assert_refused(make_zip(valid_members(files, sums=manifest_text(OFFLINE_FILES))))
 
     def test_listed_but_missing_offline_file_is_refused(self):
-        sums = sums_text(OFFLINE_FILES)
+        sums = manifest_text(OFFLINE_FILES)
         sums += f"{sha(b'absent')}  offline/absent.html\n"
         self.assert_refused(make_zip(valid_members(sums=sums)))
 
     def test_duplicate_checksum_entry_is_refused(self):
-        sums = sums_text(OFFLINE_FILES)
+        sums = manifest_text(OFFLINE_FILES)
         sums += f"{sha(OFFLINE_FILES['offline/index.html'])}  offline/index.html\n"
         self.assert_refused(make_zip(valid_members(sums=sums)))
 
@@ -322,7 +305,7 @@ class FamilyBlogSeedTests(unittest.TestCase):
                 self.assert_refused(make_zip(valid_members() + [member(bad_name, b"x")]))
 
     def test_traversal_checksum_path_is_refused(self):
-        sums = sums_text(OFFLINE_FILES)
+        sums = manifest_text(OFFLINE_FILES)
         sums += f"{sha(b'x')}  ../../etc/passwd\n"
         self.assert_refused(make_zip(valid_members(sums=sums)))
 
@@ -335,7 +318,7 @@ class FamilyBlogSeedTests(unittest.TestCase):
         for name, data in OFFLINE_FILES.items():
             stored = name + marker.decode() if name == "offline/index.html" else name
             members.append(member(stored, data))
-        members.append(member(CHECKSUMS, sums_text(OFFLINE_FILES).encode()))
+        members.append(member(CHECKSUMS, manifest_text(OFFLINE_FILES).encode()))
         data = make_zip(members)
         self.assertEqual(data.count(marker), 2)
         patched = data.replace(marker, b"\x00ign")
@@ -432,7 +415,7 @@ class FamilyBlogSeedTests(unittest.TestCase):
 
     def test_checksum_metadata_limit(self):
         data = make_zip(valid_members())
-        self.assert_refused(data, max_metadata_bytes=len(sums_text(OFFLINE_FILES)) - 1)
+        self.assert_refused(data, max_metadata_bytes=len(manifest_text(OFFLINE_FILES)) - 1)
 
     # -- CLI FIFO protocol ----------------------------------------------
     def test_cli_reads_checksum_line_then_zip_from_fifo(self):

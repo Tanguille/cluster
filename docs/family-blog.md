@@ -70,18 +70,7 @@ workloads. An additional additive NetworkPolicy would not narrow that allowlist.
    set -euo pipefail
    read -r -p 'Private ZIP path: ' ZIP
    read -r -p 'Expected SHA256 from recovery record: ' EXPECTED_SHA
-   export ZIP EXPECTED_SHA
-   python3 - <<'PY'
-   import hashlib, os, re
-   expected = os.environ['EXPECTED_SHA'].lower()
-   if not re.fullmatch(r'[0-9a-f]{64}', expected):
-       raise SystemExit('Invalid expected SHA256')
-   with open(os.environ['ZIP'], 'rb') as archive:
-       actual = hashlib.file_digest(archive, 'sha256').hexdigest()
-   if actual != expected:
-       raise SystemExit('Archive checksum mismatch; stop')
-   print('Archive checksum verified')
-   PY
+   printf '%s  %s\n' "$EXPECTED_SHA" "$ZIP" | sha256sum -c -
    ```
 
 4. Confirm the seed Pod is running and its FIFO exists. Use the repository-pinned

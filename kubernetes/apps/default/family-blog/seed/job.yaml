@@ -5,8 +5,6 @@ kind: Job
 metadata:
   name: family-blog-seed
 spec:
-  completions: 1
-  parallelism: 1
   backoffLimit: 0
   activeDeadlineSeconds: 86400
   # No TTL: Flux must not recreate a completed writer against a populated claim.

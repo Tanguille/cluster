@@ -61,8 +61,8 @@ def _check_destination(destination: Path) -> None:
 
 
 def _validate_member_name(name: str) -> None:
-    if not name or "\x00" in name:
-        raise ImportRejected("archive member name is empty or contains NUL")
+    if not name:
+        raise ImportRejected("archive member name is empty")
     if "\\" in name:
         raise ImportRejected(f"archive member name contains a backslash: {name!r}")
     if name.startswith("/") or PurePosixPath(name).is_absolute():
@@ -241,12 +241,6 @@ def _extract_offline(
             raise ImportRejected(f"{name!r}: extracted size does not match the archive")
         if digest.hexdigest() != expected[name]:
             raise ImportRejected(f"{name!r}: extracted content checksum mismatch")
-        os.chmod(target, 0o644)
-
-    for directory in sorted(site_root.rglob("*"), key=lambda path: len(path.parts)):
-        if directory.is_dir():
-            os.chmod(directory, 0o755)
-    os.chmod(site_root, 0o755)
     return extracted
 
 
@@ -258,8 +252,6 @@ def _spool_archive(stream, target: Path, max_compressed_bytes: int) -> str:
             chunk = stream.read(_CHUNK)
             if not chunk:
                 break
-            if not isinstance(chunk, (bytes, bytearray)):
-                raise ImportRejected("archive stream must be binary")
             total += len(chunk)
             if total > max_compressed_bytes:
                 raise ImportRejected(
@@ -288,14 +280,8 @@ def import_archive(
     removed.
     """
     expected_sha256 = _normalise_sha(expected_sha256, "expected SHA256")
-    for label, value in (
-        ("max_compressed_bytes", max_compressed_bytes),
-        ("max_expanded_bytes", max_expanded_bytes),
-        ("max_files", max_files),
-        ("max_metadata_bytes", max_metadata_bytes),
-    ):
-        if not isinstance(value, int) or value <= 0:
-            raise ImportRejected(f"{label} must be a positive integer")
+    # Served tree is world-readable: files 0644, directories 0755.
+    os.umask(0o022)
 
     destination = Path(destination)
     _check_destination(destination)
@@ -361,7 +347,6 @@ def import_archive(
             json.dumps({"files": len(offline), "bytes": extracted_bytes}) + "\n",
             encoding="utf-8",
         )
-        os.chmod(ready_temp, 0o644)
         os.replace(ready_temp, destination / ".ready")
         ready_temp = None
         published = False
