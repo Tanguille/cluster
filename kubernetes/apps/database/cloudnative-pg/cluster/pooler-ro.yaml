@@ -13,6 +13,7 @@ spec:
   # Same as pgbouncer-rw: requests (Talos OOM kills request-less pods first) and a hard spread across nodes.
   template:
     spec:
+      priorityClassName: homelab-critical
       containers:
         - name: pgbouncer
           resources:
