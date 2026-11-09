@@ -13,7 +13,7 @@ require explicit approval. This runbook is guidance, not authorization to do the
 - [`.mise.toml`](../.mise.toml) points `SOPS_AGE_KEY_FILE` at the local `age.key`.
   Preserve **both classical and PQ identities** in that file and in recovery
   backups. A classical-only copy can decrypt Talos but fails on Kubernetes.
-- The FluxInstance sync ([flux-instance](../kubernetes/apps/flux-system/flux-instance/app/helmrelease.yaml))
+- The [`cluster-apps`](../kubernetes/flux/cluster/ks.yaml) Kustomization, which the FluxInstance syncs,
   renders `kubernetes/apps` and patches every child Flux Kustomization with
   `decryption.provider: sops` and no `secretRef`, so kustomize-controller's
   `--sops-age-secret=sops-age` fallback decrypts everything with

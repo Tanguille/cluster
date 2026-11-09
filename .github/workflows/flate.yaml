@@ -5,7 +5,7 @@ name: Flate
 on:
   pull_request:
     branches: ["main"]
-    paths: ["kubernetes/**", "flate/**"]
+    paths: ["kubernetes/**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -47,7 +47,7 @@ jobs:
         env:
           FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
-          FLATE_PATH: ./flate
+          FLATE_PATH: ./kubernetes/flux/cluster
         # Diffs go to files, not step outputs: the comment action receives an input as one
         # environment variable, and Linux caps a single one at 128 KiB ("Argument list too
         # long" on large PRs). Outputs only flag which comments to post.
