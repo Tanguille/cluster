@@ -16,8 +16,10 @@ gateway := "192.168.0.1"
 render-config node:
     role="$(just talos node-role "{{ node }}")"
     [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
+    # The relay's ClusterIP is defined once, in the Flux cluster settings that create its Service.
+    log_relay_ip="$(yq -e '.data.TALOS_LOG_RELAY_IP' "{{ justfile_directory() }}/kubernetes/components/common/cluster-settings.yaml")"
     # One context for every layer, so any layer may reference any of these.
-    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}")
+    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "log_relay_ip=${log_relay_ip}")
     # Rendered to variables before talosctl runs, so a failed layer aborts before a single byte
     # reaches stdout. Inline <(just template) dropped the layer silently and still emitted a
     # config, which apply-node pipes straight to a node.

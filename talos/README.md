@@ -54,9 +54,10 @@ Two conventions keep the layers honest:
 
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
-`vip` and `gateway` are defined once in `mod.just` and passed to every layer. Node addresses and
-the `192.168.0.0/24` subnet are still literals in the files that use them; only these two are
-centralised.
+`vip` and `gateway` are defined once in `mod.just` and passed to every layer. `log_relay_ip` is
+read from `TALOS_LOG_RELAY_IP` in `kubernetes/components/common/cluster-settings.yaml`, the same
+value that pins the relay's Service. Node addresses and the `192.168.0.0/24` subnet are still
+literals in the files that use them; only these three are centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is

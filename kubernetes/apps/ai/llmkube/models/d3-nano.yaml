@@ -7,7 +7,7 @@ metadata:
 spec:
   # vllm-sr/d3-nano, vLLM Semantic Router's 2B decision model: llama-server answers its typed questions at
   # /v1/systemone with per-option probabilities in one forward pass.
-  source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/50dea2057df10c4b393559a155ab3bf0bc7532c6/vllm-d3-nano-Q8_0.gguf
+  source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/f2256dfaff5b8337e8bf67ca064aeef18ee14a79/vllm-d3-nano-Q8_0.gguf
   refreshPolicy: OnChange
   # Only Q8_0 and BF16 are published.
   quantization: Q8_0
@@ -27,7 +27,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:872d75298ff82b771a98d3654d933b3fea65ae4eaecbd155e7c143dba743e44b
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5f372e6bbbd8ec1fd505d3094b5d9812b3caff052a9f24c52e269fe4f33cb39e
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
