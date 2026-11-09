@@ -62,19 +62,16 @@ spec:
             limits:
               memory: 1Gi
       persistence:
-        # volumeName rebinds the PVs kept from the move out of default.
         data:
           enabled: true
           storageClass: ceph-block
           accessMode: ReadWriteOnce
           size: 10Gi
-          volumeName: pvc-bdf9aba9-7f09-457b-b38b-a1c45a9a0b62
         media:
           enabled: true
           storageClass: ceph-block
           accessMode: ReadWriteOnce
           size: 20Gi
-          volumeName: pvc-b6f8f668-7c55-45b2-ac09-d5c990b8d0e8
 
     ml-api:
       securityContext: *nonroot-context
