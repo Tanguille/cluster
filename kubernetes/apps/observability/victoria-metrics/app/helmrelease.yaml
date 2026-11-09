@@ -259,18 +259,18 @@ spec:
             target_matchers:
               - alertname = "KubeHpaMaxedOut"
               - horizontalpodautoscaler =~ "keda-hpa-.*"
-          # Structural: priority -1000 plus a hard node pin leaves xmrig Pending on a full node.
+          # Structural: negative priority leaves xmrig (also node-pinned) and the monerod/p2pool chain Pending on a full cluster.
           - source_matchers: *alwaysFiring
             target_matchers:
               - alertname = "KubePodNotReady"
               - namespace = "web3"
-              - pod =~ "xmrig-.*"
-          # Same cause, Deployment side: KEDA scales to 1 while the pod stays Pending.
+              - pod =~ "(xmrig|monerod|p2pool)-.*"
+          # Same cause, Deployment side: a replica is wanted while its pod stays Pending.
           - source_matchers: *alwaysFiring
             target_matchers:
               - alertname = "KubeDeploymentReplicasMismatch"
               - namespace = "web3"
-              - deployment =~ "xmrig-.*"
+              - deployment =~ "xmrig-.*|monerod|p2pool"
           # Structural: the printer is off between prints, and the exporter cannot tell that from broken.
           - source_matchers: *alwaysFiring
             target_matchers:
