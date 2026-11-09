@@ -1,4 +1,4 @@
-"""PR-scoped policy regressions and the dormant Hermes monitor's tests.
+"""OPNsense network-policy regressions; no monitoring runtime.
 
 Uses the repository-pinned yq, as the existing scripts regression suite does.
 Selector checks model manifest intent, not a substitute for live Cilium tests.
@@ -69,14 +69,6 @@ class OpnsensePolicyTests(unittest.TestCase):
         self.assertEqual(backend['egress'][0]['toCIDR'], ['${OPNSENSE_IP}/32'])
         settings = document(ROOT / 'kubernetes/components/common/cluster-settings.yaml')
         ipaddress.IPv4Address(settings['data']['OPNSENSE_IP'])
-
-
-def load_tests(loader, tests, pattern):
-    # Keep monitor regressions in the existing PR CI job; no new build workflow.
-    resources = str(ROOT / 'kubernetes/apps/ai/hermes/app/resources')
-    tests.addTests(unittest.TestLoader().discover(
-        resources, pattern='test_opnsense_spamhaus_watch.py', top_level_dir=resources))
-    return tests
 
 
 if __name__ == '__main__':
