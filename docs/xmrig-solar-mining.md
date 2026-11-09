@@ -129,6 +129,8 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   The KEDA query therefore also requires allocatable memory minus Pending/Running pod requests,
   excluding the miner itself, to cover the 2Gi request, so a full node scales to 0 instead of
   leaving a miner Pending.
+- **The chain yields too.** On a full cluster regular pods preempt monerod and p2pool
+  (`low-priority-chain`); a preempted monerod is Ready again in 30-92s, p2pool in 7-108s.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
   node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
   idle but only ~320Mi while mining, since xmrig then requests 2Gi of regular pages instead.
