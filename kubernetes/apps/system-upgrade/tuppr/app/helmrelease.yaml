@@ -17,7 +17,7 @@ spec:
     replicaCount: 2
     resources:
       requests:
-        memory: 512Mi
+        memory: 256Mi
     # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
     affinity:
       podAntiAffinity:
