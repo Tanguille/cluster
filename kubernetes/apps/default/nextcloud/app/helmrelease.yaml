@@ -75,8 +75,17 @@ spec:
     nginx:
       enabled: true
       image:
-        repository: nginx
-        tag: 1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+        repository: nginxinc/nginx-unprivileged
+        tag: 1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
+      # containerd allows unprivileged ports, so the chart's listen 80 still binds.
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"

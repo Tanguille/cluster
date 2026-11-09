@@ -33,6 +33,17 @@ spec:
       memory: 256Mi
     limits:
       memory: 2Gi
+  # Replaces the operator's default podSecurityContext, so its fsGroup 999 is restated.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
