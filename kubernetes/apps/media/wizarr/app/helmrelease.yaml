@@ -33,6 +33,9 @@ spec:
                   periodSeconds: 5
             securityContext:
               allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
             resources:
               requests:
                 cpu: 15m
@@ -40,6 +43,12 @@ spec:
               limits:
                 cpu: 500m
                 memory: 500Mi
+    # Started as root, the entrypoint only creates PUID 1000 and su-execs to it.
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
     service:
       app:
         ports:

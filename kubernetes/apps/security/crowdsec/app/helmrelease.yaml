@@ -223,6 +223,18 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+      # Chart default is busybox:1.28 (2018) as root; its nc -z needs no privileges.
+      wait_for_lapi: &wait-for-lapi
+        image:
+          repository: ghcr.io/home-operations/busybox
+          tag: 1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
+        securityContext:
+          capabilities:
+            drop:
+              - ALL
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
     appsec:
       enabled: true
       deployAnnotations:
@@ -250,3 +262,4 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+      wait_for_lapi: *wait-for-lapi
