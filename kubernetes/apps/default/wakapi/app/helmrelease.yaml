@@ -22,8 +22,8 @@ spec:
             env:
               WAKAPI_PUBLIC_URL: "https://{{ .Release.Name }}.${SECRET_DOMAIN}"
               WAKAPI_INSECURE_COOKIES: false
-              # flip to false after creating the first account
-              WAKAPI_ALLOW_SIGNUP: true
+              # first account: kubectl -n default set env deploy/wakapi WAKAPI_ALLOW_SIGNUP=true; Flux reverts it
+              WAKAPI_ALLOW_SIGNUP: false
               WAKAPI_LEADERBOARD_ENABLED: false
               TZ: ${TIMEZONE}
             envFrom:
