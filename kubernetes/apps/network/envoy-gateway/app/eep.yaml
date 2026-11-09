@@ -18,4 +18,7 @@ spec:
         # never echo request metadata on the public gateway
         showDetails: false
         filterCodes: [404, "500-599"]
+        # API hosts whose clients parse error bodies (Matrix errcodes, MCP JSON-RPC)
+        excludeDomains:
+          - "(?i)^(matrix|mcp)\\.${SECRET_DOMAIN}(:[0-9]+)?$"
       failOpen: true

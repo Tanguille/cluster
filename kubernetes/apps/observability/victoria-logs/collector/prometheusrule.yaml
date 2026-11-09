@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: talos-log-relay-rules
+spec:
+  groups:
+    - name: talos-log-relay.rules
+      rules:
+        # UDP fails silently, so watch the far end. talos-log-relay is the only jsonline sender
+        # (vlagent uses nativeinsert). Sums all nodes, so one silent node does not fire.
+        - alert: TalosLogsNotArriving
+          expr: |-
+            (sum(rate(vl_rows_ingested_total{type="jsonline"}[15m])) or vector(0)) == 0
+          for: 15m
+          annotations:
+            summary: >-
+              No Talos logs reached VictoriaLogs for 30m, or its ingest metric is missing
+          labels:
+            severity: warning

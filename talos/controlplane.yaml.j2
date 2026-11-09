@@ -33,6 +33,13 @@ cluster:
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: "true"
+    resources:
+      requests:
+        # Was the Talos default of cpu 200m / memory 512Mi; the apiserver's steady-state working set
+        # has outgrown that default (1.7-2.3GiB observed, 5.19GiB on control-3), which preceded the
+        # 11-07 control-1 recreation storm after a 2.32GiB container death. Raise the request; no
+        # limit, an OOM kill of the apiserver itself is worse than the request being low.
+        memory: 2Gi
   controllerManager:
     image: registry.k8s.io/kube-controller-manager:{{ kubernetesVersion }}
     extraArgs:

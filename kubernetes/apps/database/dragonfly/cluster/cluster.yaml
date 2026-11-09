@@ -7,6 +7,7 @@ metadata:
 spec:
   image: ghcr.io/dragonflydb/dragonfly:v2.1.0
   replicas: 3
+  priorityClassName: homelab-critical
   env:
     - name: MAX_MEMORY
       valueFrom:

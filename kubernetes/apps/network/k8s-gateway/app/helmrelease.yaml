@@ -39,9 +39,12 @@ spec:
       monitor:
         enabled: true
     servers:
-      # Keep backup traffic direct to TrueNAS, independent of the ingress gateways.
+      # Static LAN names, served here so they never sit in public DNS. s3 keeps backup
+      # traffic direct to TrueNAS, independent of the ingress gateways.
       - zones:
           - zone: s3.${SECRET_DOMAIN}
+            use_tcp: true
+          - zone: desktop.${SECRET_DOMAIN}
             use_tcp: true
         port: 53
         plugins:
@@ -49,6 +52,7 @@ spec:
             parameters: /dev/null
             configBlock: |-
               ${TRUENAS_IP} s3.${SECRET_DOMAIN}
+              ${DESKTOP_IP} desktop.${SECRET_DOMAIN}
               no_reverse
       - zones:
           - zone: ${SECRET_DOMAIN}
