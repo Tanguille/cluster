@@ -50,7 +50,8 @@ spec:
             resources:
               requests:
                 cpu: 1
-                memory: 2Gi
+                # Idle 0.9-1.1GiB; ~2.3GiB while played bursts into node slack.
+                memory: 1Gi
               limits:
                 memory: 8Gi
         initContainers:
