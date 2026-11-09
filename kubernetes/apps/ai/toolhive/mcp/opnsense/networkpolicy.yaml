@@ -44,10 +44,11 @@ spec:
         - ports:
             - port: "8080"
               protocol: TCP
+    # No kube-apiserver: on control-plane nodes it shares identity 1 with host,
+    # so denying it drops the kubelet probes the host allow below admits.
     - fromEntities:
         - world
         - remote-node
-        - kube-apiserver
   ingress:
     - fromEndpoints:
         - matchLabels:
