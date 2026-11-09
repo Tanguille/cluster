@@ -11,6 +11,8 @@ spec:
       toolhive-name: opnsense
   # Deny overrides the namespace's broad ingress allow union. Only unified's
   # identity may reach the proxy; node-local kubelet health checks remain allowed.
+  # Preserve allow-kube-dns-replies for same-node rev-NAT replies on ephemeral
+  # ports. Scope that exception to kube-system, not any pod labeled kube-dns.
   ingressDeny:
     - fromEndpoints:
         - matchExpressions:
@@ -18,13 +20,30 @@ spec:
               operator: Exists
             - key: io.kubernetes.pod.namespace
               operator: NotIn
-              values: [ai]
+              values: [ai, kube-system]
         - matchExpressions:
             - key: io.kubernetes.pod.namespace
-              operator: Exists
+              operator: In
+              values: [ai]
             - key: toolhive-name
               operator: NotIn
               values: [unified]
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: In
+              values: [kube-system]
+            - key: k8s-app
+              operator: NotIn
+              values: [kube-dns]
+    # DNS replies do not require the MCP port; keep even CoreDNS out of it.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
     - fromEntities:
         - world
         - remote-node
@@ -57,7 +76,7 @@ spec:
       toolhive-basename: opnsense
   egress:
     - toCIDR:
-        - 192.168.0.1/32
+        - ${OPNSENSE_IP}/32
       toPorts:
         - ports:
             - port: "443"

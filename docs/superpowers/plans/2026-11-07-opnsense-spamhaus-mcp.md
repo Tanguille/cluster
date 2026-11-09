@@ -1,98 +1,70 @@
-# Upstream-only reduction — PR #6666
+# Upstream-only OPNsense monitor — rollout gates
 
-## Current local scope
+PR #6666 remains draft. The custom image/patch/workflow and baseline analyzer were
+removed in `9f044df6c`; no image publication is needed. The [spec](../specs/2026-11-07-opnsense-spamhaus-mcp.md)
+defines the limited configuration/collection contract and exact future runtime paths.
+Nothing is deployed or scheduled. User approved pushing the verified review fixes
+and replying to/resolving addressed threads; no merge or deployment is authorized.
 
-User approved abandoning the custom monitor image on 2026-11-08. The prior full
-monitor specification and publication attempt are superseded, not retained as
-active requirements. Branch: `docs/opnsense-spamhaus-mcp-plan`; branch/worktree
-checked, clean initial status, `git pull --ff-only` up to date before edits.
+## Verified prerequisites
 
-- Remove this PR's complete tracked `docker/opnsense-mcp/` tree and
-  `.github/workflows/opnsense-mcp.yaml`.
-- Replace the large Hermes analyzer/tests with a small bounded observation script
-  for three real stock tools; remove the unused baseline example.
-- Replace the two planning documents with this reduced contract and evidence.
-- Preserve `kubernetes/apps/ai/toolhive/mcp/opnsense-secret.sops.yaml` byte-for-byte,
-  encrypted and now registered only in local Kustomization. No account/key
-  regeneration or secret decryption.
-- Stock MCPServer, backend/unified allowlists and Cilium controls are local only.
-
-## Verified upstream evidence
-
-- Docker Hub `uhlenheide/opnsense-mcp-server:0.4.2` and `latest` resolved to index
+- Docker Hub `uhlenheide/opnsense-mcp-server:0.4.2` index:
   `sha256:b6d7f23acc60796756b97b6a45fd665d5c866c1f97a0b8d1e4a0266cef9145fb`.
-  Tag timestamp: 2026-11-03. Upstream README identifies this as the official image.
-- Runnable platform is **linux/amd64**; child manifest
+  Runnable platform is linux/amd64; child manifest:
   `sha256:68450a5c1a750c402c9fc9a01be0139e26f37017ef23cab9bd6eaee4ac635171`.
-  The other index entry is an attestation, not another architecture.
-- Retrieved BuildKit SLSA provenance identifies source
-  `https://github.com/lucamarien/opnsense-mcp-server`, revision
-  `e8e24749470c5d3e6419e5322f698eeee920396d`, build completion
-  `2026-11-03T18:13:47Z`. This is provenance presence, not a verified publisher
-  signature or a reproducible-build claim.
-- Pulled and ran the exact upstream image unchanged with network disabled,
-  read-only root, dropped capabilities and UID/GID 65532. Its catalog has 81 tools,
-  including `opn_list_firewall_aliases`, `opn_list_firewall_rules`,
-  `opn_firewall_log`. The image API client source SHA-256 matches the pinned source:
-  `bde2cc7bb04af4531bca1672bf2fad68b107d259c65626c013f165732ad826f6`.
-- Synthetic HTTP transport test inside the unchanged image observed, in order:
-  `/api/core/firmware/status`, `/api/firewall/alias/search_item`,
-  `/api/firewall/filter/search_rule`, `/api/diagnostics/firewall/log`.
-  A synthetic firmware 403 stopped all later requests. No firewall credentials
-  were used. The three read routes match earlier installed-source/direct API
-  verification; this does not establish stock authenticated live acceptance.
-- Firmware permission was missing from the original seven grants. Earlier ACL
-  probes incorrectly omitted the required leading slash; those false results
-  alone were not valid authorization evidence. After explicit approval, native
-  locked transaction added only `page-system-firmware-manualupdate`, validating
-  the original exact set and account restrictions before serialization/save.
-  A fresh model verified exactly eight direct/effective privileges, UID 2004,
-  no groups/shell/authorized keys or `page-all`. Correct ACL query using
-  `/api/core/firmware/status` returned true. No firmware action or key access.
-- Published MCPServer v1beta1 JSON schema accepts `podTemplateSpec` with preserved
-  fields and describes it as a PodTemplateSpec. Planned hostname pin belongs at
-  `spec.podTemplateSpec.spec.hostAliases`. Live CRD inspection additionally
-  confirmed this field and `toolConfigRef`/Secret references; local rendering and
-  embedded PodTemplate schema validation passed. Actual pod/TLS testing is gated.
+- Retrieved BuildKit provenance identifies source
+  `https://github.com/lucamarien/opnsense-mcp-server` at
+  `e8e24749470c5d3e6419e5322f698eeee920396d`. This is not signature verification.
+- Unchanged image catalog inspection found the three selected tools among 81.
+  Synthetic transport inspection confirmed firmware detection precedes the alias,
+  rule and log reads, selects snake_case for 26.7, and stops on firmware denial.
+- Existing UID 2004 has exactly eight approved direct/effective privileges,
+  retaining deny-config-write and no groups/admin/shell/authorized keys. The
+  corrected native ACL query (leading `/api/`) permits firmware status. No
+  authenticated stock-tool acceptance is claimed. Do not regenerate credentials.
+- Live CRD inspection confirmed `podTemplateSpec`, `toolConfigRef` and Secret refs.
+  Peer labels distinguish proxy/backend (`toolhive-name`) from stdio workload
+  (`toolhive-basename`); unified uses `toolhive-name=unified`. Proxy port is 8080
+  with operator `/health` probes. DNS pods use `k8s-app=kube-dns` in kube-system.
+- `${OPNSENSE_IP}` comes from cluster-settings and is injected by the Flux child
+  Kustomization patch. Both hostAliases and egress use it; TLS remains verified.
 
-## Focused validation and next gate
+## Review and focused verification
 
-Fourteen focused tests pass, including silent healthy runs, deduped alerts and
-recoveries, unavailable evidence preserving configuration incidents, and unknown
-logs not blocking valid configuration recovery. Version-2 state contains only
-incident booleans and uses a lock/atomic replace; old analyzer state is rejected
-rather than implicitly migrated. Global collection deadline remains 120 seconds.
+Current findings: preserve same-node CoreDNS replies without a label-only bypass
+([4506651140](https://github.com/Tanguille/cluster/pull/6666#discussion_r4506651140));
+use the shared firewall address
+([4506651143](https://github.com/Tanguille/cluster/pull/6666#discussion_r4506651143)).
+The DNS exemption is namespace-qualified and still denies TCP/8080. Other pod
+identities and world/remote-node/API-server ingress remain denied. This is policy
+intent, not live dataplane evidence.
 
-Local Kustomize render and schemas passed for MCPServer, MCPToolConfig, both
-Cilium policies, unified VirtualMCPServer and embedded Kubernetes PodTemplate.
-Python meta-schema checking rejected a Go-only regex on an unused Cilium field;
-instance validation passed using the schema validator directly (actual instance
-patterns retained). No kubeconform binary was available in this session. Parent
-independently reran the 14 monitor tests and full
-`mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh`: all passed,
-including Flux, shell and 26 regression checks. That evidence is reused here;
-the full suite is not rerun for commit/push.
-Focused content guards passed all eight changed/new retained files; whitespace
-passed and ciphertext matches HEAD byte-for-byte. The user subsequently approved
-committing/pushing the upstream-only revision and updating draft PR #6666.
-Custom-image publication and its GHCR authentication blocker are no longer relevant.
+Run the focused suite (also collected by the existing scripts CI workflow):
 
-Live peer pods confirmed `toolhive-name` on proxy/backend, `toolhive-basename`
-only on the stdio backend, unified identity `toolhive-name=unified`, proxy port
-8080 and operator-provided `/health` probes. Live ai policies contain no egress
-allows; clusterwide policy inspected is DNS ingress replies only. The new scoped
-ingress denies override broad namespace allows, permit only unified pod identity
-and node-local health access, and exclude arbitrary direct-backend consumers.
-Backend egress is limited to firewall 443 and kube-dns 53, without breaking proxy
-Kubernetes-API attach. Schema/selector intent is not proof of dataplane behavior.
+```sh
+mise exec -- python3 -m unittest discover -s scripts -p test_opnsense_monitor.py -v
+```
 
-Before deployment: separate explicit merge/apply approval. After approved
-rollout: verify dual filtering/result shape (known proxy resultType caveat),
-denied tool calls at dispatch only, denied non-unified proxy access, backend egress,
-amd64/gVisor lifecycle, hostAliases TLS and authenticated stock reads. Then obtain
-separate Hermes installation/cron approval: every 15 minutes, `--no-agent`,
-`--catch-up off`, initially paused, alert/failure delivery to
-`discord:1509648802678702203:1531266425594056777`. Verify silent healthy output and
-one alert/recovery pair before any resume. No current cron or runtime install.
-Keep PR #6666 draft. Push/description approval does not authorize merge, deployment,
-account changes, publication or Hermes installation/enablement.
+It includes the 14 unchanged monitor tests and policy/address regressions. Parent
+reviewed the production diff and passed full repository validation on these fixes:
+Flux, shell, secret guards and 42 regression tests. Reuse that evidence rather
+than rerunning the full suite for commit/push. Never decrypt the Secret for tests.
+
+## Remaining approval and acceptance gates
+
+1. Review, full validation and push approval completed; keep PR draft until ready.
+   No account change or deployment is part of resolving review remarks.
+2. Separate merge/rollout approval. Verify actual amd64/gVisor pod lifecycle,
+   hostAliases TLS, authenticated stock reads and result shapes through both
+   filters (known proxy `resultType` caveat). Test forbidden tools at dispatch,
+   non-unified proxy denial, same-node DNS replies and restricted backend egress.
+3. Separate Hermes installation/cron approval. Verify `hermes cron create --help`
+   and every intended flag before use: every 15 minutes, `--no-agent`,
+   `--catch-up off`, paused creation, `--failure-deliver` and `--paused-reason`.
+   Inspect any existing job first; do not duplicate it. Verify run/pause/resume help.
+   Alert/failure target: `discord:1509648802678702203:1531266425594056777`.
+4. While paused, demonstrate zero-byte healthy output and one alert/recovery pair;
+   only resume after separate acceptance. No current runtime script/state/cron install.
+
+Rollback after authorized rollout: pause the job first, then revert monitor GitOps
+changes with approval. Never alter Spamhaus firewall policy as monitor rollback.

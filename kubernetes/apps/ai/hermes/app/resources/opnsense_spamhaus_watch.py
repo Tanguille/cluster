@@ -64,13 +64,15 @@ def collect(call):
             else:
                 if total != len(rows):
                     raise ValueError('Truncated configuration search')
-                matches = sum(r.get('name') == ALIAS for r in rows) if key == 'alias_configuration' else sum(
-                    MARKER in str(r.get('description', '')) for r in rows)
-                result[key] = {'status': 'observed', 'matching_definitions': matches,
+                if key == 'alias_configuration':
+                    matching_rows = [r for r in rows if r.get('name') == ALIAS]
+                else:
+                    matching_rows = [r for r in rows if MARKER in str(r.get('description', ''))]
+                result[key] = {'status': 'observed', 'matching_definitions': len(matching_rows),
                                'coverage': 'search response only; not effective policy or health'}
                 if key == 'rule_configuration':
                     result[key]['enabled_definitions'] = sum(
-                        MARKER in str(r.get('description', '')) and str(r.get('enabled')) == '1' for r in rows)
+                        str(r.get('enabled')) == '1' for r in matching_rows)
         except Exception:
             result[key] = {'status': 'unavailable'}
     return result

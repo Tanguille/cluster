@@ -37,7 +37,7 @@ spec:
       nodeSelector:
         kubernetes.io/arch: amd64
       hostAliases:
-        - ip: 192.168.0.1
+        - ip: ${OPNSENSE_IP}
           hostnames:
             - opnsense.${SECRET_DOMAIN}
       securityContext:

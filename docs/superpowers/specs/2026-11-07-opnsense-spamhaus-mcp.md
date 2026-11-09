@@ -43,6 +43,11 @@ Retain the approved **15-minute, silent-healthy, alert/recovery-only** behavior.
 Healthy/unchanged runs emit zero bytes. No periodic observation dump. No baseline
 file, script, state or cron is installed in this task. The existing script-based
 architecture stays; do not substitute an agent prompt or enable a schedule.
+The intended script path is `/opt/data/scripts/opnsense_spamhaus_watch.py`; state
+is `/opt/data/cron/state/opnsense-spamhaus-watch.json` with a sibling `.lock` file.
+Provision the state directory as the Hermes user only during approved installation.
+State version 2 stores only incident booleans; incompatible state needs deliberate
+migration. No baseline file is used.
 
 ## Authorized account prerequisite
 
@@ -54,6 +59,9 @@ exactly eight direct/effective privileges, no groups/admin/shell/authorized keys
 ACL evaluation authorizes `/api/core/firmware/status`; no firmware API operation,
 credential read, key generation or decryption was performed. This is ACL evidence,
 not an authenticated stock-tool smoke test.
+The existing account is `hermes-spamhaus-monitor` (UID 2004); its credential is
+already encrypted in `kubernetes/apps/ai/toolhive/mcp/opnsense-secret.sops.yaml`.
+Do not recreate the account, API key or Secret. Any rotation requires separate approval.
 
 Local MCPServer, dual allowlists and Cilium policies are prepared and registered
 along with the unchanged encrypted Secret. Nothing has been applied. The stock
@@ -69,7 +77,7 @@ backend does not exist live yet; live acceptance remains required.
 - ToolHive backend allowlist and unified aggregation must expose only the three
   named tools, not the stock catalog of 81 tools. Exclude arbitrary APIs, packet
   capture, config backup and all writes. Deny tests must stop at tool dispatch.
-- Bind the hostname `opnsense.tanguille.site` to `192.168.0.1` using supported pod
+- Bind `opnsense.${SECRET_DOMAIN}` to `${OPNSENSE_IP}` (currently `192.168.0.1`) using pod
   `hostAliases` while retaining HTTPS hostname verification. The published
   MCPServer schema accepts `spec.podTemplateSpec` as a preserved PodTemplateSpec;
   installed CRD and local PodTemplate schema checks passed; verify the actual
@@ -78,10 +86,12 @@ backend does not exist live yet; live acceptance remains required.
 - Follow peer resource/probe/security patterns. Restrict egress to firewall
   TCP/443 and required DNS; verify direct-backend isolation against existing
   additive network policies. Do not assume an extra allow policy enforces denial.
+  Preserve the clusterwide same-node CoreDNS reply exception only for kube-dns
+  in kube-system; even CoreDNS must remain denied on the MCP proxy port.
 - Validate stock reads with the authorized account, gateway allowlist and TLS
   routing before claiming monitoring works. No live acceptance is claimed here.
 
-Commit/push and draft PR #6666 description updates are now approved. No merge,
-deployment, further account/DNS change, publication or Hermes enablement is
-authorized. Later rollback pauses the approved monitor job
+The upstream-only revision was pushed previously. User approved pushing the verified
+review fixes and addressing their threads. No merge, deployment, further account/DNS change,
+publication or Hermes enablement is authorized. Later rollback pauses the approved monitor job
 first, then reverts monitor GitOps changes; never alter Spamhaus firewall policy.
