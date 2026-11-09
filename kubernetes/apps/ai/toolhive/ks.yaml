@@ -9,6 +9,7 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/crds
   prune: false
+  wait: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -27,6 +28,7 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/app
   prune: true
+  wait: true
   sourceRef:
     kind: GitRepository
     name: flux-system

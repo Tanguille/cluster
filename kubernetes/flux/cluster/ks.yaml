@@ -59,6 +59,8 @@ spec:
                     mode: enabled
                   install:
                     crds: CreateReplace
+                    remediation:
+                      retries: 2
                   rollback:
                     cleanupOnFail: true
                   upgrade:
