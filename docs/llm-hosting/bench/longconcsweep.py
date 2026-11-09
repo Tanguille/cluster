@@ -9,7 +9,7 @@ import json, re, sys, threading, time, urllib.request
 
 from prodshape import WORDS
 
-URL ="http://127.0.0.1:18000/v1/completions"
+URL = "http://127.0.0.1:18000/v1/completions"
 METRICS = "http://127.0.0.1:18000/metrics"
 GEN = 128
 

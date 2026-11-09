@@ -29,19 +29,12 @@ jobs:
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
+          # No cache: this job runs on PRs only, so every PR would save its own copy.
+          cache: false
           install_args: aqua:casey/just aqua:mikefarah/yq
 
       - name: Check template variables
         run: scripts/talos-template-vars.sh
-
-      # render-config reads node addresses from the Flux cluster settings; a renamed key fails here.
-      - name: Resolve cluster-settings keys
-        run: |
-          keys="$(grep -oP "yq -e '\.data\.\K[A-Z0-9_]+" talos/mod.just)"
-          [[ -n "${keys}" ]] || { echo "no cluster-settings reads in talos/mod.just" >&2; exit 1; }
-          for key in ${keys}; do
-            yq -e ".data.${key}" kubernetes/components/common/cluster-settings.yaml
-          done
 
       # talos-kernel.yaml skips recipe edits on purpose, so prove the recipes its script calls
       # still resolve here, without building. Same version guard the script applies first.

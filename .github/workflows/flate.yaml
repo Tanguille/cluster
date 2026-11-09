@@ -91,28 +91,33 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
-      # Only the mise config and lockfile, for the pinned talosctl.
+      # Only the lockfile, for the pinned talosctl.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: |
-            .mise.toml
-            mise.lock
+          sparse-checkout: mise.lock
           sparse-checkout-cone-mode: false
 
-      # talosctl from the mise pin, checksum-verified against mise.lock. No cache: this job runs on
-      # PRs only, so every PR would save its own copy and crowd the repo's Actions cache quota.
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-        with:
-          cache: false
-          install_args: aqua:siderolabs/talos
+      # The mise.lock linux-x64 entry: release url and sha256, so CI runs the pinned binary.
+      - name: Install talosctl
+        run: |
+          set -euo pipefail
+          entry="$(sed -n '/^\[tools\."aqua:siderolabs\/talos"\."platforms\.linux-x64"\]$/,/^$/p' mise.lock)"
+          url="$(sed -n 's/^url = "\(.*\)"$/\1/p' <<<"${entry}")"
+          sum="$(sed -n 's/^checksum = "sha256:\(.*\)"$/\1/p' <<<"${entry}")"
+          [[ -n "${url}" && -n "${sum}" ]] || { echo "no linux-x64 talos entry in mise.lock" >&2; exit 1; }
+          bin="$HOME/.local/bin"
+          mkdir -p "$bin"
+          curl -fsSL -o "$bin/talosctl" "$url"
+          echo "${sum}  $bin/talosctl" | sha256sum --check --strict
+          chmod +x "$bin/talosctl"
+          echo "$bin" >> "$GITHUB_PATH"
 
       # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
       # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).
       # yq (not jq): explicitly installed in the home-operations runner image; the guard
       # fails loudly if the flate output doesn't parse (yq is lenient about garbage input).
-      # --talosconfig: mise's [env] points TALOSCONFIG at the repo's talosconfig, absent here.
       - name: Pull Images
         env:
           IMAGES: ${{ needs.flate.outputs.images }}
@@ -123,6 +128,6 @@ jobs:
           rc=0
           while IFS= read -r image; do
             echo "Pulling ${image}"
-            talosctl --talosconfig /var/run/secrets/talos.dev/config --nodes "$NODE" image pull "${image}" || rc=1
+            talosctl --nodes "$NODE" image pull "${image}" || rc=1
           done <<< "$images"
           exit $rc

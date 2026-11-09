@@ -27,6 +27,8 @@ jobs:
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
+          # Save from main only; PR-scoped copies crowd the Actions cache quota.
+          cache_save: ${{ github.event_name == 'push' }}
           # Secret-check tests need yq and exercise hook ordering with pinned Lefthook; the bootstrap test builds the helmfiles.
           install_args: aqua:mikefarah/yq aqua:evilmartians/lefthook aqua:helm/helm aqua:helmfile/helmfile
 

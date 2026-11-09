@@ -32,12 +32,16 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          # Save from main only; PR-scoped copies crowd the Actions cache quota.
+          cache_save: ${{ github.event_name == 'push' }}
+          install_args: aqua:kubescape/kubescape
 
       - name: Scan
         continue-on-error: true
         run: |
           set -uo pipefail
-          mise exec -- kubescape scan kubernetes --format json > kubescape-report.json
+          kubescape scan kubernetes --format json > kubescape-report.json
 
       - name: Report summary
         if: always()
