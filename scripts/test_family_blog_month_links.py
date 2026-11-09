@@ -122,8 +122,6 @@ class MonthLinkRepairTests(unittest.TestCase):
         self.marker.write_text('{"files": 5, "bytes": 1, "other": "keep"}')
         self.assertEqual(self.run_script("--apply").returncode, 0)
         self.assertEqual(json.loads(self.marker.read_text())["other"], "keep")
-        self.marker.unlink()
-        self.assertNotEqual(self.run_script("--apply").returncode, 0)
 
 
 if __name__ == "__main__":

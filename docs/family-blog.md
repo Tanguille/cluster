@@ -170,7 +170,7 @@ Then:
    record. The importer verifies the ZIP and every extracted file, publishes `site`
    atomically, and writes `.ready` last. Only `offline/` content is extracted.
 6. Remove the restored seed Component, manifests and tests through GitOps. Confirm
-    resource removal and volume release, then repeat privacy checks and activation.
+   resource removal and volume release, then repeat privacy checks and activation.
 7. The preserved ZIP still has the original broken month links. Before considering
    recovery complete, repeat the reviewed monthly navigation repair above and its
    separate cleanup. The derived `.ready` byte count will differ from the pristine

@@ -123,16 +123,10 @@ spec:
       config:
         type: configMap
         name: family-blog-configmap
-        advancedMounts:
-          family-blog:
-            app:
-              - path: /etc/nginx/nginx.conf
-                subPath: nginx.conf
-                readOnly: true
+        globalMounts:
+          - path: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+            readOnly: true
       tmp:
         type: emptyDir
         sizeLimit: 16Mi
-        advancedMounts:
-          family-blog:
-            app:
-              - path: /tmp

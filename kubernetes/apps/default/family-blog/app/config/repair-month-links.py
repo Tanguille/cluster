@@ -13,7 +13,7 @@ import tempfile
 import sys
 
 
-MONTH = re.compile(r"^\s*(\d{2}-\d{4})\s*$")
+MONTH = re.compile(r"\s*(\d{2}-\d{4})\s*")
 
 def href_value_span(tag):
     """Return the sole actual href value span; duplicate hrefs are ambiguous."""
@@ -68,7 +68,7 @@ class LinkParser(HTMLParser):
         self.anchor = None
 
     def handle_starttag(self, tag, attrs):
-        if tag.lower() != "a":
+        if tag != "a":
             return
         line, col = self.getpos()
         start = self.lines[line - 1] + col
@@ -80,23 +80,14 @@ class LinkParser(HTMLParser):
         if self.anchor is not None:
             self.anchor["label"].append(data)
 
-    def handle_entityref(self, name):
-        if self.anchor is not None:
-            self.anchor["label"].append(html.unescape("&" + name + ";"))
-
-    def handle_charref(self, name):
-        if self.anchor is not None:
-            self.anchor["label"].append(html.unescape("&#" + name + ";"))
-
     def handle_endtag(self, tag):
-        if tag.lower() == "a" and self.anchor is not None:
+        if tag == "a" and self.anchor is not None:
             self.anchors.append(self.anchor)
             self.anchor = None
 
 
 def parse_page(path, root, months):
-    raw = path.read_bytes()
-    text = raw.decode("latin-1")
+    text = path.read_bytes().decode("latin-1")
     parser = LinkParser(text)
     parser.feed(text)
     patches = []
@@ -119,7 +110,22 @@ def parse_page(path, root, months):
                 patches.append((value_start, value_end, new))
     for start, end, value in reversed(patches):
         text = text[:start] + value + text[end:]
-    return raw, text.encode("latin-1"), len(patches)
+    return text.encode("latin-1"), len(patches)
+
+
+def atomic_write(path, data):
+    """Replace path with data, keeping its mode and owner."""
+    info = path.stat()
+    fd, stage = tempfile.mkstemp(prefix=".month-link-repair-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.chmod(stage, stat.S_IMODE(info.st_mode))
+        os.chown(stage, info.st_uid, info.st_gid)
+        os.replace(stage, path)
+    finally:
+        if os.path.exists(stage):
+            os.unlink(stage)
 
 
 def main():
@@ -154,44 +160,24 @@ def main():
         if month_dir.is_dir():
             for p in month_dir.iterdir():
                 m = re.fullmatch(r"(\d{2}-\d{4})\.html", p.name)
-                if m and p.is_file() and not p.is_symlink():
+                if m and p.is_file():
                     months[m.group(1)] = p
         plans = []
         total = 0
         for p in pages:
-            old, new, count = parse_page(p, root, months)
+            new, count = parse_page(p, root, months)
             if count:
-                plans.append((p, old, new))
+                plans.append((p, new))
                 total += count
         if args.apply:
-            for p, old, new in plans:
-                info = p.stat()
-                fd, stage = tempfile.mkstemp(prefix=".month-link-repair-", dir=p.parent)
-                try:
-                    with os.fdopen(fd, "wb") as out:
-                        out.write(new)
-                    os.chmod(stage, stat.S_IMODE(info.st_mode))
-                    os.chown(stage, info.st_uid, info.st_gid)
-                    os.replace(stage, p)
-                finally:
-                    if os.path.exists(stage):
-                        os.unlink(stage)
+            for p, new in plans:
+                atomic_write(p, new)
             files = [p for p in root.rglob("*") if p.is_file()]
             marker_data.update({"files": len(files), "bytes": sum(p.stat().st_size for p in files)})
-            payload = json.dumps(marker_data, separators=(",", ":"))
-            fd, stage = tempfile.mkstemp(prefix=".ready-repair-", dir=marker.parent)
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as out:
-                    out.write(payload)
-                os.chmod(stage, stat.S_IMODE(marker.stat().st_mode))
-                os.chown(stage, marker.stat().st_uid, marker.stat().st_gid)
-                os.replace(stage, marker)
-            finally:
-                if os.path.exists(stage):
-                    os.unlink(stage)
+            atomic_write(marker, json.dumps(marker_data, separators=(",", ":")).encode())
         print(json.dumps({"html_files": len(pages), "links": total, "changed_files": len(plans), "applied": args.apply}))
         return 0
-    except (OSError, ValueError, json.JSONDecodeError, UnicodeError):
+    except (OSError, ValueError):  # covers JSONDecodeError and UnicodeError
         print("repair refused; site validation failed", file=sys.stderr)
         return 1
 
