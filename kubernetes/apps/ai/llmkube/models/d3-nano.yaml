@@ -50,8 +50,7 @@ spec:
               app: embeddinggemma-2
           topologyKey: kubernetes.io/hostname
 
-  # uid 101 is the model downloader's (llmkube --init-container-user); the root
-  # model-cache-prep init hands /models to group 102, so the server needs no root.
+  # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
     runAsUser: 101
     fsGroup: 102
