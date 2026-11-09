@@ -19,8 +19,9 @@ external archive-toolbar badge is also blocked; do not weaken CSP to load it.
   Keep those and original photos intact. Do not mount Nextcloud homes here.
 - No family content, archive names/checksums, credentials or private recovery URLs
   belong in Git, public logs, images or registries.
-- Initial manifests are **bootstrap only**: server replicas `0`, route disabled,
-  temporary seed Job enabled. Committing configuration does not approve importing
+- Initial manifests are **bootstrap only**: server replicas `0`, internal HTTPS
+  route configured, temporary seed Job enabled. The route has no backend Pods
+  until the server is started. Committing configuration does not approve importing
   data or activating the website.
 
 Use GitOps for every resource change. Obtain separate approval before committing,
@@ -60,9 +61,9 @@ workloads. An additional additive NetworkPolicy would not narrow that allowlist.
    private local directory outside this repository. Do not rely on the original
    capture machine's temporary staging directory or publish a Nextcloud share.
 2. Review and deploy the bootstrap GitOps change after approval. Confirm the
-   server has no Pods and there is no family-blog HTTPRoute. The seed Job must be
-   the only writer to the empty claim. Do not overlap seed and server Pods: this
-   is RWO storage.
+   server has no Pods and the family-blog HTTPRoute attaches only to the internal
+   HTTPS listener. The seed Job must be the only writer to the empty claim. Do not
+   overlap seed and server Pods: this is RWO storage.
 3. Set local shell variables (do not paste private values into Git). Run in Bash:
 
    ```bash
@@ -128,8 +129,8 @@ Job recreation/removal is a reviewed GitOps change, with deletion approval.
 Only after successful import and the privacy checks:
 
 1. Remove `../seed` from `app/kustomization.yaml` components, keeping server
-   replicas `0` and the route disabled. Approve/push/reconcile that change and
-   confirm the seed Job and Pods are gone and the volume is released.
+   replicas `0`. Approve/push/reconcile that change and confirm the seed Job and
+   Pods are gone and the volume is released.
 
    Read-only checks (Job/Pod commands must print nothing; attachment list must
    be `[]`). Recheck if pruning or CSI detachment is still in progress; do not
@@ -146,10 +147,9 @@ Only after successful import and the privacy checks:
          {name: .metadata.name, attached: .status.attached}]'
    ```
 
-2. Set the family-blog controller's `replicas` to `1` and its route's `enabled`
-   to `true` in `app/helmrelease.yaml`. Render/review before approval and rollout.
-   Reassess the bootstrap-only `family-blog` exceptions in `.deadvalues.yaml`
-   and rerun the scan; they must not hide active-route configuration errors.
+2. Set the family-blog controller's `replicas` to `1` in `app/helmrelease.yaml`.
+   The internal route is already configured; no route change is needed.
+   Render/review before approval and rollout.
    Never switch to an external gateway to work around DNS or connectivity.
 
 Readiness requests `/index.html` and requires real content plus `/srv/.ready`.
@@ -171,9 +171,10 @@ Before closing the rollout:
 
 ## Rollback and recovery
 
-To withdraw access, disable the route and set replicas `0` through an approved
-GitOps change. Keep the PVC and private archive. Do not re-enable the seed
-Component against the populated volume: import will correctly refuse it.
+To stop serving, set replicas `0` through an approved GitOps change. The internal
+route will again have no backend Pods. Keep the PVC and private archive. Do not
+re-enable the seed Component against the populated volume: import will correctly
+refuse it.
 
 For storage loss, use the private Nextcloud ZIP and expected checksum to rebuild
 on a **fresh empty PVC**, with serving disabled. Retain the old claim for inspection
@@ -184,10 +185,11 @@ or remove a backup to force import to succeed.
 
 ## Local validation
 
-Render both lifecycle states: bootstrap must have zero server replicas, no route
-and one seed Job; activation must have one server replica, an internal HTTPS route
-and no seed Job. Test NGINX with a read-only root/site as UID 101, including health,
-readiness, blocked methods and paths, and relative directory redirects.
+Render all lifecycle states with the same internal HTTPS route: bootstrap has zero
+server replicas and one seed Job; after seed removal both counts are zero;
+activation has one server replica and no seed Job. Test NGINX with a read-only
+root/site as UID 101, including health, readiness, blocked methods and paths, and
+relative directory redirects.
 
 ```bash
 python3 -m unittest discover -s scripts -p 'test_family_blog_seed.py' -v
