@@ -9,6 +9,7 @@ spec:
   path: ./kubernetes/apps/web3/monero/monerod
   targetNamespace: *namespace
   prune: true
+  wait: true
   sourceRef:
     kind: GitRepository
     name: flux-system
