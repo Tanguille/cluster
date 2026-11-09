@@ -33,10 +33,12 @@ spec:
       maxDiffConcurrency: 1
       # Auto is 256 MiB per orchestrator, two per render, all live heap the GC cannot reclaim.
       helmTemplateCacheMb: "64"
-      # The derived 90% of the limit let the heap idle at ~600 MiB.
+      # GC target follows the request; automemlimit's 90% of the limit let the heap idle at ~600 MiB.
       extraEnv:
         - name: GOMEMLIMIT
-          value: 900MiB
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.memory
     secret:
       existingSecret: konflate-secret
     # The 1Gi chart default OOM-killed renders at 1.04 GiB RSS.
