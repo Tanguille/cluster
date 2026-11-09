@@ -25,7 +25,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: seed
-          image: python:3.14.10-alpine
+          image: python:3.15.2-alpine
           command: [python, "-B", "-u", /scripts/import.py]
           securityContext:
             allowPrivilegeEscalation: false
