@@ -82,11 +82,11 @@ jobs:
           message-path: ${{ runner.temp }}/flate-kustomization.md
 
   pull:
-    # A moved cluster entry lists images per cluster ({"cluster": ...}), not image names to pull.
+    # A moved cluster entry lists images as per-cluster objects; image names never contain "{".
     if: >-
       ${{
         needs.flate.outputs.images != '[]' &&
-        !contains(needs.flate.outputs.images, '"cluster"') &&
+        !contains(needs.flate.outputs.images, '{') &&
         github.event.pull_request.head.repo.full_name == github.repository
       }}
     needs: flate
