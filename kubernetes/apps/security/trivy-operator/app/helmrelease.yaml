@@ -10,8 +10,8 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.32.1
-      url: oci://ghcr.io/aquasecurity/helm-charts/trivy-operator
+        tag: 0.38.1
+      url: oci://ghcr.io/home-operations/charts-mirror/trivy-operator
   values:
     operator:
       # Node collector fails on Talos (read-only rootfs: mkdir /etc/systemd); node and control-plane CIS reports are lost.
@@ -46,6 +46,8 @@ spec:
       storageClassEnabled: false
       # Debian's ssl-cert placeholder key, generated at image build and public with the image.
       skipFiles: /etc/ssl/private/ssl-cert-snakeoil.key
+      # Chart 0.38 adds PersistentVolume and PersistentVolumeClaim (~105 more config audit reports); nothing reads them.
+      supportedConfigAuditKinds: "Workload,Service,Role,ClusterRole,NetworkPolicy,Ingress,LimitRange,ResourceQuota"
       server:
         resources:
           requests:
