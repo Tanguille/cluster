@@ -10,6 +10,8 @@ spec:
     kind: OCIRepository
     name: app-template
   # homelab-optional pods may sit Pending; don't wait on them.
+  install:
+    disableWait: true
   upgrade:
     disableWait: true
   rollback:

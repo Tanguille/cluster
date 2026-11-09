@@ -505,13 +505,16 @@ spec:
                 for: 1h
                 labels:
                   severity: warning
-              # Backs the NotReady mutes for these apps. Pending pods have no Ready series, hence `unless`.
+              # Backs the NotReady mutes for these apps. Pending pods have no Ready series, hence `unless`. Keyed on
+              # the owning ReplicaSet so a preempted-and-replaced pod does not restart the 2h timer.
               - alert: HomelabOptionalPodNotReady
                 annotations:
-                  summary: "{{ $labels.namespace }}/{{ $labels.pod }} (homelab-optional) has not been Ready for 2h."
+                  summary: "{{ $labels.namespace }}/{{ $labels.created_by_name }} (homelab-optional) has had a pod not Ready for 2h."
                 expr: |-
-                  kube_pod_info{priority_class="homelab-optional"}
-                  unless on (namespace, pod) (kube_pod_status_ready{condition="true"} == 1)
+                  count by (namespace, created_by_name) (
+                    kube_pod_info{priority_class="homelab-optional"}
+                    unless on (namespace, pod) (kube_pod_status_ready{condition="true"} == 1)
+                  )
                 for: 2h
                 labels:
                   severity: warning
