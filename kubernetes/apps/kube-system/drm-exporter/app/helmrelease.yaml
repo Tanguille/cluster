@@ -16,6 +16,7 @@ spec:
     dra:
       enabled: true
       deviceClassName: gpu.amd.com
+    # Replaces the chart default add list [PERFMON, SYS_RAWIO]; SYS_RAWIO is unused on AMD.
     securityContext:
       capabilities:
         add:

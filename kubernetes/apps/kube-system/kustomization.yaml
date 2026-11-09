@@ -7,6 +7,7 @@ components:
   - ../../components/common
   - ../../components/psa-privileged
 # drm-exporter's DRA adminAccess claim needs this label; "not-used" is components/common's placeholder, renamed after patches.
+# The label is namespace-wide: every kube-system pod may create adminAccess claims that see all allocated devices. drm-exporter is the only intended consumer.
 patches:
   - target:
       kind: Namespace
