@@ -72,9 +72,10 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 
 `bench/ruler.py` runs [RULER](https://github.com/NVIDIA/RULER) at `db43f92`: its 13 synthetic tasks at 4K-128K, 10 samples
 a cell, greedy, thinking off, RULER's answer prefix and string-match metric (no judge model). The prompt wrapper is the sharp
-template's no-thinking render, token-identical to the server's (26 tokens, same greedy output). Sequential against the live pod
-with production alongside: 780 requests, 6.5 h (median 99 s a request at 128K, 39 s at 64K). Since 2026-11-09 each prompt
-waits for an idle engine (see Full context), so a daytime run stretches.
+template's no-thinking render, token-identical to the server's (26 tokens, same greedy output); each run checks that first.
+`runs/<name>/meta.json` pins a run to its per-cell sample hashes and the served `.rad`, checked before every prompt; a flag
+change needs a new run name. Each row records the production preemptions during its prompt. Sequential against the live pod
+with production alongside: 780 requests, 6.5 h (median 99 s a request at 128K, 39 s at 64K).
 
 Keep the samples: `~/.local/state/radiance-tune/ruler/data/10` (fingerprint `9c875ea2f4b4f25b`, also
 `ruler-data-10-2026-11-08.tar.gz`; 256K: `15b593cc2507426b`, `ruler-data-10-261888-2026-11-09.tar.gz`). RULER fetches the
@@ -105,8 +106,8 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
 | qa_2 | 70 (80 at 128K: one answer) |
 
 - A 256K prompt holds half the KV pool. Started beside agents, also under an at-most-2-running gate, these preempted 3
-  production sessions; `ruler.py` now starts a prompt only when the engine is idle on two scrapes 30 s apart, and the last 11
-  ran with none.
+  production sessions; `ruler.py` now holds any prompt over a third of the pool until the engine is idle on two scrapes 30 s
+  apart, and the last 11 ran with none.
 
 ## Cache
 
