@@ -16,3 +16,13 @@ metadata:
   name: homelab-important
 value: 5000
 description: "User-facing apps pinned to a single node, where an eviction means an outage rather than a reschedule"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/scheduling.k8s.io/priorityclass_v1.json
+# Below the unclassified default (0), so batch jobs evict these on a full cluster; above low-priority-chain
+# (-500), so these come back by displacing the monero chain. Members also go in the victoria-metrics NotReady mutes.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-optional
+value: -100
+description: "Apps that can wait"
