@@ -12,6 +12,7 @@ spec:
   # Requests keep it out of BestEffort: losing replicas funnels every client onto the survivor's wait queue.
   template:
     spec:
+      priorityClassName: homelab-critical
       containers:
         - name: pgbouncer
           resources:
