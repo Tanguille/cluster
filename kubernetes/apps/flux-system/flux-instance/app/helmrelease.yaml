@@ -26,16 +26,16 @@ spec:
         interval: 1h
       kustomize:
         patches:
-          # flux-system only applies kubernetes/flux/cluster; cluster-apps there carries the defaults.
+          # Child defaults live in kubernetes/flux/cluster/ks.yaml.
           - patch: |-
               apiVersion: kustomize.toolkit.fluxcd.io/v1
               kind: Kustomization
               metadata:
                 name: flux-system
               spec:
-                # The operator generates 10m; sync.interval only sets the GitRepository.
+                # The operator hardcodes 10m; sync.interval only sets the GitRepository.
                 interval: 1h
-                # It owns only cluster-apps. Pruning on the switch from kubernetes/apps deletes every child before cluster-apps adopts it.
+                # Owns only cluster-apps; pruning at the switch would delete the children first.
                 prune: false
             target:
               group: kustomize.toolkit.fluxcd.io

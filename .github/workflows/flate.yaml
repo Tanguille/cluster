@@ -37,7 +37,7 @@ jobs:
         env:
           FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
-          # No FLATE_PATH: discovering from the repo root, like konflate, survives a moved entry.
+          # No FLATE_PATH: root discovery, like konflate and validate-pr.sh.
           FLATE_SUPPLY: ./flate-supply.yaml
         # Diffs go to files, not step outputs: the comment action receives an input as one
         # environment variable, and Linux caps a single one at 128 KiB ("Argument list too
