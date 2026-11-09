@@ -9,10 +9,6 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/ai/llmkube/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true
 ---
@@ -32,8 +28,4 @@ spec:
   # every rollout.
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace

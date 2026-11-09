@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: agentgateway-llm
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   configMapRef:
     name: agentgateway-llm-dashboard
     key: agentgateway-llm.json

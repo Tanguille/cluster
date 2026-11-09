@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: grafana-operator
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   configMapRef:
     name: grafana-operator-dashboard
     key: grafana-operator.json
@@ -19,8 +15,4 @@ kind: GrafanaDashboard
 metadata:
   name: grafana-overview
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/grafana/dashboards/grafana-overview.json

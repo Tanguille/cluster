@@ -8,10 +8,6 @@ metadata:
 spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/default/forgejo/app
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   prune: true
   interval: 30m
   components:

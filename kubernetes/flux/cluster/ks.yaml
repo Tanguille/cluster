@@ -28,13 +28,19 @@ spec:
         kind: Secret
         optional: true
   patches:
-    # Replaces substituteFrom/timeout/retryInterval wholesale; setting them in a child is a no-op.
+    # Child defaults. They replace a child's own sourceRef/substituteFrom/timeout/retryInterval, so
+    # children omit them; sourceRef and instanceSelector are schema-required, so trimmed files fail
+    # standalone validation.
     - patch: |-
         apiVersion: kustomize.toolkit.fluxcd.io/v1
         kind: Kustomization
         metadata:
           name: not-used
         spec:
+          sourceRef:
+            kind: GitRepository
+            name: flux-system
+            namespace: flux-system
           decryption:
             provider: sops
           postBuild:
@@ -71,6 +77,20 @@ spec:
               target:
                 group: helm.toolkit.fluxcd.io
                 kind: HelmRelease
+            # Plain-manifest dashboards only: ResourceSet and chart-rendered ones keep their own.
+            - patch: |-
+                apiVersion: grafana.integreatly.org/v1beta1
+                kind: GrafanaDashboard
+                metadata:
+                  name: _
+                spec:
+                  allowCrossNamespaceImport: true
+                  instanceSelector:
+                    matchLabels:
+                      grafana.internal/instance: grafana
+              target:
+                group: grafana.integreatly.org
+                kind: GrafanaDashboard
             # Dry-run diff breaks on CephBlockPool/CephFilesystem (live spec.replicated.minSize
             # isn't in the installed CRD schema), leaving the release in a permanent StateError.
             - patch: |-

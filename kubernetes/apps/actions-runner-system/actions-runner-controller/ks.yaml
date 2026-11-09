@@ -9,10 +9,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true
 ---
@@ -28,10 +24,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/cluster
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -47,8 +39,4 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/rsume
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace

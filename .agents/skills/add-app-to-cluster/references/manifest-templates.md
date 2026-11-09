@@ -17,10 +17,7 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/<namespace>/<app-name>/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+  # sourceRef comes from the cluster-apps defaults patch (kubernetes/flux/cluster/ks.yaml).
   # dependsOn:
   #   - name: <other-app>
   # stateful apps: uncomment for kopiur-backed persistence — full var list in
