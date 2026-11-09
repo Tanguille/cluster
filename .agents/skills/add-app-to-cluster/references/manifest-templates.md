@@ -17,7 +17,9 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/<namespace>/<app-name>/app
   prune: true
-  # sourceRef comes from the cluster-apps defaults patch (kubernetes/flux/cluster/ks.yaml).
+  # sourceRef comes from the cluster-apps defaults patch (kubernetes/flux/cluster/ks.yaml), as do a
+  # plain GrafanaDashboard's instanceSelector/allowCrossNamespaceImport. Without them the file fails
+  # its $schema standalone; that is expected.
   # dependsOn:
   #   - name: <other-app>
   # stateful apps: uncomment for kopiur-backed persistence — full var list in
