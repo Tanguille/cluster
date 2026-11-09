@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: maker-ingress-allowlist
 spec:
-  # Default-deny ingress (egress open; deny-lan-egress still applies).
+  # Default-deny ingress (egress open; deny-lan-egress still applies). hostNetwork moonraker-obico has no Cilium endpoint, so no CNP applies to it.
   endpointSelector: {}
   ingress:
     # ai: ToolHive MCP backends; network: envoy gateways; maker: intra-namespace.

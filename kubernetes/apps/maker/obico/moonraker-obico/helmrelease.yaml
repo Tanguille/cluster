@@ -117,6 +117,8 @@ spec:
         storageClass: ceph-block
         accessMode: ReadWriteOnce
         size: 1Gi
+        # Rebinds the PV kept from the move out of default; it holds the printer link's auth_token.
+        volumeName: pvc-52e0ffdb-445b-44e7-94ef-3487131b1afd
         advancedMounts:
           moonraker-obico:
             render-config:
