@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
-# Talos sends json_lines over UDP; VictoriaLogs ingests JSON over HTTP only. Vector bridges.
+# Talos sends json_lines over TCP; VictoriaLogs ingests JSON over HTTP only. Vector bridges.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -49,7 +49,7 @@ spec:
               # host is the sending node's IP.
               talos:
                 type: socket
-                mode: udp
+                mode: tcp
                 address: 0.0.0.0:6050
                 decoding:
                   codec: json
@@ -76,7 +76,6 @@ spec:
         ports:
           talos:
             port: 6050
-            protocol: UDP
     persistence:
       config:
         type: configMap

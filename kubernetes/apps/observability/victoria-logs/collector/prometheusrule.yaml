@@ -8,7 +8,7 @@ spec:
   groups:
     - name: talos-log-relay.rules
       rules:
-        # UDP fails silently, so watch the far end. talos-log-relay is the only jsonline sender
+        # Talos retries a failed send silently, so watch the far end. talos-log-relay is the only jsonline sender
         # (vlagent uses nativeinsert). Sums all nodes, so one silent node does not fire.
         - alert: TalosLogsNotArriving
           expr: |-
