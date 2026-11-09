@@ -23,6 +23,7 @@ import argparse, importlib.util, json, os, subprocess, sys, time
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _metrics import sample  # noqa: E402
 from prodshape import post  # noqa: E402
 
 HOME = os.environ.get("RULER_HOME", os.path.expanduser("~/.local/state/radiance-tune/ruler"))
@@ -43,6 +44,20 @@ def rows(path):
         return []
     with open(path) as f:
         return [json.loads(ln) for ln in f]
+
+
+def quiet(port):
+    """Live production: start a prompt only when the engine is idle on two scrapes 30 s apart. A 256K prompt holds half
+    the KV pool; on 2026-11-09 prompts started beside agents (and with at most 2 running) preempted 3 sessions."""
+    while True:
+        try:
+            if sample(port).idle:
+                time.sleep(30)
+                if sample(port).idle:
+                    return
+        except OSError:  # the port-forward restarting
+            pass
+        time.sleep(30)
 
 
 def complete(base, prompt, n):
@@ -94,6 +109,7 @@ def main():
             for s in rows(src):
                 if s["index"] in done:
                     continue
+                quiet(a.port)
                 t = time.time()
                 r = complete(base, WRAP.format(s["input"], s["answer_prefix"]), gen[kind]["tokens_to_generate"])
                 pred, tok, dt = r["choices"][0]["text"], r["usage"]["prompt_tokens"], round(time.time() - t, 1)
@@ -107,7 +123,7 @@ def main():
             got = rows(out)
             scores[task, length] = metric[kind]["metric_fn"]([g["pred"] for g in got], [g["outputs"] for g in got])
     print(f"\n{a.run}, {a.samples} samples per cell\n")
-    print("| task | " + " | ".join(f"{n // 1024}K" for n in lengths) + " |")
+    print("| task | " + " | ".join(f"{round(n / 1024)}K" for n in lengths) + " |")
     print("| --- |" + " --- |" * len(lengths))
     for task in tasks:
         print(f"| {task} | " + " | ".join(f"{scores[task, n]:.1f}" for n in lengths) + " |")
