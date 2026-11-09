@@ -87,6 +87,10 @@ removing three hardcoded numbers that had to stay consistent with `threshold: 50
 The gate itself is a separate factor in the same query: cardinality must be exactly 1 and the
 sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
+A last `unless` drops every miner once the tech cave UPS load has peaked at 85 % or more in
+the past 5 minutes; missing UPS data leaves the other factors in charge. It is the first stage
+of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`.
+
 ## Measured
 
 Replayed against 180d of `node_hwmon_temp_celsius` (VM retention) at the native 20s cadence.
