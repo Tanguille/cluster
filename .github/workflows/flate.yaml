@@ -5,7 +5,7 @@ name: Flate
 on:
   pull_request:
     branches: ["main"]
-    paths: ["kubernetes/**", "flate/**"]
+    paths: ["kubernetes/**", "flate/**", "flate-supply.yaml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -28,17 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Flate
-        id: install
-        uses: home-operations/flate/action@631b76b69c4e58c6f4d1cb01e23616fa61aebafa # v0.6.5
-
-      # Drop once released (home-operations/flate#1377): v0.6.5 renders inline chart.kind OCIRepository as empty.
-      - if: ${{ steps.install.outputs.version == '0.6.5' }}
-        name: Install Flate (main)
-        run: |
-          mkdir -p "$RUNNER_TEMP/flate-main"
-          docker create --name flate-main ghcr.io/home-operations/flate@sha256:47f7e536115d7f22edf7318effc3aa3f76948cce31f04726891aa6da754b7ece # main d806d58
-          docker cp flate-main:/flate "$RUNNER_TEMP/flate-main/flate"
-          echo "$RUNNER_TEMP/flate-main" >> "$GITHUB_PATH"
+        uses: home-operations/flate/action@43b92e26b196c6ca7eb1933b5b2c9074ff0ad1b7 # v0.7.1
 
       # All three diffs share one job: the first render warms flate's on-disk cache,
       # so the other two are near-free. Separate jobs each render from cold.
@@ -48,6 +38,7 @@ jobs:
           FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
           FLATE_PATH: ./flate
+          FLATE_SUPPLY: ./flate-supply.yaml
         # Diffs go to files, not step outputs: the comment action receives an input as one
         # environment variable, and Linux caps a single one at 128 KiB ("Argument list too
         # long" on large PRs). Outputs only flag which comments to post.
