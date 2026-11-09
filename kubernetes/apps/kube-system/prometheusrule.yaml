@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: priority-rules
+spec:
+  groups:
+    - name: priority.rules
+      rules:
+        - alert: HomelabOptionalPodNotReady
+          # KubePodNotReady is muted for these apps because eviction by batch jobs is expected; this catches real
+          # failures and an eviction that never finds room. Pending pods carry no Ready series, hence `unless`.
+          expr: |-
+            kube_pod_info{priority_class="homelab-optional"}
+            unless on (namespace, pod) (kube_pod_status_ready{condition="true"} == 1)
+          for: 2h
+          annotations:
+            summary: >-
+              {{ $labels.namespace }}/{{ $labels.pod }} (homelab-optional) has not been Ready for 2h: a failure, or
+              the cluster has had no room for it
+          labels:
+            severity: warning

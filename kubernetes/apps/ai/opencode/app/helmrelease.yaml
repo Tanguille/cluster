@@ -9,6 +9,11 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  # homelab-optional pods may sit Pending on a full cluster; waiting on them fails the upgrade and its rollback.
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
 
   values:
     controllers:
@@ -67,7 +72,7 @@ spec:
                 memory: 2Gi
 
     defaultPodOptions:
-      priorityClassName: homelab-important
+      priorityClassName: homelab-optional
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
       securityContext:
