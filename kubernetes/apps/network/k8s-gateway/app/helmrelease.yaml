@@ -13,6 +13,7 @@ spec:
       url: oci://codeberg.org/k8s-gateway/charts/k8s-gateway
   interval: 1h
   values:
+    priorityClassName: homelab-critical
     replicaCount: 2
     topologySpreadConstraints:
       - maxSkew: 1

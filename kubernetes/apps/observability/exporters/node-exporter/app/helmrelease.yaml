@@ -13,6 +13,7 @@ spec:
       url: oci://ghcr.io/prometheus-community/charts/prometheus-node-exporter
   interval: 1h
   values:
+    priorityClassName: homelab-critical
     fullnameOverride: *app
     image:
       distroless: true

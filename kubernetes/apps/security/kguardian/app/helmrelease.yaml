@@ -155,6 +155,7 @@ spec:
 
     # Memory covers the 368Mi 30d peak (grows with pod age); CPU trim saves 150m across the DaemonSet.
     controller:
+      priorityClassName: homelab-critical
       resources:
         requests:
           cpu: 50m

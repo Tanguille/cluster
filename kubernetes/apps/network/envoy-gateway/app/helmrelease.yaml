@@ -16,6 +16,7 @@ spec:
     global:
       imageRegistry: mirror.gcr.io
     deployment:
+      priorityClassName: homelab-critical
       replicas: 2
       pod:
         # Hard spread: co-located replicas let one node failure stall xDS pushes to every gateway.
