@@ -6,10 +6,12 @@ metadata:
   name: &app fileflows
   namespace: &namespace media
 spec:
-  targetNamespace: *namespace
   dependsOn:
+    - name: k8s-gpu-dra-driver
+      namespace: kube-system
     - name: truenas-csi
       namespace: truenas-csi
+  targetNamespace: *namespace
   components:
     - ../../../../components/nfs-scaler
     - ../../../../components/nfs-media
