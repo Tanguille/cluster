@@ -2,6 +2,7 @@ min_version = "2026.7.0"
 
 [env]
 FLATE_API_VERSIONS = "monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard"
+FLATE_SUPPLY = "{{config_root}}/flate-supply.yaml"
 KUBECONFIG = "{{config_root}}/kubeconfig"
 MINIJINJA_CONFIG_FILE = "{{config_root}}/.minijinja.toml"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
@@ -31,7 +32,7 @@ oxfmt = "0.75.0"
 "aqua:derailed/k9s" = "0.51.0"
 "npm:markdownlint-cli2" = "0.24.0"
 "aqua:kubescape/kubescape" = "4.0.20"
-"github:home-operations/flate" = "v0.7.0"
+"github:home-operations/flate" = "v0.7.1"
 
 [settings]
 lockfile_platforms = ["linux-x64", "linux-arm64", "macos-arm64"]
