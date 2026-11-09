@@ -50,9 +50,11 @@ spec:
               app: embeddinggemma-2
           topologyKey: kubernetes.io/hostname
 
+  # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
