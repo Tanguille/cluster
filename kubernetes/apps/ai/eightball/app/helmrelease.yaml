@@ -5,16 +5,15 @@ kind: HelmRelease
 metadata:
   name: &app eightball
 spec:
-  interval: 30m
+  interval: 1h
   chart:
     kind: OCIRepository
     spec:
-      interval: 1h
       ref:
         tag: 0.1.0
       url: oci://ghcr.io/tanguille/charts/eightball
-  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They also fix the
-  # database at /data/8ball.db, which the kopiur SnapshotPolicy backs up with sourcePathOverride /data.
+  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They also put the
+  # database at /data/8ball.db on the PVC below, which the kopiur component backs up.
   values:
     controllers:
       eightball:
