@@ -16,7 +16,7 @@ spec:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
     minRunners: 1
-    # 10 x 512Mi outgrew the whole evictable pool (optional apps plus the monero chain); bursts queue instead.
+    # 4 x 512Mi stays inside the evictable pool; bursts queue.
     maxRunners: 4
     controllerServiceAccount:
       name: actions-runner-controller

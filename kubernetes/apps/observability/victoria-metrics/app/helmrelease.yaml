@@ -264,13 +264,11 @@ spec:
           - source_matchers: *alwaysFiring
             target_matchers:
               - alertname = "KubePodNotReady"
-              - namespace =~ "web3|ai|default"
               - pod =~ "(xmrig|monerod|p2pool|opencode|karakeep-chrome)-.*"
           # Same cause, Deployment side: a replica is wanted while its pod stays Pending.
           - source_matchers: *alwaysFiring
             target_matchers:
               - alertname = "KubeDeploymentReplicasMismatch"
-              - namespace =~ "web3|ai|default"
               - deployment =~ "xmrig-.*|monerod|p2pool|opencode|karakeep-chrome"
           # Structural: the printer is off between prints, and the exporter cannot tell that from broken.
           - source_matchers: *alwaysFiring
@@ -505,6 +503,16 @@ spec:
                     and on (namespace, pod) (kube_pod_container_resource_requests{resource="memory"} > 0)
                   )
                 for: 1h
+                labels:
+                  severity: warning
+              # Backs the NotReady mutes for these apps. Pending pods have no Ready series, hence `unless`.
+              - alert: HomelabOptionalPodNotReady
+                annotations:
+                  summary: "{{ $labels.namespace }}/{{ $labels.pod }} (homelab-optional) has not been Ready for 2h."
+                expr: |-
+                  kube_pod_info{priority_class="homelab-optional"}
+                  unless on (namespace, pod) (kube_pod_status_ready{condition="true"} == 1)
+                for: 2h
                 labels:
                   severity: warning
       node-hardware-rules:
