@@ -19,10 +19,9 @@ external archive-toolbar badge is also blocked; do not weaken CSP to load it.
   Keep those and original photos intact. Do not mount Nextcloud homes here.
 - No family content, archive names/checksums, credentials or private recovery URLs
   belong in Git, public logs, images or registries.
-- The import is complete. The seed manifests, importer and importer tests are
-  removed from the desired state; recovery tooling remains available in Git
-  history. Server replicas stay `0` until seed removal, volume release and privacy
-  checks are confirmed. The internal HTTPS route has no backend Pods until then.
+- Normal operation is one server replica with no seed resources. The imported
+  content stays on the retained PVC; recovery tooling is available in Git history.
+  Seed removal, volume release and privacy checks must precede activation.
 
 Use GitOps for every resource change. Obtain separate approval before committing,
 pushing, reconciling, importing, restarting, or deleting resources. Do not use
