@@ -78,8 +78,10 @@ import does not authorize serving before the privacy checks pass.
          {name: .metadata.name, attached: .status.attached}]'
    ```
 
-2. Only after volume release and all privacy checks, set the family-blog controller's
-   `replicas` to `1` in `app/helmrelease.yaml` through a separately approved change.
+2. Only after volume release and all privacy checks, remove the family-blog
+   controller's `replicas: 0` override in `app/helmrelease.yaml` through a separately
+   approved change. The chart defaults to one replica; verify that rendered result
+   rather than retaining a redundant `replicas: 1` value.
    The internal route is already configured; no route change is needed.
    Render/review before approval and rollout.
    Never switch to an external gateway to work around DNS or connectivity.
