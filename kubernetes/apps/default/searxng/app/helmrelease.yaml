@@ -73,6 +73,7 @@ spec:
                 cpu: 500m
                 memory: 1Gi
     defaultPodOptions:
+      priorityClassName: homelab-critical
       labels:
         egress.home.arpa/dragonfly: allow
       topologySpreadConstraints:
