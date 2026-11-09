@@ -24,7 +24,8 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-        # 97 % to pause, 70 % to resume: a busy LLM adds ~25 points. Missing data keeps it running.
+        # 97 % to pause, 80 % to resume; a busy LLM adds ~25 points, so a resume above ~72 % may re-trip.
+        # Missing data keeps it running.
         query: >-
           (
             vector(1) unless on() (
@@ -35,7 +36,7 @@ spec:
               )
               or
               (
-                max_over_time(network_ups_tools_ups_load[10m]) >= 70
+                max_over_time(network_ups_tools_ups_load[10m]) >= 80
                 and on() kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} == 0
               )
             )
