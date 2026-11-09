@@ -72,7 +72,14 @@ spec:
       nvmeofPortal: ${TRUENAS_IP}:4420
       defaultPool: BIGHDDZ1
       existingSecret: truenas-csi
+    controller:
+      resources:
+        requests:
+          memory: 32Mi
     node:
+      resources:
+        requests:
+          memory: 64Mi
       # Only FileFlows mounts these volumes, and it is pinned to the one GPU node.
       nodeSelector:
         amd.com/gpu: "true"

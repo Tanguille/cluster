@@ -13,6 +13,9 @@ spec:
       url: oci://ghcr.io/spegel-org/helm-charts/spegel
   interval: 1h
   values:
+    resources:
+      requests:
+        memory: 64Mi
     serviceMonitor:
       enabled: true
     spegel:
