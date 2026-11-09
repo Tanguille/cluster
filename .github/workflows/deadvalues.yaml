@@ -10,11 +10,13 @@ name: Dead Values
 on:
   pull_request:
     branches: ["main"]
-    paths: ["kubernetes/**", ".deadvalues.yaml"]
+    paths:
+      ["kubernetes/**", ".deadvalues.yaml", ".github/workflows/deadvalues.yaml"]
   # PRs only restore caches saved on main; these runs keep the chart cache warm.
   push:
     branches: ["main"]
-    paths: ["kubernetes/**", ".deadvalues.yaml"]
+    paths:
+      ["kubernetes/**", ".deadvalues.yaml", ".github/workflows/deadvalues.yaml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
