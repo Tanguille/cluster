@@ -10,8 +10,7 @@ external archive-toolbar badge is also blocked; do not weaken CSP to load it.
 ## Safety and layout
 
 - NGINX serves only `/srv/site`, the verified archive's `offline/` tree. The PVC
-  root is mounted read-only in NGINX at `/srv`; ZIP, raw captures and metadata are
-  not served. The temporary month-link repair init container alone has write access.
+  root is mounted read-only at `/srv`; ZIP, raw captures and metadata are not served.
 - The dedicated `family-blog` PVC is 1Gi, RWO, `ceph-block`. It is protected from
   Flux pruning, **not** from manual deletion or storage failure. The storage
   class's reclaim policy is Delete.
@@ -107,22 +106,12 @@ Before closing the rollout:
 ## Monthly navigation repair
 
 The original offline archive contains month links that return to the homepage,
-even though their corresponding monthly pages exist. The temporary startup helper
-changes only those links' `href` values in the served copy to existing local pages;
-it does not change the original ZIP, backup, images, appearance or security policy.
-Unrelated external hyperlinks remain unchanged.
-
-The deployment must render with `Recreate`: the old server stops before the repair
-init container writes to the retained PVC, and NGINX starts only after success.
-The helper validates targets before writing, atomically replaces changed HTML and
-updates the parent `.ready` file's derived file/byte inventory last. It can safely
-finish an interrupted attempt; never rerun the seed importer on this volume.
-Its default is dry-run; only `--apply` writes. Logs contain aggregate counts only.
-
-After startup succeeds, verify month links from the homepage, a post and a monthly
-page, all monthly destinations, and unchanged images. Then remove the helper,
-synthetic tests, generated ConfigMap and temporary init/mount overrides through a
-second approved GitOps change. NGINX must retain its read-only mount throughout.
+even though their monthly pages exist. On 2026-11-09 a temporary init container
+rewrote only those links' `href` values in the served copy (1008 of 1009 HTML
+files) and refreshed the `.ready` file/byte inventory; the ZIP, backup, images and
+security policy were unchanged. It was then removed. The helper, its tests and the
+init/mount overrides are preserved in `c0b35c1621fbf398042e7714fc9347d76cbd0259`
+(PR #6734); its runbook text is in that commit's version of this file.
 
 ## Rollback and recovery
 
@@ -172,9 +161,10 @@ Then:
 6. Remove the restored seed Component, manifests and tests through GitOps. Confirm
    resource removal and volume release, then repeat privacy checks and activation.
 7. The preserved ZIP still has the original broken month links. Before considering
-   recovery complete, repeat the reviewed monthly navigation repair above and its
-   separate cleanup. The derived `.ready` byte count will differ from the pristine
-   import; the private source checksum remains unchanged.
+   recovery complete, restore the monthly navigation repair from
+   `c0b35c1621fbf398042e7714fc9347d76cbd0259`, deploy it, verify, then remove it
+   again. The derived `.ready` byte count will differ from the pristine import; the
+   private source checksum remains unchanged.
 
 On any failure, stop and inspect privately. Do not automatically repeat the
 upload, recreate the Job or remove abandoned staging. A completed Job cannot
