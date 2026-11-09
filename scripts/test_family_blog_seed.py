@@ -167,11 +167,12 @@ class FamilyBlogSeedTests(unittest.TestCase):
 
     def assert_refused(self, data, expected=None, **kwargs):
         before = snapshot(self.dest)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as raised:
             self.import_bytes(data, expected, **kwargs)
         self.assertFalse((self.dest / ".ready").exists())
         self.assertFalse((self.dest / "site").exists())
         self.assertEqual(snapshot(self.dest), before)
+        return raised.exception
 
     # -- limits ---------------------------------------------------------
     def test_limits_match_brief_defaults(self):
@@ -376,6 +377,20 @@ class FamilyBlogSeedTests(unittest.TestCase):
             with self.subTest(name=bad_name, kind=kind):
                 members = valid_members() + [member(bad_name, kind=kind)]
                 self.assert_refused(make_zip(members))
+
+    # -- extract failures -------------------------------------------------
+    def test_file_and_directory_name_collision_is_refused(self):
+        # ``offline/a`` is extracted as a file before ``offline/a/b``, whose
+        # parent mkdir must fail through the documented refusal path rather
+        # than escape as a bare OSError.
+        files = {
+            "offline/index.html": OFFLINE_FILES["offline/index.html"],
+            "offline/a": b"synthetic file\n",
+            "offline/a/b": b"synthetic nested file\n",
+        }
+        exc = self.assert_refused(make_zip(valid_members(files)))
+        self.assertIsInstance(exc, self.module.ImportRejected)
+        self.assertIn("cannot extract 'offline/a/b'", str(exc))
 
     # -- refusal must not disturb existing content ----------------------
     def test_existing_destination_content_is_refused_unchanged(self):

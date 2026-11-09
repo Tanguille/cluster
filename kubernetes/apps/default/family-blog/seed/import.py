@@ -218,10 +218,10 @@ def _extract_offline(
         info = offline[name]
         relative = name[len(_OFFLINE_PREFIX) :]
         target = site_root.joinpath(*relative.split("/"))
-        target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
         digest = hashlib.sha256()
         written = 0
         try:
+            target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
             with archive.open(info) as source, open(target, "xb") as sink:
                 while True:
                     chunk = source.read(_CHUNK)
