@@ -36,7 +36,7 @@ def matches(selector, labels):
 
 class OpnsensePolicyTests(unittest.TestCase):
     def test_dns_reply_exception_cannot_bypass_proxy_isolation(self):
-        policy = document(MCP / 'opnsense-networkpolicy.yaml')['spec']
+        policy = document(MCP / 'opnsense/networkpolicy.yaml')['spec']
         def denied(labels, port):
             for rule in policy['ingressDeny']:
                 if not any(matches(s, labels) for s in rule.get('fromEndpoints', [])):
@@ -63,8 +63,8 @@ class OpnsensePolicyTests(unittest.TestCase):
         self.assertEqual(entities, {'world', 'remote-node', 'kube-apiserver'})
 
     def test_firewall_address_has_one_source(self):
-        server = document(MCP / 'opnsense.yaml')['spec']
-        backend = document(MCP / 'opnsense-networkpolicy.yaml', 1)['spec']
+        server = document(MCP / 'opnsense/mcpserver.yaml')['spec']
+        backend = document(MCP / 'opnsense/networkpolicy.yaml', 1)['spec']
         self.assertEqual(server['podTemplateSpec']['spec']['hostAliases'][0]['ip'], '${OPNSENSE_IP}')
         self.assertEqual(backend['egress'][0]['toCIDR'], ['${OPNSENSE_IP}/32'])
         settings = document(ROOT / 'kubernetes/components/common/cluster-settings.yaml')
