@@ -1,10 +1,8 @@
 # Define R5 mesh front: research and coupon-first plan
 
-> **Superseded design on 2026-10-25:** the user now wants a [complete printed replacement door](define-r5-replacement-door/README.md), leaving the original door intact. The cut-in insert, clamps, cutting template and associated plan below are historical. The downloaded R5 Fusion model has since been converted to STEP; use the [current source/design dimension register](define-r5-replacement-door/DIMENSIONS.md) and [CAD reference report](define-r5-reference-models/README.md) for the recovered geometry. No cutting of the original door is part of the current design.
+> **Superseded design on 2026-10-25:** the user now wants a complete printed replacement door, leaving the original door intact. The cut-in insert, clamps, cutting template and associated plan below are historical. The downloaded R5 Fusion model has since been converted to STEP; the current dimension register (`define-r5-replacement-door/DIMENSIONS.md`) and CAD reference report (`define-r5-reference-models/README.md`) hold the recovered geometry. The door, reference-model and coupon directories are kept outside this repo. No cutting of the original door is part of the current design.
 
-Research date: 2026-10-25. Status: coupons modelled, validated and exported; R5 wood-front CAD and XL Voronoi sources now downloaded and inspected. A candidate R5 reference envelope exists, but its physical feature mapping remains provisional. Initial printing reduced to three pieces. No cutting template or full part is released. See the [coupon files and first-print guide](define-r5-coupons/README.md).
-
-Current branch: `main`, updated to `ab71a1789` before this research follow-up. Current worktree: `/home/tanguille/Documents/PriveProjecten/cluster`. No additional worktree created. Verify branch/worktree and pull/status again at the next step. Preserve unrelated untracked files.
+Research date: 2026-10-25. Status: coupons modelled, validated and exported; R5 wood-front CAD and XL Voronoi sources now downloaded and inspected. A candidate R5 reference envelope exists, but its physical feature mapping remains provisional. Initial printing reduced to three pieces. No cutting template or full part is released. See the coupon files and first-print guide (`define-r5-coupons/README.md`).
 
 ## Decision
 
@@ -76,7 +74,7 @@ The useful R5-native CAD leads are parts made to fit real cases, rather than a v
 
 The user-linked [Voronoi front by Spegelius](https://www.printables.com/model/1358589-fractal-design-define-xl-v2-voronoi-front-panel) includes [OpenSCAD source](https://github.com/spegelius/3DModels/blob/master/PCParts/Fractal_Design.scad) and a sparse mounting-test STL. Both meshes were downloaded and checked through FreeCAD: each is closed and measures 225 × 426 × 10.75 mm. The author is uncertain about the case version. Photos show a swinging door with a cut-out backing retained. Learn from its protected mounting regions and sparse test; do not transfer its dimensions to the R5. The supplied test exceeds our bed. Its suggested split is not an implemented joint, and no measured Voronoi airflow advantage is supplied. API license: CC BY-NC-SA.
 
-Original files, metadata, hashes, photographs and inspection reports are retained separately in `docs/define-r5-reference-models/`; they are not included in the coupon ZIP. The R5 F3D integrity check passes, but this FreeCAD installation cannot directly import its binary Fusion geometry. Readable parameter records preserve the new leads for later mapping. Retaining the original hinges remains simplest for our insert. A border print can be optional because a later complete paper dry fit covers its placement check; rear clearance, assembled clamp fit and printer-specific joint fit remain physical checks.
+Original files, metadata, hashes, photographs and inspection reports are retained separately in `define-r5-reference-models/`, outside this repo; they are not included in the coupon ZIP. The R5 F3D integrity check passes, but this FreeCAD installation cannot directly import its binary Fusion geometry. Readable parameter records preserve the new leads for later mapping. Retaining the original hinges remains simplest for our insert. A border print can be optional because a later complete paper dry fit covers its placement check; rear clearance, assembled clamp fit and printer-specific joint fit remain physical checks.
 
 ## Airflow acceptance
 
@@ -90,7 +88,7 @@ An added grille still has resistance. Equal open area does not establish equal p
 
 Small dimensions below are **proposed coupon geometry**, not claims about the R5. They derive from the user's trial-fit/0.2 mm increment requirement and print-time budget. Public sources do not specify custom coupon dimensions. All stock mating dimensions remain in the source register above.
 
-Use the same black PETG, nozzle, orientation and slicer settings as the final parts. The 16 released variants fit inside 44 × 44.456 × 6.2 mm maximum extents and were sliced individually on the stock Centauri Carbon 0.4 mm/PETG profile. Estimates are 4m18s–11m25s; each is below a 20-minute target that leaves startup margin. Firmware macro/heating duration is unknown, so a total cold-start time below 30 minutes is not yet verified. The [coupon guide](define-r5-coupons/README.md) now starts with **B6p2, D_Male and D0p4**: three pieces, 21m46s summed slicer estimates. Other variants are conditional, A and G optional, and C deferred until representative material is accessible.
+Use the same black PETG, nozzle, orientation and slicer settings as the final parts. The 16 released variants fit inside 44 × 44.456 × 6.2 mm maximum extents and were sliced individually on the stock Centauri Carbon 0.4 mm/PETG profile. Estimates are 4m18s–11m25s; each is below a 20-minute target that leaves startup margin. Firmware macro/heating duration is unknown, so a total cold-start time below 30 minutes is not yet verified. The coupon guide (`define-r5-coupons/README.md`) now starts with **B6p2, D_Male and D0p4**: three pieces, 21m46s summed slicer estimates. Other variants are conditional, A and G optional, and C deferred until representative material is accessible.
 
 | Coupon | Variants / method | User's fit-only check | Release condition |
 | --- | --- | --- | --- |
@@ -106,23 +104,12 @@ Before cutting, the complete outline still needs a 1:1 paper dry fit with corner
 ### Step status and gates
 
 1. **Complete:** research, source register, approach selection and coupon proposal. User approved proceeding with fit coupons.
-   Suggested continuation: `Go: model the fit coupons first; keep the full grille and cutting template unreleased.`
 2. **Modelling/export complete; physical fit pending:** created 16 sketch-driven PartDesign bodies through FreeCAD MCP, inspected views, validated solids and STEP/STL/native read-back, checked dovetail interference and individual slicer estimates; exported `.FCStd`, `.step`, `.stl` and JSON reports. Wait for the user's labelled pre-cut fit results. If C cannot reach a representative section before cutting, record it as deferred, not passed. Cold-start wall-clock time remains unverified.
-   Suggested continuation: `Coupon results: B6p2=..., D0p4=...; A=not printed; C=passed/deferred; prepare the design and dry-fit template for review.`
 3. **Pending:** model the insert using accepted dimensions and explicitly provisional clamp settings where needed; make the 1:1 dry-fit/cutting template. Check actual net open area, bed fit and hinge/DVD clearance. Obtain approval of the template before any cut. If C was deferred, validate it on the resulting offcut and update the clamp before releasing the full print. Complete the FreeCAD skill review before final export. No full-size print until every fit coupon passes.
-   Suggested continuation: `The template and all fit coupons pass, including C; release the final STL and STEP files.`
 4. **Pending:** final source/export review and thermal acceptance record. Consolidate this plan into a reference document with the accepted dimensions and assembly instructions.
-
-### Process Instructions
-
-- After completing each step, update the plan with the current status.
-- Pause for user confirmation before proceeding to next step.
-- Suggest the prompt for continuing to the next step.
-- After the last step, make a final documentation pass. Once the contents of the plan have been consolidated into existing documentation, the plan file can be removed. If there is no relevant existing documentation, the plan should be reworked into a reference document.
-- Every continuation must verify the branch and worktree before doing any work.
 
 ## Tooling and limits
 
-The `freecad-fdm-designer` skill and its fit/FDM references were applied through FreeCAD 1.1.4 MCP. The user explicitly authorized launching FreeCAD. The [coupon source, STL/STEP exports, completed review and slicing evidence](define-r5-coupons/README.md) are available; 16 valid one-solid bodies and fully constrained sketches were verified. No cutting template or full grille exists. Sliced G-code was used only for timing/settings verification and removed; no printer was contacted. Source and exports remain local; nothing was pushed.
+The `freecad-fdm-designer` skill and its fit/FDM references were applied through FreeCAD 1.1.4 MCP. The user explicitly authorized launching FreeCAD. The coupon source, STL/STEP exports, completed review and slicing evidence (`define-r5-coupons/README.md`) are available; 16 valid one-solid bodies and fully constrained sketches were verified. No cutting template or full grille exists. Sliced G-code was used only for timing/settings verification and removed; no printer was contacted. Source and exports remain local; nothing was pushed.
 
 Skipped: full replacement hinge design, new magnets, extra filters, LEDs, logos and paid CAD. Remaining risks: undocumented stock geometry, irreversible cutting, loss of door stiffness/noise damping, and unproven open-door-equivalent cooling.

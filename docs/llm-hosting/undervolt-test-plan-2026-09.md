@@ -1,7 +1,14 @@
 # R9700 undervolt deepening test plan — 2026-09
 
+> **Closed 2026-10-28.** -100mV is live (`c8eb817c3`): bit-identical to -82 on
+> the quality gate at +5.7% GFX clock for the same 242W. -120mV diverged on
+> 11/60 greedy prompts with nothing in dmesg, so the plan ends at -100. Both
+> were a 2026-10-27 quality-gate run, not the soak below. The engine is
+> radiance since 2026-11-01 ([radiance-2026-11.md](radiance-2026-11.md)) and
+> the decode latch is unseen there; re-check the premise before reusing this.
+
 Runbook for pushing `VOLTAGE_OFFSET_MV` on the production R9700 (gfx1201,
-`control-1`) past the current -82mV. Not executed yet. Whoever runs it: follow
+`control-1`) past the -82mV it ran in 2026-09. Whoever runs it: follow
 the steps in order, fill in the results table at the bottom, and stop at the
 first failed gate.
 
@@ -134,7 +141,7 @@ close the plan.
 
 1. PR the env change. Merge, confirm as above.
 2. Immediately (T+0..T+5min): `dmesg` on the host via
-   `talosctl -n control-1 dmesg | grep -iE 'amdgpu|gpu reset|ring .* timeout|page fault'`
+   `talosctl -n 192.168.0.11 dmesg | grep -iE 'amdgpu|gpu reset|ring .* timeout|page fault'`
    — must show nothing new since the pod recreation timestamp.
 3. Soak **minimum 3h under real traffic, spanning one full latch onset
    window**. Tonight's latch took ~50min to become obvious, and the point of
@@ -235,8 +242,8 @@ cold-cache admission stall documented in memory
 - Do not jump to -170mV. Single anecdote, different board, no rigor.
 - Do not change `POWER_LIMIT_WATTS` (250W chosen on a completed sweep: +15%
   PP for -2.8% tok/W vs the 210W efficiency winner) or `FAN_TARGET_TEMP_C` /
-  `ACOUSTIC_TARGET_RPM` (also swept, 82°C/4000rpm deliberate). This plan
-  varies one knob.
+  `ACOUSTIC_TARGET_RPM` / `ACOUSTIC_LIMIT_RPM` (also swept, 76°C/4000rpm with a
+  4500rpm cap, deliberate). This plan varies one knob.
 - Do not present any tok/s delta from this test as a throughput result.
   Decode is flat vs power on this card; if decode "improves", it is because
   the latch is gone, not because the card got faster.
@@ -250,6 +257,6 @@ cold-cache admission stall documented in memory
 | step | mV | applied at (UTC) | vLLM uptime at apply | soak (h) | dmesg clean | healthy clock median (MHz) | latched clock median (MHz) | ITL>55ms onset (uptime) | verdict |
 |---|---|---|---|---|---|---|---|---|---|
 | 0 | -82 | n/a | | | | | 2959 (8 rows, 20:52-20:59Z) | ~19:47Z, uptime ~4000s | baseline |
-| 1 | -100 | | | | | | | | |
-| 2 | -120 | | | | | | | | |
+| 1 | -100 | 2026-10-27 | | | | | | | stable: quality gate bit-identical to -82, live since `c8eb817c3` |
+| 2 | -120 | 2026-10-27 | | | yes | | | | unstable: 11/60 greedy prompts diverged |
 | 3 | -140 | | | | | | | | |

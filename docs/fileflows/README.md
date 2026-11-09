@@ -35,7 +35,10 @@ library assignments, and revision history. The database and original flow export
 are backed up in the configuration volume at
 `/app/Data/Backups/size-safety-20261018T112728Z/`.
 Before reusing this export, compare it with the latest live flow to preserve any
-subsequent changes.
+subsequent changes. The FFmpeg Builder Executor's error connection targets
+`f8747db6-db11-4eae-81c4-ddd4e3911110`, which no part in this export carries;
+the executor is not one of the edited nodes, so the dangling edge predates
+revision 21. Reuse a fresh native export rather than hand-patching that uid.
 
 FileFlows' database JSON uses a different boolean representation than its
 portable export. Export-only `ReadOnly: false` flags on the two new nodes were

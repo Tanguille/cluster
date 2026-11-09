@@ -95,10 +95,11 @@ effective_window = context_length - (max_tokens or 0)   # max_tokens unset -> fu
 threshold_tokens = max(int(effective_window * threshold), MINIMUM_CONTEXT_LENGTH)  # min = 64_000
 ```
 
-So `model.context_length` **must match what SGLang actually serves**
-(`kubernetes/apps/ai/llmkube/models/qwen36-27b-sglang.yaml:179`, currently `contextLength: 180000`).
-It was set to 200000 while SGLang served 180000, which made every `X/200K` figure in cron
-footers wrong and would have overshot the KV pool had the threshold been raised naively.
+So `model.context_length` **must match what the engine actually serves**
+(`kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml`, currently radiance `--max-model-len 262144`).
+Check the PVC value against it before sizing the threshold. Under SGLang it was set to 200000
+while SGLang served 180000, which made every `X/200K` figure in cron footers wrong and would
+have overshot the KV pool had the threshold been raised naively.
 
 Size the threshold from measured session usage, not by feel:
 
@@ -108,7 +109,7 @@ v=sorted(x["last_prompt_tokens"] for x in d.values() if isinstance(x,dict) and x
 print([ (p, v[min(len(v)-1,len(v)*p//100)]) for p in (50,75,90,95,99,100) ])'
 ```
 
-Measured 2026-07-31 over 61 sessions: p50 51K, p90 94K, p95 106K, p100 112K. Threshold 0.7 x
+Measured 2026-07-31 over 61 sessions (SGLang, 180K): p50 51K, p90 94K, p95 106K, p100 112K. Threshold 0.7 x
 180K = 126K sits above the observed maximum (so routine work never compresses) and 54K below
 the pool ceiling (so no long-context thrash). Compression remains as an outlier safety net.
 
@@ -353,7 +354,7 @@ Verified 2026-07-31; re-check these before assuming any of them protect anything
 | `security.allow_lazy_installs` | `true` | agent may install arbitrary packages at runtime |
 | `skills.inline_shell` | `true` | skill documents can execute shell |
 | `memory.write_approval` | `false` | memory writes are unreviewed (`skills.write_approval` *is* `true`) |
-| `fallback_providers` | `[]` | gateway/SGLang is a hard single point of failure |
+| `fallback_providers` | `[]` | gateway/radiance is a hard single point of failure |
 
 Auxiliary entries with `provider: main` inherit the main block's `base_url` and `api_key`
 (`auxiliary_client.py:314`), so they must never carry their own copy. `auxiliary.vision` did,
