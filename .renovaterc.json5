@@ -285,6 +285,12 @@
       minimumGroupSize: 2
     },
     {
+      // The kubernetes manager extracts InferenceService images; the build-number tag has no leading digit for docker versioning.
+      description: "llama.cpp server-vulkan builds: order by bNNNN",
+      matchPackageNames: ["ghcr.io/ggml-org/llama.cpp"],
+      versioning: "regex:^server-vulkan-b(?<major>\\d+)$"
+    },
+    {
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
