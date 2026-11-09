@@ -76,6 +76,26 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+        # /mcp is guarded only by a sync token (fork docs/mcp.md), so it stays off the gateway;
+        # ToolHive reaches it through the Service. The longer prefix wins over "/".
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /mcp
+            filters:
+              - type: RequestRedirect
+                requestRedirect:
+                  path:
+                    type: ReplaceFullPath
+                    replaceFullPath: /
+                  statusCode: 302
+          - backendRefs:
+              - identifier: app
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
     persistence:
       config:
         existingClaim: *app
