@@ -151,11 +151,9 @@ the whole config over the two new documents.
 | `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive), plus `readinessCheck`: routes by `/readyz` instead of TCP |
 | `DiskSMARTConfig` | Talos-native SMART collection (`SMARTStatus`); off on upgraded clusters until the document exists |
 
-The kernel is stock again: Talos 1.15 ships Linux 7.x, which has the in-kernel Ceph client's
-`aes256k` support the self-built kernel existed for (the build pipeline is in git at `f15ad5b13`).
-Its config builds `PREEMPT_LAZY`, so the schematics set `preempt=full` to keep the scheduling the
-self-built kernel ran with. containerd moves to config version 4; our `CRICustomizationConfig`
-documents only use `plugins."io.containerd.cri.v1.*"`, which did not move.
+The kernel is stock (the self-built pipeline is in git at `f15ad5b13`); the schematics set
+`preempt=full` over its `PREEMPT_LAZY`. containerd config moves to version 4; our
+`CRICustomizationConfig` documents only use `plugins."io.containerd.cri.v1.*"`, which did not move.
 
 ## Common tasks
 
@@ -168,7 +166,7 @@ picked up from the system `PATH` is a different version than this pipeline is te
 just talos render-config <node>          # render a node's full machine config to stdout
 just talos diff-node <node> <ip>         # dry-run the rendered config against the running node
 just talos apply-node <node> <ip>        # render and apply
-just talos upgrade-node <node> <ip>      # upgrade Talos to the node's pinned installer
+just talos upgrade-node <node> <ip>      # upgrade Talos to the node's rendered install image
 just talos upgrade-k8s                   # upgrade Kubernetes to the version in the tuppr CR
 just talos talosconfig                   # regenerate the client config from the secrets bundle
 just talos download-image <node> <ver>   # fetch a metal ISO from the Image Factory

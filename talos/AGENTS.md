@@ -11,6 +11,7 @@
 - A node rejects the whole config if it contains a document its version does not know, so during
   any mixed-version window a new document in `cluster.yaml.j2` breaks `diff-node` fleet-wide.
 - `machine.install.image` is the Image Factory installer for the node's schematic, rendered in the
-  cluster layer, so `render-config` and `diff-node` need factory.talos.dev reachable.
+  cluster layer. The schematic id is cached by file hash, so only the first render after a
+  schematic edit needs factory.talos.dev.
 - `control-1` is the TrueNAS VM and the only dGPU host. Upgrade it last, and never taint it or
   GPU workloads have nowhere to schedule.

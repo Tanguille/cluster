@@ -14,11 +14,8 @@ vip := "192.168.0.2"
 [doc('Render a node full machine config to stdout')]
 render-config node:
     role="$(just talos node-role "{{ node }}")"
-    schematic="$(just talos schematic-id "{{ node }}")"
     [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
-    # Both callees fail on empty already; schematic still gets its own check because it feeds an
-    # install image where an empty value renders a plausible ref that resolves to nothing.
-    [[ -n "${schematic}" ]] || { echo "empty schematic id for {{ node }}" >&2; exit 1; }
+    schematic="$(just talos schematic-id "{{ node }}")"
     # The router and the relay's ClusterIP are defined once, in the Flux cluster settings.
     settings="{{ justfile_directory() }}/kubernetes/components/common/cluster-settings.yaml"
     gateway="$(yq -e '.data.OPNSENSE_IP' "${settings}")"
@@ -112,16 +109,22 @@ schematic-file node:
 
 # Schematics are plain YAML, not templates: POST the file directly rather than routing it through
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
-# Bounded because a stalled factory blocks every render, `diff-node` included. Retries are safe:
-# the endpoint is content-addressed, so re-POSTing identical content returns the same id.
+# The id is content-addressed, so it is cached by file hash: renders stay offline until a
+# schematic changes. Bounded so a stalled factory fails the render instead of hanging it.
 [private]
 schematic-id node:
     file="$(just talos schematic-file "{{ node }}")"
     [[ -f "${file}" ]] || { echo "no schematic file for {{ node }}: ${file}" >&2; exit 1; }
-    curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
-        --data-binary @"${file}" \
-        https://factory.talos.dev/schematics \
-        | jq -er '.id | strings | select(length > 0)'
+    hash="$(sha256sum "${file}" | cut -d' ' -f1)"
+    cache="${XDG_CACHE_HOME:-${HOME}/.cache}/talos-schematic/${hash}"
+    if [[ ! -s "${cache}" ]]; then
+        id="$(curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
+            --data-binary @"${file}" https://factory.talos.dev/schematics \
+            | jq -er '.id | strings | select(length > 0)')"
+        mkdir -p "${cache%/*}"
+        printf '%s\n' "${id}" > "${cache}"
+    fi
+    cat "${cache}"
 
 [private]
 machine-image node:

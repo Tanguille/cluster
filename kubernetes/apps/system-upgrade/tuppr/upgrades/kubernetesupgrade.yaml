@@ -10,8 +10,7 @@ spec:
     version: v1.37.2
   talosctl:
     image:
-      # Unset, tuppr derives it from the node's CURRENT version; a -k<kernel> one is unpublished
-      # and ImagePullBackOffs. Drop once no node reports -k. Annotated because a YAML anchor cannot cross files.
+      # Transition pin, same reason as talosupgrade.yaml; drop both together.
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.15.0-beta.0
   healthChecks:

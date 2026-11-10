@@ -10,7 +10,7 @@ spec:
     - name: tuppr.parked.rules
       rules:
         # Pending/PrePullFailed matches neither TalosUpgradeStuck nor TupprUpgradeBlocked and pre-pull
-        # retries forever without reaching Failed; 4h clears a slow Factory installer build plus the pull.
+        # retries forever without reaching Failed; 4h clears a slow installer pre-pull.
         - alert: TalosUpgradeParked
           expr: |-
             tuppr_talos_upgrade_phase{phase="Pending"} == 1
