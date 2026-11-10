@@ -50,5 +50,18 @@ while IFS= read -r var; do
     rc=1
 done <<<"${injected}"
 
+# render-config reads some -D values from the Flux cluster settings; a renamed key fails here.
+settings="${REPO_ROOT}/kubernetes/components/common/cluster-settings.yaml"
+keys="$(grep -oP '\.data\.\K[A-Z0-9_]+' "${TALOS}/mod.just" | sort -u)"
+[[ -n "${keys}" ]] || {
+    echo "no cluster-settings reads found in talos/mod.just" >&2
+    exit 1
+}
+while IFS= read -r key; do
+    yq -e ".data.${key}" "${settings}" >/dev/null 2>&1 && continue
+    echo "MISSING     cluster-settings has no ${key}, which talos/mod.just reads" >&2
+    rc=1
+done <<<"${keys}"
+
 ((rc)) || echo "ok: $(wc -l <<<"${used}") references resolve, $(wc -l <<<"${injected}") injected and all used"
 exit "${rc}"

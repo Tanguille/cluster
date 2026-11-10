@@ -5,6 +5,7 @@ metadata:
   name: cluster-settings
 data:
   TIMEZONE: "Europe/Brussels"
+  # Also read by talos/mod.just render-config (node gateway)
   OPNSENSE_IP: 192.168.0.1
   # Cilium LB pool; every LoadBalancer *_IP below must fall inside it
   LB_POOL_START: 192.168.0.3

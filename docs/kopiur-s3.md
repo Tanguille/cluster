@@ -62,44 +62,17 @@ Checked on 2026-11-05 from the LAN and `default/homepage`, which carries the sam
 both got HTTP 403 over verified HTTPS. The dumbassets app pod, without the label, resolved
 DNS but timed out.
 
-## Switch
+## Switching repositories
 
-Existing Snapshot rows carry `deletionPolicy: Delete` and stay in each policy's retention
-bucket after a repoint. As S3 rows displace them, retention prunes them and the finalizer
-deletes from `kopia-nas`, so **a bare repoint erases all NFS history within about 7 days**.
-`retain_nfs_rows` prevents that: the rows still age out, but their kopia snapshots stay.
+Snapshot rows carry `deletionPolicy: Delete` and stay in each policy's retention bucket after
+a repoint. As new rows displace them, retention prunes them and the finalizer deletes them
+from the old repository, so **a bare repoint erases the old history within about 7 days**.
+Patch the old rows to `Retain` before and after the switch; the 2026-11-06 procedure is in
+this file's Git history (`git log -S retain_nfs_rows -- docs/kopiur-s3.md`).
 
-```bash
-retain_nfs_rows() {
-  local rows ns
-  rows="$(mise exec -- kubectl get snapshot -A -o json)"
-  for ns in $(jq -r '[.items[].metadata.namespace] | unique[]' <<<"$rows"); do
-    jq -r --arg ns "$ns" '.items[] | select(.metadata.namespace == $ns
-      and .status.resolved.repository.name == "kopia-nas") | .metadata.name' <<<"$rows" |
-      xargs -r mise exec -- kubectl -n "$ns" patch snapshot \
-        --type=merge -p '{"spec":{"deletionPolicy":"Retain"}}'
-  done
-}
-retain_nfs_rows   # 1. before merging: Flux applies the switch within a minute
-# 2. Merge the switch: the component moves to kopia-s3 and the kopia-nas files go.
-policies="$(mise exec -- kubectl get snapshotpolicy -A -o json)"
-jq -e 'all(.items[]; .spec.repository.name == "kopia-s3")' <<<"$policies" >/dev/null ||
-  { echo 'not every policy moved yet' >&2; exit 1; }   # 3.
-while read -r ns app; do
-  mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns" --wait &
-done < <(jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' <<<"$policies")
-wait              # 4. each first S3 snapshot, queued at the concurrency cap
-retain_nfs_rows   # 5. rows that landed in between
-```
-
-Do not recreate any PVC until every app has its first S3 snapshot. `fromPolicy` resolves
-in the policy's current repository with `onMissingSnapshot: Continue`, so a PVC recreated
-before then comes up **empty**.
-
-Then restore into throwaway PVCs with the
-[side-car procedure](../.agents/skills/backup-restore/references/restore-pvc.md), using each
-app's uid, and check content and ownership against the exact snapshot. Never claim an
-app's own PVC or its `<app>-restore`.
+Do not recreate any PVC until every policy has its first snapshot in the new repository.
+`fromPolicy` resolves in the policy's current repository with `onMissingSnapshot: Continue`, so
+a PVC recreated before then comes up **empty**.
 
 `status.storageStats.snapshotCount` only updates on a catalog listing, so a repository that
 starts empty keeps reporting 0 and trips `KopiurRepoEmpty` even with data in it. Request a
@@ -159,17 +132,14 @@ filesystem --path=<mount> --flat --readonly`.
 
 Connecting kopia directly to R2 over S3 is untested.
 
-## Rollback
-
-Revert the switch, which brings `kopia-nas` back with `catalog.adoption: Ignore` so adoption
-cannot prune NFS rows. Backups made on S3 stay in `kopia-s3`.
-
 ## NFS history
 
 Keep the `VolsyncKopia` dataset and the R2 bucket `volsync`. Never delete the data or
 repurpose the dataset. The Kopia browser reads the NFS repository directly, so history stays
 browsable there. To restore it through Kopiur, bring back `clusterrepository-nas.yaml` and
-`secret-nas.sops.yaml` from Git, then use a `Restore` naming `spec.repository` and a raw
+`secret-nas.sops.yaml` from Git, plus the controller's `/repo` NFS mount and uid 568 in the
+[kopiur HelmRelease](../kubernetes/apps/kopiur-system/kopiur/app/helmrelease.yaml)
+(`git log -S 'mountPath: /repo'`). Then use a `Restore` naming `spec.repository` and a raw
 `source.identity`, as in [the restore guide](kopiur-restore.md).
 
 The TanguilleServer ZFS snapshot task (daily, 14 days, recursive) should hold freed blobs,

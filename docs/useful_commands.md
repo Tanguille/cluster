@@ -91,7 +91,7 @@ The superuser (`postgres`) password is in the `cloudnative-pg-secret` secret in 
 talosctl --nodes <node-ip> get links -o yaml | grep -E "id:|speedMbit:|operationalState: up"
 
 # All nodes (script)
-for node_ip in 192.168.0.11 192.168.0.12 192.168.0.13; do
+for node_ip in $(just talos node-ips); do
   echo "=== Node: $node_ip ==="
   talosctl --nodes "$node_ip" get links -o yaml 2>/dev/null | \
     awk '

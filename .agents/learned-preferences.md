@@ -36,7 +36,7 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - **Prefer MCP tools over raw bash** when an MCP tool is available for the task; use shell only when no tool fits or for one-off local ops.
 - Prefer git revert over doing two separate commits to undo something.
 - If the codebase changed between the user's last query and now, treat those changes as intentional and do not undo them.
-- When adjusting cluster resources (e.g. memory overcommit), only modify workloads that already have an explicit resources block; do not add new resources blocks to workloads that rely on chart defaults.
+- When adjusting cluster resources (e.g. memory overcommit), resize existing requests to the 7d peak; add a resources block only where a workload is BestEffort or measurably mis-sized.
 - When adding or fixing an app, match how other similar apps in the repo handle config and secrets (e.g. cluster-secrets); do not introduce a different pattern (e.g. moving the app's Kustomization to another namespace) unless that is the established pattern.
 - For Flux reconciles and cluster diagnostics, use ToolHive flux-operator MCP tools (e.g. reconcile_flux_resource, get_kubernetes_logs) when available instead of raw kubectl.
 - Avoid running containers as root when not necessary.

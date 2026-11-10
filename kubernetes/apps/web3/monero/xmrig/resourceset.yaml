@@ -54,6 +54,8 @@ spec:
                     - "--cpu-max-threads-hint=50"
                     # No hugepages are reserved on any node; xmrig would otherwise warn and fall back anyway.
                     - "--no-huge-pages"
+                    # nice 19 plus SCHED_IDLE: any waking task preempts the mining threads at once.
+                    - "--cpu-priority=0"
                     # Enable HTTP API for dashboard
                     - "--http-port=42000"
                     - "--http-host=0.0.0.0"

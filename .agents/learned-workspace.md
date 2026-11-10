@@ -56,6 +56,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 ## CNPG
 
+- CNPG ignores `priorityClassName` in its pod diff; roll it out with the `kubectl.kubernetes.io/restartedAt` annotation on the Cluster.
 - CloudNativePG postgres16 and the barman-cloud plugin run in namespace `database`. The plugin Deployment is `barman-cloud-plugin-barman-cloud`; its Service is `barman-cloud`. To re-add an instance after its join job was deleted, delete its PVC and force-reconcile.
 
 ## Operations
@@ -63,3 +64,4 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 - Annotate relevant deployments with Reloader (e.g. `reloader.stakater.com/auto: "true"`) so pods restart when referenced ConfigMaps or Secrets change.
 - For one-shot privileged pods, use a YAML manifest and `kubectl apply -f`; complex `kubectl run --overrides` JSON is unreliable. Delete an existing pod before reapplying because pod specs are largely immutable.
 - Follow KISS principles; avoid init containers or extra complexity unless needed.
+- Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kube-system/priorityclass.yaml`); the `DaemonSetPodWithoutPriorityClass` alert catches unclassed DaemonSets.

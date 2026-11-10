@@ -27,7 +27,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:15fd15e1f1d2ab2daf4b0b88f5849d95764c155237f36e8f5d36b32a4cec1be9
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:28a56d03c5cc4abeb16b2a5422c5286d9e48020a3cb3416434bff5fbf847bfa6
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
@@ -40,19 +40,14 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # One iGPU model per node; both sides carry the rule because anti-affinity is
-  # only checked for the moving pod.
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels:
-              app: embeddinggemma-2
-          topologyKey: kubernetes.io/hostname
+  # One iGPU model per node: embeddinggemma-2's required anti-affinity keeps this pod off its
+  # node too (the scheduler checks existing pods' rules against the incoming pod).
 
+  # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226

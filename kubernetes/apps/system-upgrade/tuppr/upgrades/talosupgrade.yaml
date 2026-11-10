@@ -19,6 +19,8 @@ spec:
   # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:
     rebootMode: powercycle
+    # tuppr owns the drain and uncordons when it fails; a failed talosctl drain leaves the node cordoned.
+    waitForVolumeDetach: true
   # Jellyfin's quietest hours; gates upgrade starts only, a running upgrade finishes.
   maintenance:
     windows:
@@ -46,3 +48,14 @@ spec:
       kind: Restore
       expr: |-
         !(status.phase in ['Resolving', 'Restoring'])
+    # Rook holds its mon/mgr/mds/osd PDBs at 0 until Ceph is clean again, which is exactly what the
+    # drain would block on; HEALTH_ERR covers damage those PDBs don't track.
+    - apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      namespace: rook-ceph
+      expr: |-
+        status.disruptionsAllowed > 0
+    - apiVersion: ceph.rook.io/v1
+      kind: CephCluster
+      expr: |-
+        has(status.ceph) && status.ceph.health != 'HEALTH_ERR'

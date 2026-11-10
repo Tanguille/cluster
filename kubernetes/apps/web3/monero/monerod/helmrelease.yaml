@@ -9,6 +9,14 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  # low-priority-chain pods may sit Pending on a full cluster; waiting on them fails the upgrade and
+  # its rollback alike.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
   values:
     controllers:
       monerod:
@@ -65,6 +73,7 @@ spec:
                   httpGet: *get-info
                   failureThreshold: 60
     defaultPodOptions:
+      priorityClassName: low-priority-chain
       # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s
       # default risks killing it mid-write.
       terminationGracePeriodSeconds: 120

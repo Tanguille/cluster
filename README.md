@@ -124,7 +124,7 @@ Tuning constraints and benchmark history for the inference stack live in
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
-Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr ·
+Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR ·
 Unpackerr · BRRPolice · FileFlows · Qui
 
 </details>
@@ -133,7 +133,14 @@ Unpackerr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisfactory
+Ghostfolio · IT-Tools · PicoShare · DumbAssets · Satisfactory
+
+</details>
+
+<details>
+<summary>🖨️ <b>Maker</b> (namespace <code>maker/</code>)</summary>
+
+Obico · Spoolman · Mesh Organiser
 
 </details>
 

@@ -18,8 +18,8 @@ spec:
       # KOPIUR_PUID: "1000"
       # Root apps additionally need the capability (backup only, not restore) and the
       # namespace-level kopiur.home-operations.com/privileged-movers: "true" annotation
-      # (ai and default compose components/kopiur/privileged-movers plus psa-privileged; media
-      # enforces PSA baseline and has neither, so check the target namespace's kustomization.yaml).
+      # (ai composes components/kopiur/privileged-movers plus psa-privileged; default and media
+      # enforce PSA baseline and have neither, so check the target namespace's kustomization.yaml).
       # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
       # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
       # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
@@ -30,8 +30,8 @@ spec:
 
 `PVC_ACCESSMODES`/`PVC_STORAGECLASS`/`BACKUP_SNAPSHOTCLASS` are also available (defaults:
 `ReadWriteOnce`/`ceph-block`/`csi-ceph-blockpool`) — only set them when deviating. Example
-apps: `kubernetes/apps/media/qui` (plain 568 default), `kubernetes/apps/default/changedetection`
-(root, `KOPIUR_MOVER_CAPS_ADD`), `kubernetes/apps/ai/hermes` (one-off uid 10000).
+apps: `kubernetes/apps/media/qui` (plain 568 default), `kubernetes/apps/ai/hermes` (one-off
+uid 10000).
 
 This single component renders `SnapshotPolicy`, `SnapshotSchedule`, `PersistentVolumeClaim`
 (with `dataSourceRef` pointing at the `Restore` below), and `Restore` — no separate
