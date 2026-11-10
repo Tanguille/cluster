@@ -13,6 +13,8 @@ spec:
   values:
     defaultPodOptions:
       priorityClassName: homelab-important
+      # Covers the preStop drain below.
+      terminationGracePeriodSeconds: 360
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -86,6 +88,13 @@ spec:
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
               # No Kompress model to fetch, and the only thing keeping the upload beacon off (BEACON_DEFAULT_ON is true upstream).
               HEADROOM_OFFLINE: "1"
+            # Headroom gives in-flight calls only 10s after SIGTERM (hard-coded), so a rollout cut
+            # longer calls into 500s. Hold SIGTERM for HEADROOM_REQUEST_TIMEOUT while the pod,
+            # already out of the endpoints, drains.
+            lifecycle:
+              preStop:
+                sleep:
+                  seconds: 330
             envFrom:
               - secretRef:
                   name: headroom-secret
