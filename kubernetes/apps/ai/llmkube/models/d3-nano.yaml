@@ -63,6 +63,6 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); the 2.4 GiB Q8_0 lives mostly in amdgpu GTT (uncharged by memcg,
-    # counted by the scheduler).
-    memory: 2Gi
+    # Request AND limit (llmkube >= 0.9.29); memcg does not charge amdgpu GTT, so the request counts it:
+    # 0.2Gi cgroup plus its share of control-2's GTT (7d average 1.05Gi, p95 1.86Gi, shared with the reranker).
+    memory: 896Mi
