@@ -31,11 +31,12 @@ class FluxWaitTests(unittest.TestCase):
         for (ns, _), (path, spec) in docs.items():
             for dep in spec.get("dependsOn") or []:
                 key = (dep.get("namespace", ns), dep["name"])
-                self.assertIn(key, docs, f"{path}: dependsOn target missing")
+                self.assertIn(key, docs, f"{path}: dependsOn target {key[0]}/{key[1]} missing")
                 target_path, target = docs[key]
-                if not (target.get("wait") or target.get("healthChecks")):
+                # Exactly one gate: wait: true makes Flux ignore healthChecks.
+                if bool(target.get("wait")) == bool(target.get("healthChecks")):
                     unready.add(f"{target_path}: {key[1]}")
-        self.assertEqual(sorted(unready), [], "dependsOn targets without wait: true or healthChecks")
+        self.assertEqual(sorted(unready), [], "dependsOn targets need exactly one of wait: true or healthChecks")
 
 
 if __name__ == "__main__":
