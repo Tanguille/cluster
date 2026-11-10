@@ -13,7 +13,6 @@ spec:
   values:
     controllers:
       rsume:
-        strategy: RollingUpdate
         containers:
           app:
             image:
@@ -43,7 +42,7 @@ spec:
               limits:
                 memory: 256Mi
     defaultPodOptions:
-      # The GHCR package is private; the token is read:packages only.
+      # Private GHCR package.
       imagePullSecrets:
         - name: rsume-ghcr
       securityContext:

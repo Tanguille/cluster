@@ -125,7 +125,8 @@ jobs:
           set -euo pipefail
           images=$(yq -r '.[]' <<< "$IMAGES")
           [ -n "$images" ] || { echo "no images parsed from flate output: $IMAGES"; exit 1; }
-          # talosctl pulls anonymously; private GHCR images pull with the pod's imagePullSecrets instead.
+          # talosctl pulls anonymously, so the private rsume image (imagePullSecrets) is skipped;
+          # move to Talos registry auth if a second private image appears.
           images=$(grep -v '^ghcr\.io/tanguille/rsume[:@]' <<< "$images" || true)
           rc=0
           while IFS= read -r image; do

@@ -8,7 +8,7 @@ metadata:
 stringData:
   FROM_ADDRESS: nextcloud@example.invalid
 ---
-# cluster-secrets is SOPS-only, so a bare "${SECRET_DOMAIN}" (rsume on the apex) renders null and fails the chart schema.
+# SOPS-only; a bare "${SECRET_DOMAIN}" (rsume's apex host) otherwise renders null.
 apiVersion: v1
 kind: Secret
 metadata:
