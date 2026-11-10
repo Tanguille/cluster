@@ -28,7 +28,12 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/cluster
   prune: true
-  wait: true
+  # Gate rsume on the shared secret only, not on the cluster runner's HelmRelease.
+  healthChecks:
+    - apiVersion: v1
+      kind: Secret
+      name: cluster-runner-secret
+      namespace: actions-runner-system
   sourceRef:
     kind: GitRepository
     name: flux-system
