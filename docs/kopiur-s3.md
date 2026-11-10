@@ -70,6 +70,10 @@ from the old repository, so **a bare repoint erases the old history within about
 Patch the old rows to `Retain` before and after the switch; the 2026-11-06 procedure is in
 this file's Git history (`git log -S retain_nfs_rows -- docs/kopiur-s3.md`).
 
+Do not recreate any PVC until every policy has its first snapshot in the new repository.
+`fromPolicy` resolves in the policy's current repository with `onMissingSnapshot: Continue`, so
+a PVC recreated before then comes up **empty**.
+
 `status.storageStats.snapshotCount` only updates on a catalog listing, so a repository that
 starts empty keeps reporting 0 and trips `KopiurRepoEmpty` even with data in it. Request a
 scan with the `kopiur.home-operations.com/catalog-scan-requested-at` annotation.
