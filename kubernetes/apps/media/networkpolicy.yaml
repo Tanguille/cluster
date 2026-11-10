@@ -8,13 +8,10 @@ spec:
   # Default-deny ingress for every media pod; egress stays open.
   endpointSelector: {}
   ingress:
-    # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media), Hermes media triage (ai).
+    # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media).
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: media
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app.kubernetes.io/name: hermes
         - matchLabels:
             io.kubernetes.pod.namespace: default
         - matchLabels:
@@ -26,3 +23,31 @@ spec:
         - fields:
             - type: DestinationUnreachable
             - type: TimeExceeded
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: media-ingress-hermes
+spec:
+  # Hermes media triage: only the four apps it queries, only their API ports (allows union with the list above).
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - sonarr
+          - radarr
+          - qbittorrent
+          - unpackerr
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: hermes
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "5656"
+              protocol: TCP
