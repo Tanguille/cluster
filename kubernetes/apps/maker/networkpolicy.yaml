@@ -8,11 +8,29 @@ spec:
   # Default-deny ingress (egress open; deny-lan-egress still applies). hostNetwork moonraker-obico has no Cilium endpoint, so no CNP applies to it.
   endpointSelector: {}
   ingress:
-    # ai: ToolHive MCP backends; network: envoy gateways; maker: intra-namespace.
+    # network: envoy gateways; maker: intra-namespace.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: maker
         - matchLabels:
-            io.kubernetes.pod.namespace: ai
-        - matchLabels:
             io.kubernetes.pod.namespace: network
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mesh-organiser-mcp
+spec:
+  # ToolHive vMCP calls the mesh-organiser MCPServerEntry directly; no other ai pod needs maker.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: mesh-organiser
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: virtualmcpserver
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP

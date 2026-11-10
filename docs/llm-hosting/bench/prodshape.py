@@ -15,7 +15,7 @@ import urllib.request
 
 from _metrics import sample, wait_idle
 
-# Same vocabulary as the other bench scripts; ~1.17 tokens/word on this tokenizer.
+# The bench scripts import this vocabulary; ~1.17 tokens/word on this tokenizer.
 WORDS = ("storage replication consensus quorum latency throughput partition ledger "
          "checkpoint compaction manifest snapshot heartbeat gossip shard rebalance "
          "durability coordinator epoch lease tombstone compress index segment").split()

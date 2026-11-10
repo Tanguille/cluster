@@ -167,11 +167,11 @@ spec:
         reloader.stakater.com/auto: "true"
       podLabels:
         egress.home.arpa/postgres: allow
-      # chart default 500m cpu vs ~13m observed; 30d peak 189Mi vs 500Mi request
+      # chart default 500m cpu vs ~13m observed; 30d peak 189Mi vs 512Mi limit
       resources:
         requests:
           cpu: 100m
-          memory: 256Mi
+          memory: 32Mi
         limits:
           memory: 512Mi
       strategy:

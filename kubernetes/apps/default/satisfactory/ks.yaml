@@ -8,10 +8,6 @@ metadata:
 spec:
   path: ./kubernetes/apps/default/satisfactory/app
   targetNamespace: *namespace
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   prune: true
   wait: true
   interval: 30m

@@ -29,7 +29,6 @@ spec:
       # The image runs as the unprivileged user `mcp` (uid 65534, no group in the
       # image config); the operator sets readOnlyRootFilesystem — /tmp is the only
       # path the server touches, mounted emptyDir.
-      automountServiceAccountToken: false
       volumes:
         - name: tmp
           emptyDir: {}

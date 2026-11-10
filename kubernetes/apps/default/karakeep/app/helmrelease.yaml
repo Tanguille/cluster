@@ -9,6 +9,13 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  # homelab-optional pods may sit Pending; don't wait on them.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
 
   values:
     defaultPodOptions:
@@ -90,12 +97,13 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 512Mi
+                memory: 192Mi
               limits:
                 memory: 1Gi
 
       chrome:
         pod:
+          priorityClassName: homelab-optional
           # Renders untrusted pages; already --no-sandbox, so gVisor is its only sandbox.
           runtimeClassName: gvisor
         containers:
@@ -121,7 +129,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 1Gi
+                memory: 64Mi
               limits:
                 cpu: 1
                 memory: 1Gi

@@ -372,7 +372,8 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 500Mi
+            # Affinity pins it to the app pod's node; a large request there went Pending.
+            memory: 256Mi
           limits:
             cpu: "2"
             # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
@@ -392,7 +393,7 @@ spec:
     resources:
       requests:
         cpu: 100m
-        memory: 500Mi
+        memory: 192Mi
       limits:
         cpu: 4
         # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)

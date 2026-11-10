@@ -37,8 +37,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # Restore everywhere, save only from main: a PR's copy is never read by another PR.
       - name: Chart cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/deadvalues
           key: deadvalues-${{ hashFiles('kubernetes/**/ocirepository.yaml', 'kubernetes/**/helmrelease.yaml') }}
@@ -56,3 +58,10 @@ jobs:
           fail-on-scan: redundant
           # xmrig's HelmReleases come from a ResourceSet, which deadvalues lists as not supported yet.
           skip: xmrig
+
+      - name: Save chart cache
+        if: ${{ github.event_name == 'push' && steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/deadvalues
+          key: ${{ steps.cache.outputs.cache-primary-key }}

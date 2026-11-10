@@ -9,16 +9,21 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  # low-priority-chain pods may sit Pending on a full cluster; waiting on them fails the upgrade and
+  # its rollback alike.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
   values:
     controllers:
       p2pool:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
-        # A surge pod at low-priority-chain cannot preempt its way onto a full cluster, so the rollout would hang.
-        rollingUpdate:
-          surge: 0
-          unavailable: 1
+        # Chart default Recreate: a surge pod at low-priority-chain cannot preempt its way onto a
+        # full cluster, so a surging rollout would hang.
         containers:
           app:
             image:
@@ -60,7 +65,7 @@ spec:
             resources:
               requests:
                 cpu: 50m
-                memory: 1Gi
+                memory: 64Mi
               limits:
                 # Bursty share validation throttled ~33% at a 500m limit (kguardian) despite low average use.
                 cpu: 1000m

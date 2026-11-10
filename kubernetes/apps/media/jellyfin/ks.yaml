@@ -12,10 +12,6 @@ spec:
     - ../../../../components/kopiur
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:

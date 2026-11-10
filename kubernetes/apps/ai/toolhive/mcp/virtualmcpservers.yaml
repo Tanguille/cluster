@@ -42,7 +42,7 @@ spec:
           resources:
             requests:
               cpu: 200m
-              memory: 1Gi
+              memory: 320Mi
             limits:
               memory: 2Gi
           startupProbe:
@@ -67,9 +67,8 @@ spec:
   telemetryConfigRef:
     name: prometheus
   config:
-    # Most filters live here: proxy toolConfigRef strips resultType on
+    # Filters live here, not on the proxy: proxy toolConfigRef strips resultType on
     # MCP 2026-07-28 backends (stacklok/toolhive#6684), and MCPServerEntry has no toolConfigRef field.
-    # OPNsense intentionally filters at both layers; validate its result shape live.
     aggregation:
       tools:
         - workload: flux-operator

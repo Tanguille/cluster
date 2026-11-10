@@ -47,4 +47,4 @@ globally.
 ## References
 
 - [Container deployment](https://continuwuity.org/deploying/docker.html)
-- [Sable v2 web deployment](https://git.sable.moe/SableClient/sable-next/src/tag/v2.3.5/docs/web.md)
+- [Sable v2 web deployment](https://git.sable.moe/SableClient/sable-next/src/tag/v2.3.8/docs/web.md)

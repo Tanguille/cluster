@@ -21,6 +21,7 @@ spec:
         # by flux-operator from a ResourceSet, not rendered by kustomize-controller.
         driftDetection:
           mode: enabled
+        maxHistory: 2
         chartRef:
           kind: OCIRepository
           name: app-template
@@ -108,6 +109,8 @@ spec:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
               # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
               # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
+              # Requests sit below usage, so the last term also wants 4Gi really available, counting the miner's own use.
+              # A node failing only that term keeps its ranked share, so some surplus goes unmined.
               query: >-
                 (
                   clamp_min(
@@ -145,6 +148,12 @@ spec:
                           * on(namespace, pod) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
                         )
                       ) >= bool 2147483648
+                    )
+                    * (
+                      (
+                        min(node_memory_MemAvailable_bytes{kubernetes_node="<< inputs.node >>"})
+                        + (sum(container_memory_working_set_bytes{node="<< inputs.node >>",namespace="web3",pod=~"xmrig-.*",container!="",container!="POD"}) or vector(0))
+                      ) >= bool 4294967296
                     )
                   )
                   # UPS stage 1: stop mining above 85 % tech cave UPS load (llmkube/models/ups-load-shed.yaml is the last resort).

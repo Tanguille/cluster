@@ -9,10 +9,6 @@ spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/database/dragonfly/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   wait: true
   interval: 30m
 ---
@@ -28,9 +24,5 @@ spec:
     - name: dragonfly
   path: ./kubernetes/apps/database/dragonfly/cluster
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   wait: true
   interval: 30m

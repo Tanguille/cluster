@@ -37,9 +37,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      # Only the formatters: the full tool set is a ~465 MB cache restore.
+      # Only the formatters: the full tool set is a ~465 MB cache restore. No cache: this job runs on PRs
+      # only, so every PR would save its own copy and crowd the repo's Actions cache quota.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
+          cache: false
           install_args: aqua:evilmartians/lefthook oxfmt aqua:casey/just aqua:mvdan/sh
 
       - name: Format
