@@ -51,7 +51,8 @@ spec:
   # free, under the then-used 1.82 GiB Jellyfin reserve.
   nodeSelector:
     amd.com/igpu: "true"
-  # One iGPU model per node; both sides carry the rule (checked for the moving pod only).
+  # One iGPU model per node. The scheduler enforces a required anti-affinity in both
+  # directions, so this rule alone also keeps d3-nano off this node.
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

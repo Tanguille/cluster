@@ -23,6 +23,9 @@ Usage: longctx.py PORT MODEL [PROMPT_TOKENS] [REPS] [FIXED_SALT]
 """
 import json, sys, time, urllib.request, statistics as st
 
+from _metrics import wait_idle
+from prodshape import WORDS
+
 PORT = int(sys.argv[1])
 MODEL = sys.argv[2]
 PROMPT_TOKENS = int(sys.argv[3]) if len(sys.argv) > 3 else 50000
@@ -31,9 +34,6 @@ REPS = int(sys.argv[4]) if len(sys.argv) > 4 else 3
 # store traffic from warm-state effects; omit it for the cold-prompt default.
 FIXED_SALT = sys.argv[5] if len(sys.argv) > 5 else None
 GEN = 512
-WORDS = ("storage replication consensus quorum latency throughput partition ledger "
-         "checkpoint compaction manifest snapshot heartbeat gossip shard rebalance "
-         "durability coordinator epoch lease tombstone compress index segment").split()
 ITL = "vllm:inter_token_latency_seconds"
 
 
@@ -50,8 +50,8 @@ def make_prompt(salt):
 
 
 def scrape():
-    """Return (cumulative ITL buckets as {le: count}, count, sum, running, waiting)."""
-    buckets, cnt, tot, run, wait = {}, 0.0, 0.0, -1.0, -1.0
+    """Return (cumulative ITL buckets as {le: count}, count, sum)."""
+    buckets, cnt, tot = {}, 0.0, 0.0
     with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/metrics", timeout=15) as r:
         for ln in r.read().decode().splitlines():
             if ln.startswith("#"):
@@ -68,33 +68,17 @@ def scrape():
                 cnt = v
             elif ln.startswith(ITL + "_sum"):
                 tot = v
-            elif ln.startswith("vllm:num_requests_running"):
-                run = v
-            elif ln.startswith("vllm:num_requests_waiting"):
-                wait = v
-    return buckets, cnt, tot, run, wait
-
-
-def wait_idle(label):
-    # Two consecutive idle reads 5s apart: one read can land in the gap between
-    # two production requests and report a false idle.
-    calm = 0
-    for _ in range(120):
-        _, _, _, run, wait = scrape()
-        calm = calm + 1 if run == 0 and wait == 0 else 0
-        if calm >= 2:
-            return True
-        time.sleep(5)
-    print(f"  !! {label}: engine never went idle", flush=True)
-    return False
+    return buckets, cnt, tot
 
 
 print(f"{'rep':>4} {'prompt_tok':>11} {'TTFT s':>8} {'tok/s':>10} "
       f"{'ITL ms':>9} {'>50ms %':>8} {'>75ms %':>8} {'toks':>6} {'cached':>7}", flush=True)
 meds = []
 for r in range(REPS):
-    clean = wait_idle(f"rep {r + 1}")
-    b0, c0, s0, _, _ = scrape()
+    clean = wait_idle(PORT, tries=120).idle
+    if not clean:
+        print(f"  !! rep {r + 1}: engine never went idle", flush=True)
+    b0, c0, s0 = scrape()
     body = json.dumps({
         "model": MODEL, "prompt": make_prompt(FIXED_SALT or f"{time.time_ns()}-r{r}"),
         "max_tokens": GEN, "temperature": 0.7, "ignore_eos": True,
@@ -116,7 +100,7 @@ for r in range(REPS):
                 usage = d["usage"]
             if ttft is None and d.get("choices") and d["choices"][0].get("text"):
                 ttft = time.perf_counter() - t0
-    b1, c1, s1, _, _ = scrape()
+    b1, c1, s1 = scrape()
 
     n = c1 - c0
     delta = {le: b1.get(le, 0) - b0.get(le, 0) for le in b1}

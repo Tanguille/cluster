@@ -11,9 +11,14 @@ spec:
     name: app-template
 
   values:
+    # Started as root, the entrypoint only gosu-drops to PUID 1000; already 1000, it skips the drop.
     defaultPodOptions:
       labels:
         egress.home.arpa/postgres: allow
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
 
     controllers:
       spoolman:

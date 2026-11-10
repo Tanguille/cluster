@@ -116,7 +116,6 @@ spec:
 
     service:
       app:
-        controller: <app-name>
         ports:
           http:
             port: <port>
