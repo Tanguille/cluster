@@ -122,7 +122,9 @@ schematic-id node:
             --data-binary @"${file}" https://factory.talos.dev/schematics \
             | jq -er '.id | strings | select(length > 0)')"
         mkdir -p "${cache%/*}"
-        printf '%s\n' "${id}" > "${cache}"
+        tmp="$(mktemp "${cache}.XXXXXX")"
+        printf '%s\n' "${id}" > "${tmp}"
+        mv -f "${tmp}" "${cache}"
     fi
     cat "${cache}"
 
