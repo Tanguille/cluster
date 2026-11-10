@@ -28,9 +28,10 @@ spec:
         kind: Secret
         optional: true
   patches:
-    # Child defaults. Each field below, the patches list included, replaces a child's own value, so
-    # children omit them; sourceRef and instanceSelector are schema-required, so trimmed files fail
-    # standalone validation.
+    # Child defaults. Scalars and lists (sourceRef fields, substituteFrom, patches, deletionPolicy,
+    # timeout, retryInterval) replace a child's own value, so children omit them; maps merge, so a
+    # child's postBuild.substitute still applies. sourceRef is schema-required, so a trimmed ks.yaml
+    # fails standalone validation.
     - patch: |-
         apiVersion: kustomize.toolkit.fluxcd.io/v1
         kind: Kustomization
@@ -78,7 +79,8 @@ spec:
                 group: helm.toolkit.fluxcd.io
                 kind: HelmRelease
             # Plain-manifest dashboards only (ResourceSet and chart-rendered ones keep their own). It
-            # overrides a dashboard's own values, so one for another Grafana instance cannot be a plain manifest.
+            # overwrites a dashboard's own instance label, so one for another Grafana instance cannot be
+            # a plain manifest; instanceSelector is schema-required, so trimmed dashboards fail standalone.
             - patch: |-
                 apiVersion: grafana.integreatly.org/v1beta1
                 kind: GrafanaDashboard
