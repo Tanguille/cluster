@@ -12,6 +12,9 @@ spec:
     kind: OCIRepository
     spec:
       ref:
+        # Bump once the release includes PR #4140 (configurable retry body limit, v1.7.0
+        # never retries bodies over 64 KiB). Then re-read the retry policies and update the
+        # comments in app/models/omniroute.yaml and app/prometheusrule.yaml.
         tag: v1.7.0
       url: oci://cr.agentgateway.dev/charts/agentgateway
   values:
