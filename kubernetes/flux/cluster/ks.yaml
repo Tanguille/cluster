@@ -79,7 +79,7 @@ spec:
                 group: helm.toolkit.fluxcd.io
                 kind: HelmRelease
             # Plain-manifest dashboards only (ResourceSet and chart-rendered ones keep their own). It
-            # overwrites a dashboard's own instance label, so one for another Grafana instance cannot be
+            # overwrites a dashboard's own instanceSelector, so one for another Grafana instance cannot be
             # a plain manifest; instanceSelector is schema-required, so trimmed dashboards fail standalone.
             - patch: |-
                 apiVersion: grafana.integreatly.org/v1beta1
