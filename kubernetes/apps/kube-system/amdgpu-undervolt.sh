@@ -87,6 +87,14 @@ cmp() {
     [ -n "$1" ] && awk -v a="$1" -v b="$3" "BEGIN{exit !(a $2 b)}"
 }
 
+# A malformed pair would only fail inside the loop under set -u; refuse it up front instead.
+for pair in "$EFFICIENCY_PROFILE" "$BALANCED_PROFILE"; do
+    if ! echo "$pair" | grep -Eq '^[0-9]+ -?[0-9]+$'; then
+        log "invalid profile '$pair': want 'W mV', e.g. '210 -100'"
+        exit 1
+    fi
+done
+
 until find_card; do
     log "waiting for a writable AMD GPU"
     sleep 5

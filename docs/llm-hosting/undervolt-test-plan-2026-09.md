@@ -8,7 +8,8 @@
 > the decode latch is unseen there; re-check the premise before reusing this.
 >
 > Since 2026-11 the DaemonSet takes `EFFICIENCY_PROFILE` / `BALANCED_PROFILE` ("W mV" pairs) and
-> re-applies them every 30 s; `VOLTAGE_OFFSET_MV` and `POWER_LIMIT_WATTS` below are the 2026-09 names.
+> re-asserts the active one every 30 s; the steps below use those names. `VOLTAGE_OFFSET_MV` and
+> `POWER_LIMIT_WATTS` in the prose are the 2026-09 names.
 
 Runbook for pushing `VOLTAGE_OFFSET_MV` on the production R9700 (gfx1201,
 `control-1`) past the -82mV it ran in 2026-09. Whoever runs it: follow
@@ -75,9 +76,10 @@ anecdotal source. It says "possible", not "safe for this card".
 
 ## Rollout mechanics (read before changing anything)
 
-- The DaemonSet script runs `apply_gpu_tuning` **once** at pod start, then
-  `exec sleep infinity`. It does not watch the env. A changed
-  `VOLTAGE_OFFSET_MV` takes effect only when the DaemonSet pod is recreated.
+- The DaemonSet script applies `EFFICIENCY_PROFILE` at pod start, then loops
+  every 30 s and switches to `BALANCED_PROFILE` only after a 15 min dwell on
+  solar surplus. The env is read at start, so a changed profile takes effect
+  when the DaemonSet pod is recreated.
 - Editing the env in the manifest changes the pod template → the DaemonSet's
   default RollingUpdate recreates the pod by itself. No manual pod delete
   needed. The new pod re-applies all four values (offset, power cap, fan
@@ -101,15 +103,15 @@ Apply a step (one-line PR, merge, wait for Flux or `flux reconcile ks
 cluster-apps --with-source`):
 
 ```yaml
-- name: VOLTAGE_OFFSET_MV
-  value: "-100"   # step 1 of docs/llm-hosting/undervolt-test-plan-2026-09.md
+- name: EFFICIENCY_PROFILE
+  value: "210 -100"   # step 1 of docs/llm-hosting/undervolt-test-plan-2026-09.md
 ```
 
 Confirm it landed:
 
 ```sh
-kubectl -n kube-system logs ds/amdgpu-undervolt | grep VDDGFX
-# expect: set card0 VDDGFX offset to -100mV   (NOT "... failed: wanted")
+kubectl -n kube-system logs ds/amdgpu-undervolt | grep profile
+# expect: profile efficiency: 210W -100mV (startup)   (NOT "profile ... failed: wanted")
 kubectl -n ai exec deploy/qwen38-27b-vllm -- amd-smi metric -m --power | grep -E 'GFX_VOLTAGE|SOCKET'
 ```
 
@@ -164,7 +166,7 @@ anything); no new NaN/garbage outputs reported by users or the gateway logs.
 **Unstable means any of:** `amdgpu: GPU reset`, `ring gfx timeout`,
 `*ERROR* ... page fault`, a Xid-equivalent hang, NPD kernel-event condition on
 the node (`kubectl describe node control-1`), vLLM pod crash/restart, a
-`VDDGFX offset failed` log line, or garbage model output. Any one → roll back
+`profile ... failed` log line, or garbage model output. Any one → roll back
 (below), record it, and the plan ends at the previous step.
 
 **Improvement means** (compare same uptime band and same ITL state against
@@ -208,7 +210,7 @@ says -82 (you were testing with `set env` only), Flux converges by itself
 within 1h and the `set env` above just makes it immediate.
 
 If the GPU is wedged hard enough that the offset write itself fails
-(`VDDGFX offset failed` or the DaemonSet pod stuck), the offset is still
+(`profile ... failed` or the DaemonSet pod stuck), the offset is still
 volatile: a node reboot returns the card to stock and the DaemonSet re-applies
 -82 from git on boot. That is the actual worst case and it costs one
 control-1 reboot (jellyfin + vLLM outage, ~minutes, plus the hours-long vLLM
