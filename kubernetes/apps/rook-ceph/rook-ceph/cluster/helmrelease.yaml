@@ -118,6 +118,7 @@ spec:
         osd:
           requests:
             cpu: "500m"
+            # Not sized to the average: Ceph takes osd_memory_target from this request.
             memory: "2Gi"
           limits:
             memory: "6Gi"

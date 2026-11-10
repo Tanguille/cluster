@@ -129,8 +129,11 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   The KEDA query therefore also requires allocatable memory minus Pending/Running pod requests,
   excluding the miner itself, to cover the 2Gi request, so a full node scales to 0 instead of
   leaving a miner Pending.
+  Requests now sit below usage, so the query also wants 4Gi of `MemAvailable`, counting the
+  miner's own use.
 - **The chain yields too.** On a full cluster regular pods preempt monerod and p2pool
-  (`low-priority-chain`). Once a node has room, a preempted monerod was observed Ready again in
+  (`low-priority-chain`). Both request a 64Mi token, so preemption rarely needs them and the kubelet evicts
+  them first under real memory pressure. Once a node has room, a preempted monerod was observed Ready again in
   30-92s and p2pool in 7-108s; without room it stays Pending, and `MoneroChainUnavailable` fires
   after 2h.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every

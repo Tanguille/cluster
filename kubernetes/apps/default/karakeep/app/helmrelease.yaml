@@ -97,7 +97,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 512Mi
+                memory: 192Mi
               limits:
                 memory: 1Gi
 
@@ -129,8 +129,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                # Held under the 7d p95 (718Mi) until the cluster has room.
-                memory: 128Mi
+                memory: 64Mi
               limits:
                 cpu: 1
                 memory: 1Gi

@@ -119,8 +119,7 @@ spec:
               find /models -mindepth 1 -maxdepth 1 -type d ! -path "$$src" -exec rm -rf {} +
               ls -l /out
           resources:
-            # control-1's memory requests are full (136 MiB left on 2026-11-02), so a token request lets it schedule;
-            # the limit covers the 1.15 GiB peak working set (coarse samples of a 45 s run).
+            # Token request so the download never waits for request room; the limit covers the 1.15 GiB peak working set (coarse samples of a 45 s run).
             requests:
               cpu: "2"
               memory: 64Mi
@@ -246,10 +245,10 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins 16 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); ~27.4 GiB working set, estimated.
-    memory: 30Gi
-    # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: control-1's
-    # requests are full, and 64Gi would pass its 59 GiB allocatable.
+    # Engine log pins 16.00 tier + 7.15 checkpoints + 3.23 host pool GiB; working set 26.8 GiB, see docs/llm-hosting/radiance-2026-11.md.
+    memory: 26Gi
+    # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: 64Gi would pass
+    # control-1's 59 GiB allocatable.
     memoryLimit: 48Gi
   endpoint:
     port: 8000

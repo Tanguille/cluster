@@ -18,8 +18,8 @@ spec:
     # The tanguille-cluster GitHub App, also installed on rsume, so cluster-runner's secret serves both.
     githubConfigSecret: cluster-runner-secret
     minRunners: 0
-    # One runner at a time: node memory requests are full (98-99% on 2026-11-09), so the pod requests
-    # only 256Mi and bursts up to its limits. A second runner would double that burst.
+    # One runner at a time: the pod requests far below what a build uses and bursts up to its limits.
+    # A second runner would double that burst.
     maxRunners: 1
     controllerServiceAccount:
       name: actions-runner-controller
@@ -78,8 +78,7 @@ spec:
             resources:
               requests:
                 cpu: 250m
-                # Requests far below real use so the pod schedules on full nodes; a build
-                # bursts toward the limit. Raise once the nodes have request headroom.
+                # Far below a build's use, which bursts toward the limit.
                 memory: 128Mi
                 # The podman-home store's sizeLimit, so the scheduler accounts for it.
                 ephemeral-storage: 8Gi
