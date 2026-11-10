@@ -23,7 +23,9 @@ class FluxWaitTests(unittest.TestCase):
         docs = {}
         for path, doc in kustomizations():
             ns = doc["metadata"].get("namespace") or path.parts[2]
-            docs[(ns, doc["metadata"]["name"])] = (path, doc["spec"])
+            key = (ns, doc["metadata"]["name"])
+            self.assertNotIn(key, docs, f"{path}: duplicate Kustomization {key[0]}/{key[1]}")
+            docs[key] = (path, doc["spec"])
         unready = set()
         for (ns, _), (path, spec) in docs.items():
             for dep in spec.get("dependsOn") or []:
