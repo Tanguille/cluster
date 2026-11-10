@@ -24,6 +24,12 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/cluster
   prune: true
+  # Gate rsume on the shared secret only, not on the cluster runner's HelmRelease.
+  healthChecks:
+    - apiVersion: v1
+      kind: Secret
+      name: cluster-runner-secret
+      namespace: *namespace
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json

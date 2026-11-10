@@ -9,6 +9,7 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/crds
   prune: false
+  wait: true
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -23,6 +24,7 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/app
   prune: true
+  wait: true
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
