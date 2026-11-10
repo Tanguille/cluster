@@ -290,8 +290,9 @@ sops: {json.dumps(META)}
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("mise not installed", result.stdout.decode())
-        self.assertNotIn("Unable to discover", result.stdout.decode())
-        self.assertNotIn("Secret guardrails and regression tests passed", result.stdout.decode())
+        # Phases 1 and 2 passed with the stubs, so the nonzero exit is phase 3's guard alone.
+        self.assertIn("flate test all passed", result.stdout.decode())
+        self.assertIn("shellcheck passed", result.stdout.decode())
 
 
 if __name__ == "__main__":
