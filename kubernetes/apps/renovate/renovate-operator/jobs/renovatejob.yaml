@@ -20,7 +20,7 @@ spec:
   extraEnv:
     - name: RENOVATE_CUSTOM_ENV_VARIABLES
       value: '{"MISE_USE_VERSIONS_HOST":"false"}'
-    # App tokens can't read the private ghcr.io/tanguille/rsume; same read:packages PAT as default/rsume's pull secret. Rotate both.
+    # Private ghcr.io/tanguille/rsume: same read:packages PAT as default/rsume-ghcr (rotate both).
     - name: RENOVATE_HOST_RULES
       valueFrom:
         secretKeyRef:
