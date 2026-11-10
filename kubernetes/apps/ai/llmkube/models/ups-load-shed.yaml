@@ -1,6 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/keda.sh/scaledobject_v1alpha1.json
-# Last resort before the tech cave UPS (Ellipse ECO 1200) trips; xmrig stops at 85 %, Home Assistant pushes at 90 %.
+# Last resort before the tech cave UPS (Ellipse ECO 1200) trips; xmrig stops and the R9700 drops to its efficiency
+# profile (kube-system/amdgpu-undervolt) at 85 %, Home Assistant pushes at 90 %.
 # The LLM idles at ~11 W, so it is only paused while the dGPU is busy (~250 W).
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject

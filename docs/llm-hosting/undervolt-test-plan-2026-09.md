@@ -7,6 +7,9 @@
 > radiance since 2026-11-01 ([radiance-2026-11.md](radiance-2026-11.md)) and
 > the decode latch is unseen there; re-check the premise before reusing this.
 
+> Since 2026-11 the DaemonSet takes `EFFICIENCY_PROFILE` / `BALANCED_PROFILE` ("W mV" pairs) and
+> re-applies them every 30 s; `VOLTAGE_OFFSET_MV` and `POWER_LIMIT_WATTS` below are the 2026-09 names.
+
 Runbook for pushing `VOLTAGE_OFFSET_MV` on the production R9700 (gfx1201,
 `control-1`) past the -82mV it ran in 2026-09. Whoever runs it: follow
 the steps in order, fill in the results table at the bottom, and stop at the
@@ -195,8 +198,8 @@ prompt set is the minimum before trusting anything below -140).
 Seconds-fast, no vLLM impact:
 
 ```sh
-kubectl -n kube-system set env ds/amdgpu-undervolt VOLTAGE_OFFSET_MV=-82
-kubectl -n kube-system logs ds/amdgpu-undervolt | grep VDDGFX   # expect -82mV
+kubectl -n kube-system set env ds/amdgpu-undervolt EFFICIENCY_PROFILE="210 -82" BALANCED_PROFILE="250 -82"
+kubectl -n kube-system logs ds/amdgpu-undervolt | grep profile   # expect -82mV
 ```
 
 Then make git agree so Flux doesn't re-apply the test value on the next
