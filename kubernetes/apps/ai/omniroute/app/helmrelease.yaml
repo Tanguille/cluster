@@ -31,6 +31,8 @@ spec:
               # First-event wait per combo step (default adapts up to 180s for tool-heavy calls); a stalled free provider fails over inside agentgateway's 150s.
               STREAM_READINESS_TIMEOUT_MS: "60000"
               STREAM_READINESS_MAX_TIMEOUT_MS: "60000"
+              # Default 10000 files of up to 512 KB each can outgrow the 4Gi volume; 4000 tops out at 2 GiB.
+              CALL_LOG_MAX_ENTRIES: "4000"
               # envoy-internal terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
             envFrom:
