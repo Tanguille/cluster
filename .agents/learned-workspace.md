@@ -56,7 +56,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 ## CNPG
 
-- CNPG ignores `priorityClassName` in its pod diff; roll it out with the `kubectl.kubernetes.io/restartedAt` annotation on the Cluster. Flux strips a kubectl-set annotation within minutes, so wrap it: `flux suspend ks cloudnative-pg-cluster -n database`, annotate the `postgres16` Cluster with `kubectl.kubernetes.io/restartedAt=$(date -u +%FT%TZ)`, wait for the phase to leave and then return to `Cluster in healthy state` (it reads healthy until the operator starts the roll), then `flux resume ks cloudnative-pg-cluster -n database`. Bumping the annotation in `kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml` instead needs no suspend; once it lives there, always restart through Git, or resuming Flux restores the older value and rolls again. While suspended, `cloudnative-pg-databases` and every app that depends on it stay blocked, so keep the window short; if the phase does not return to healthy within minutes, check `.status.instancesReportedState`, resume Flux anyway and fix the instance.
+- CNPG ignores `priorityClassName` in its pod diff; roll it out with the `kubectl.kubernetes.io/restartedAt` annotation on the Cluster. Flux strips a kubectl-set annotation within minutes; the suspend/annotate/resume sequence is in `docs/useful_commands.md` § PostgreSQL (CNPG).
 - CloudNativePG postgres16 and the barman-cloud plugin run in namespace `database`. The plugin Deployment is `barman-cloud-plugin-barman-cloud`; its Service is `barman-cloud`. To re-add an instance after its join job was deleted, delete its PVC and force-reconcile.
 
 ## Operations
