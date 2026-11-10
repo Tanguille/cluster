@@ -64,6 +64,8 @@ spec:
                 spec:
                   driftDetection:
                     mode: enabled
+                  # Release secrets were 120 of 143 MiB of apiserver storage at the default 5.
+                  maxHistory: 2
                   install:
                     crds: CreateReplace
                   rollback:
