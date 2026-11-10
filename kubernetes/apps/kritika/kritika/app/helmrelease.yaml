@@ -239,7 +239,7 @@ spec:
         documentPrompt: *embeddingPrompt
       # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs).
       # github.com and api.github.com are implicit. CONNECT tunnels carry any method, so add no host that takes
-      # uploads from self-registered accounts (forges, npm).
+      # uploads from self-registered accounts (npm, public forges); the self-hosted forges below are trusted.
       egress:
         allow:
           # GitHub content hosts: source archives, registry and release assets, Actions results, Pages docs.
@@ -263,13 +263,18 @@ spec:
           - mirror.gcr.io
           # Never *.blob.core.windows.net (gsoci and Actions log blobs): anyone can register a storage account there.
           - gsoci.azurecr.io
-          - registry.erwanleboucher.dev
+          # Self-hosted forges of home-operations community members.
+          - forgejo.ellis.link
+          - git.sable.moe
+          - git.enoent.fr
+          - "*.erwanleboucher.dev"
           - docker.dragonflydb.io
           - mcr.microsoft.com
           - "*.data.mcr.microsoft.com"
           # Package indexes and downloads.
           - crates.io
           - static.crates.io
+          - index.crates.io
           - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
@@ -281,6 +286,7 @@ spec:
           - k8s-schemas.home-operations.com
           - cloudnative-pg.io
           - nginx.org
+          - prowlarr.servarr.com
           - "*.kernel.org"
           - doc.rust-lang.org
           - pypi.org
