@@ -105,7 +105,7 @@ spec:
             key: admin-password
     config:
       # PRs reviewed at once; a split review takes every free llm slot, so llm has more.
-      reviewWorkers: 16
+      reviewWorkers: 12
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
@@ -121,8 +121,8 @@ spec:
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
-          # Per model; Logfare Pro's 24 concurrent, Kritika is omniroute's only client.
-          concurrency: 24
+          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen.
+          concurrency: 16
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
           <<: *llm
@@ -166,8 +166,12 @@ spec:
             list). Then search this repository for uses of the package,
             including the comments in those files, and report each breaking
             change, deprecation, rename or changed default that affects it,
-            and any version it must stay in lockstep with. Start with a
-            verdict, safe to merge or not, and name the sources you read.
+            and any version it must stay in lockstep with. Name the range as
+            from-version to to-version and read every release between them, or
+            list the ones skipped. A target published before the current
+            version lacks that version's later fixes: compare the two release
+            dates and name what is lost. Start with a verdict, safe to merge
+            or not, and name the sources you read.
         - id: radiance-bump
           when:
             - expr: pr.headRef.startsWith("renovate/radiance")

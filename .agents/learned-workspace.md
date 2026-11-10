@@ -67,7 +67,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 ## CNPG
 
-- CNPG ignores `priorityClassName` in its pod diff; roll it out with the `kubectl.kubernetes.io/restartedAt` annotation on the Cluster.
+- CNPG ignores `priorityClassName` in its pod diff; roll it out with the `kubectl.kubernetes.io/restartedAt` annotation on the Cluster. Flux strips a kubectl-set annotation within minutes; the suspend/annotate/resume sequence is in `docs/useful_commands.md` § PostgreSQL (CNPG).
 - CloudNativePG postgres16 and the barman-cloud plugin run in namespace `database`. The plugin Deployment is `barman-cloud-plugin-barman-cloud`; its Service is `barman-cloud`. To re-add an instance after its join job was deleted, delete its PVC and force-reconcile.
 
 ## Operations
