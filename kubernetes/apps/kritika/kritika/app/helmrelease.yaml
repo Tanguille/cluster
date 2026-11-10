@@ -98,7 +98,7 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      # PRs reviewed at once; matches llm's concurrency, the qwen fallback is capped on its own provider.
+      # PRs reviewed at once; matches llm's concurrency.
       reviewWorkers: 8
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
@@ -111,18 +111,16 @@ spec:
           privateKey: { env: GITHUB_APP_PRIVATE_KEY }
           webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
       providers:
-        llm:
+        llm: &llm
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
-          # Slots per model (omniroute, embedder); Logfare Pro allows 24 concurrent, 429s are upstream congestion.
+          # Per model; well under Logfare Pro's 24 concurrent.
           concurrency: 8
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
-          type: openai
-          baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
-          apiKey: { env: LLM_API_KEY }
-          # Half of radiance's 8 slots, shared with Hermes; a Logfare outage moves at most this many steps onto it.
+          <<: *llm
+          # Half of radiance's 8 slots, shared with Hermes; caps what a Logfare outage shifts here.
           concurrency: 4
           # Fallback calls took up to 807s (p95 387s); 5m default abandoned them and resent the step.
           timeout: 15m
