@@ -35,7 +35,7 @@ spec:
     - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: agentgateway
-      namespace: ai
+      namespace: *namespace
   healthCheckExprs:
     - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
