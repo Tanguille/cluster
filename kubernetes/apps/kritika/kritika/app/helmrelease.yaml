@@ -99,7 +99,7 @@ spec:
             key: admin-password
     config:
       # PRs reviewed at once; matches llm's concurrency.
-      reviewWorkers: 8
+      reviewWorkers: 12
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
@@ -116,7 +116,7 @@ spec:
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
           # Per model; well under Logfare Pro's 24 concurrent.
-          concurrency: 8
+          concurrency: 12
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
           <<: *llm
