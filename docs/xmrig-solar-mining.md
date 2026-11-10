@@ -132,8 +132,8 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   Requests now sit below usage, so the query also wants 4Gi of `MemAvailable`, counting the
   miner's own use.
 - **The chain yields too.** On a full cluster regular pods preempt monerod and p2pool
-  (`low-priority-chain`). Both request a 64Mi token, so preemption rarely needs them and the kubelet evicts
-  them first under real memory pressure. Once a node has room, a preempted monerod was observed Ready again in
+  (`low-priority-chain`). Both request a 64Mi token, so preemption rarely needs them. Under real memory pressure the kubelet
+  evicts by priority and use over request: a running miner first, then these. Once a node has room, a preempted monerod was observed Ready again in
   30-92s and p2pool in 7-108s; without room it stays Pending, and `MoneroChainUnavailable` fires
   after 2h.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every

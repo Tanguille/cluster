@@ -109,6 +109,7 @@ spec:
               # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
               # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
               # Requests sit below usage, so the last term also wants 4Gi really available, counting the miner's own use.
+              # A node failing only that term keeps its ranked share, so some surplus goes unmined.
               query: >-
                 (
                   clamp_min(

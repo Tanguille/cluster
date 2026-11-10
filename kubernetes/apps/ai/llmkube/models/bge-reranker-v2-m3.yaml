@@ -78,8 +78,9 @@ spec:
 
   resources:
     cpu: "100m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi cgroup plus its share of
-    # amdgpu GTT (0.4Gi in fdinfo). memcg does not charge GTT, but the scheduler must count it.
+    # ~0.2Gi cgroup plus its share of amdgpu GTT (0.4Gi in fdinfo). memcg does
+    # not charge GTT, but the scheduler must count it.
     memory: 512Mi
+    memoryLimit: 1Gi
   endpoint:
     path: /v1/rerank
