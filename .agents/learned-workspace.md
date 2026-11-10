@@ -1,6 +1,6 @@
 # Learned Workspace Facts
 
-**When to use:** HTTPRoute, ToolHive, MCPServer, Flux substituteFrom, cluster-secrets, Talos, Reloader, in-cluster URL, CNPG, Rook, or continual learning.
+**When to use:** HTTPRoute, ToolHive, MCPServer, Flux substituteFrom, cluster-secrets, app-template, kopiur, openebs-hostpath, Talos, Reloader, in-cluster URL, CNPG, Rook, or continual learning.
 
 Stable, non-sensitive facts about this cluster and tooling.
 
@@ -48,11 +48,22 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 - With `ceph-block` RWO storage, use Deployment strategy `Recreate`; RollingUpdate is unsupported.
 - The app-template chart defaults to `Recreate`. If it emits `rollingUpdate` too, fix the chart, postRenderer, or patch.
+- `openebs-hostpath` does not enforce PVC size; the node disk is the only limit, so a volume holding more than its request is not an overflow.
+- The shared kopiur SnapshotPolicy's `sourcePathOverride: /data` is the path recorded in the snapshot identity, not the app's mount path: the mover mounts the PVC itself, so apps mounting it elsewhere (`/app/data`, `/config`) are backed up.
 - CSI `readAffinity` is off: with it, every CephFS kernel write fails silently on Ceph v21 (files read back as zeros). Re-enable only on a kernel with libceph `d6c7a5fcd088`; the condition is in the rook-ceph cluster HelmRelease.
 
 ## Flux
 
 - Flux `postBuild.substituteFrom` replaces `${...}` in rendered manifests. Escape literals with Flux/Kustomize `$$` patterns, or Flux may empty unintended matches.
+- The cluster-apps patch (`kubernetes/flux/cluster/ks.yaml`) gives every child Kustomization `substituteFrom` cluster-settings and cluster-secrets, so `${SECRET_DOMAIN}` resolves in all child output, `configMapGenerator` data included.
+
+## app-template
+
+- A workload is named after the release alone when it has one controller (`opencode`, not `opencode-app`); the controller name is appended only with several controllers.
+- `automountServiceAccountToken` defaults to `false`; an app that omits it mounts no token.
+- A route without `rules` gets its backend from the service matching the route identifier.
+- Chart-made `configMaps` roll the pod through a `checksum/configMaps` annotation over their `data` (not `binaryData`); Reloader is only for ConfigMaps and Secrets made outside the chart.
+- Images are pinned as `tag: <version>@sha256:<digest>` in every chart, also where the chart has a `digest` field, so Renovate bumps both in one value.
 
 ## CNPG
 
@@ -62,6 +73,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 ## Operations
 
 - Annotate relevant deployments with Reloader (e.g. `reloader.stakater.com/auto: "true"`) so pods restart when referenced ConfigMaps or Secrets change.
+- Memory requests sit just below the 7-day average and round down (64Mi steps below 1Gi), so a request under the average its comment cites is intended.
 - For one-shot privileged pods, use a YAML manifest and `kubectl apply -f`; complex `kubectl run --overrides` JSON is unreliable. Delete an existing pod before reapplying because pod specs are largely immutable.
 - Follow KISS principles; avoid init containers or extra complexity unless needed.
 - Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kube-system/priorityclass.yaml`); the `DaemonSetPodWithoutPriorityClass` alert catches unclassed DaemonSets.
