@@ -238,7 +238,8 @@ spec:
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
       # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs).
-      # github.com and api.github.com are implicit.
+      # github.com and api.github.com are implicit. CONNECT tunnels carry any method, so add no host that takes
+      # uploads from self-registered accounts (forges, npm).
       egress:
         allow:
           # GitHub content hosts: source archives, registry and release assets, Actions results, Pages docs.
@@ -262,22 +263,19 @@ spec:
           - mirror.gcr.io
           # Never *.blob.core.windows.net (gsoci and Actions log blobs): anyone can register a storage account there.
           - gsoci.azurecr.io
-          - "*.erwanleboucher.dev"
-          - forgejo.ellis.link
+          - registry.erwanleboucher.dev
           - docker.dragonflydb.io
           - mcr.microsoft.com
           - "*.data.mcr.microsoft.com"
           # Package indexes and downloads.
           - crates.io
           - static.crates.io
-          - registry.npmjs.org
           - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
           - grafana.com
           - huggingface.co
-          - "*.hf.co"
-          - git.sable.moe
+          - "*.cdn.hf.co"
           - continuwuity.org
           - modelcontextprotocol.io
           - k8s-schemas.home-operations.com
