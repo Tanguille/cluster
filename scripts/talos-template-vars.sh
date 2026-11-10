@@ -52,7 +52,7 @@ done <<<"${injected}"
 
 # render-config reads some -D values from the Flux cluster settings; a renamed key fails here.
 settings="${REPO_ROOT}/kubernetes/components/common/cluster-settings.yaml"
-keys="$(grep -oP "yq -e '\.data\.\K[A-Z0-9_]+" "${TALOS}/mod.just" | sort -u)"
+keys="$(grep -oP '\.data\.\K[A-Z0-9_]+' "${TALOS}/mod.just" | sort -u)"
 [[ -n "${keys}" ]] || {
     echo "no cluster-settings reads found in talos/mod.just" >&2
     exit 1
