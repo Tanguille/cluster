@@ -33,6 +33,9 @@ cluster:
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: "true"
+    env:
+      # The default 100 let the process hold ~2.4x its live heap (2.5-3.5 GiB RSS); it uses under half a core.
+      GOGC: "50"
     resources:
       requests:
         # Talos default is 200m/512Mi. Under the 7d p95 (3.2-3.5GiB, 5.3GiB on control-3) on purpose:
