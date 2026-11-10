@@ -8,10 +8,13 @@ spec:
   # Default-deny ingress for every media pod; egress stays open.
   endpointSelector: {}
   ingress:
-    # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media).
+    # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media), Hermes media triage (ai).
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: media
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: hermes
         - matchLabels:
             io.kubernetes.pod.namespace: default
         - matchLabels:
