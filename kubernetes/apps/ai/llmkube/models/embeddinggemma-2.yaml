@@ -71,8 +71,8 @@ spec:
       - 226
   resources:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
-    # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
-    memory: 512Mi
+    # Request AND limit (llmkube >= 0.9.29); working set ~0.2Gi plus amdgpu GTT
+    # (uncharged by memcg; control-3 7d average 1.21Gi, p95 1.88Gi, all this model).
+    memory: 1280Mi
   endpoint:
     path: /v1/embeddings

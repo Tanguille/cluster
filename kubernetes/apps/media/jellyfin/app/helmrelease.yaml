@@ -63,8 +63,8 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                # 549Mi RSS at idle
-                memory: 1Gi
+                # 7d average 593Mi; 549Mi RSS at idle
+                memory: 576Mi
                 # matches the tmpfs sizeLimit below; without it the transcode cache
                 # counts as 100% over request and ranks first for nodefs eviction
                 ephemeral-storage: 10Gi
