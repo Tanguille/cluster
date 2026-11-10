@@ -40,13 +40,16 @@ find_card() {
     return 1
 }
 
+# A rejected sysfs write (cap outside the driver's range, commit failing during a GPU reset) is
+# logged, not fatal: under set -e it would crashloop the pod, and read_state then reports the
+# mismatch so the next tick retries.
 set_cap() {
-    echo "$(($1 * 1000000))" >"$hw/power1_cap"
+    echo "$(($1 * 1000000))" >"$hw/power1_cap" || log "write power1_cap=$1W failed"
 }
 
 set_offset() {
-    echo "vo $1" >"$card/pp_od_clk_voltage"
-    echo c >"$card/pp_od_clk_voltage"
+    { echo "vo $1" >"$card/pp_od_clk_voltage" && echo c >"$card/pp_od_clk_voltage"; } ||
+        log "write vo=$1mV failed"
 }
 
 read_state() {
