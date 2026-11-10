@@ -128,8 +128,8 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
   1.24 GiB now if media peaks at the same absolute use (arithmetic, not measured), above `DgpuVramLow`'s 1 GiB and enough for a
   0.85 GB 4K DV transcode. 1536 would sit under the alert for about
   54 minutes per 36 h.
-- Tier 16384 with a 26Gi request (48Gi limit, was 30Gi): working set settled at 26.8 GiB and grew at most 0.17 GiB under load (measured 2026-11-10). control-1's requests were at 97% of allocatable,
-  leaving 1.6 GiB schedulable at 32Gi and 3.6 at 30Gi. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
+- Tier 16384 with a 26Gi request (48Gi limit, was 30Gi): working set settled at 26.8 GiB and grew at most 0.17 GiB under load (measured 2026-11-10). The request sits just
+  below that, 4 GiB under the old 30Gi. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
 - After a roll, check working set, pool size, whole-card free VRAM during media use, returning-chat TTFT and preemptions. Rollback:
   headroom 2560, tier 19456 and request 32Gi together.
 
