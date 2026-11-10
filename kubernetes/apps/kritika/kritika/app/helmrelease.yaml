@@ -166,8 +166,12 @@ spec:
             list). Then search this repository for uses of the package,
             including the comments in those files, and report each breaking
             change, deprecation, rename or changed default that affects it,
-            and any version it must stay in lockstep with. Start with a
-            verdict, safe to merge or not, and name the sources you read.
+            and any version it must stay in lockstep with. Name the range as
+            from-version to to-version and read every release between them, or
+            list the ones skipped. A target published before the current
+            version lacks that version's later fixes: compare the two release
+            dates and name what is lost. Start with a verdict, safe to merge
+            or not, and name the sources you read.
         - id: radiance-bump
           when:
             - expr: pr.headRef.startsWith("renovate/radiance")
