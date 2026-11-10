@@ -20,6 +20,9 @@ customization:
     - amdgpu.ras_enable=0
     - pcie_aspm.policy=performance
     - mitigations=off
+    # The stock config builds PREEMPT_LAZY, which defers SCHED_NORMAL wakeups to the next 4 ms tick:
+    # etcd and Ceph OSD wakeups would queue behind xmrig. PREEMPT_DYNAMIC makes full selectable here.
+    - preempt=full
     - security=none
   systemExtensions:
     officialExtensions:

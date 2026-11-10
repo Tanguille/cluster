@@ -41,7 +41,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 ## Talos
 
-- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them from a rebuilt installer (`just talos kernel-build`) plus an upgrade.
+- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them through an upgrade to the new schematic's Factory installer.
 - Large Talos `/var/lib/containerd` usage is often old image layers. Kubelet image GC thresholds are already tuned in `talos/cluster.yaml.j2`; confirm Talos apply mode before assuming a reboot is unnecessary.
 
 ## Storage

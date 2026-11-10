@@ -62,6 +62,8 @@ machine:
   install:
     wipe: false
     grubUseUKICmdline: true
+    # Schematic id resolved per node (control-1 has its own); tuppr derives upgrade targets from it.
+    image: factory.talos.dev/metal-installer/{{ schematic }}:{{ talosVersion }}
   time:
     disabled: false
     servers: [{{ gateway }}]
@@ -74,9 +76,6 @@ machine:
         format: json_lines
   features:
     diskQuotaSupport: true
-    kubePrism:
-      enabled: true
-      port: 7445
     hostDNS:
       enabled: true
       forwardKubeDNSToHost: false
@@ -180,3 +179,14 @@ params:
   net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
   net.ipv4.tcp_slow_start_after_idle: "0"
   user.max_user_namespaces: "11255"
+---
+# Replaces machine.features.kubePrism (the two are mutually exclusive). The readiness check probes
+# /readyz, so an API server that still accepts TCP but lost etcd stops receiving new connections.
+apiVersion: v1alpha1
+kind: KubePrismConfig
+port: 7445
+readinessCheck: true
+---
+# Talos-native SMART, read via the SMARTStatus resource. smartctl-exporter stays the alerting source.
+apiVersion: v1alpha1
+kind: DiskSMARTConfig

@@ -1,20 +1,11 @@
 ---
 # Chuwi ubox. Runs in-cluster Kepler (has RAPL, unlike the control-1 VM).
-#
-# All three nodes run a self-built kernel: Linux 7.x for the in-kernel Ceph client's
-# aes256k support, which 6.18.x does not have. The install image below is load-bearing —
-# see docker/talos-kernel/README.md "The rollout is not self-closing".
 machine:
   install:
     # By model, not /dev/nvme1n1: enumeration order can swap, and the other NVMe is Ceph osd.0.
     # Only a fresh install reads this; upgrades reuse the running system disk.
     diskSelector:
       model: Micron_7450_MTFDKBA480TFR
-    # Our registry, not the Factory: tuppr rebuilds the upgrade target from this field, so
-    # leaving it on factory.talos.dev reinstalls the stock kernel. Shared with control-3 (same
-    # schematic); the repo is named for the schematic, not its id, which moves on every edit.
-    # Full rationale: docker/talos-kernel/README.md "Version tagging".
-    image: ghcr.io/tanguille/installer/shared:{{ pinned }}
   nodeLabels:
     amd.com/igpu: "true"
     kepler-node: "true"

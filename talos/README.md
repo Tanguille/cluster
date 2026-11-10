@@ -68,7 +68,8 @@ documents that are identical per node but would reorder the stream stay put.
 ## Schematics
 
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID, which `download-image` uses to fetch the ISO. Installers are not keyed by it.
+content-addressed ID. `render-config` puts it in `machine.install.image`
+(`factory.talos.dev/metal-installer/<id>:<version>`), and `download-image` uses it to fetch the ISO.
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
 `schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
@@ -80,9 +81,8 @@ variable, add the extension back.
 
 **The ID is content-addressed, so any change to a schematic's fields moves it** — including a
 one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
-the YAML before hashing, verified by stripping a comment and getting the same id back. Installer
-repos are keyed by node or `shared`, never by ID (see `docker/talos-kernel/README.md`), so an edit
-moves no installer ref; only the Factory ISO from `download-image` follows the new ID.
+the YAML before hashing, verified by stripping a comment and getting the same id back. A running
+node only picks up a new ID through an upgrade (`just talos upgrade-node` reads the rendered image).
 
 ## Gotchas
 
@@ -140,6 +140,22 @@ is a wipe-time decision rather than a live one.
 Evaluate separately rather than adopting blindly: NRI is enabled by default in 1.14,
 `net.ipv4.conf.*.send_redirects` defaults to `0`, and etcd's HTTP endpoints move `2379` → `2383`
 (we are unaffected, `listen-metrics-urls` is pinned to `2381`).
+
+## Talos 1.15 adoption
+
+Same rule as 1.14: apply only after tuppr has rolled every node to 1.15, since a 1.14 node rejects
+the whole config over the two new documents.
+
+| Document | Replaces / adds |
+| --- | --- |
+| `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive), plus `readinessCheck`: routes by `/readyz` instead of TCP |
+| `DiskSMARTConfig` | Talos-native SMART collection (`SMARTStatus`); off on upgraded clusters until the document exists |
+
+The kernel is stock again: Talos 1.15 ships Linux 7.x, which has the in-kernel Ceph client's
+`aes256k` support the self-built kernel existed for (the build pipeline is in git at `f15ad5b13`).
+Its config builds `PREEMPT_LAZY`, so the schematics set `preempt=full` to keep the scheduling the
+self-built kernel ran with. containerd moves to config version 4; our `CRICustomizationConfig`
+documents only use `plugins."io.containerd.cri.v1.*"`, which did not move.
 
 ## Common tasks
 
