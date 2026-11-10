@@ -263,7 +263,9 @@ sops: {json.dumps(META)}
         self.assertEqual(checked, {str(self.root / path) for path in wanted})
 
     def test_validator_fails_closed_without_mise(self):
-        validator = self.root / "validate-pr.sh"
+        # Same nested path as the sibling test, so REPO_ROOT is the fixture and only phase 3 fails.
+        validator = self.root / ".agents/skills/pr-review/scripts/validate-pr.sh"
+        validator.parent.mkdir(parents=True)
         shutil.copyfile(CHECKER.parents[1] / ".agents/skills/pr-review/scripts/validate-pr.sh", validator)
         stubs = self.root / "bin"
         stubs.mkdir()
@@ -288,6 +290,8 @@ sops: {json.dumps(META)}
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("mise not installed", result.stdout.decode())
+        self.assertNotIn("Unable to discover", result.stdout.decode())
+        self.assertNotIn("Secret guardrails and regression tests passed", result.stdout.decode())
 
 
 if __name__ == "__main__":
