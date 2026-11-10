@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.0.118
+        tag: 0.0.119
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -98,11 +98,8 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      # PRs reviewed at once; 8 still drew Logfare 429 bursts after the Pro upgrade (11-09), 6 is the retest.
-      reviewWorkers: 6
-      limits:
-        # Model calls in flight, split-review parts included; matches reviewWorkers so bursts stay off the free tiers.
-        concurrency: 6
+      # PRs reviewed at once; a split review takes every free llm slot, so llm has more.
+      reviewWorkers: 16
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
@@ -114,14 +111,27 @@ spec:
           privateKey: { env: GITHUB_APP_PRIVATE_KEY }
           webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
       providers:
-        llm:
+        llm: &llm
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
+          # Per model; Logfare Pro's 24 concurrent, Kritika is omniroute's only client.
+          concurrency: 24
+        # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
+        local:
+          <<: *llm
+          # Half of radiance's 8 slots, shared with Hermes; caps what a Logfare outage shifts here.
+          concurrency: 4
+          # Fallback calls took up to 807s (p95 387s); 5m default abandoned them and resent the step.
+          timeout: 15m
+        # Own provider so the iGPU embedder doesn't scale with llm: index runs hold all but one slot.
+        embed:
+          <<: *llm
+          concurrency: 3
       review:
         model: llm/omniroute
         # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
-        fallback: llm/qwen-3.8
+        fallback: local/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
@@ -211,7 +221,7 @@ spec:
       ignore:
         - "**/*.out"
       embedding:
-        model: llm/embeddinggemma-2
+        model: embed/embeddinggemma-2
         dims: 768
         # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
         maxBatchChars: 50000
