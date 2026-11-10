@@ -44,10 +44,14 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          # Save from main only; PR-scoped copies crowd the Actions cache quota.
+          cache_save: ${{ github.event_name == 'push' }}
+          install_args: aqua:hadolint/hadolint
 
       - name: Lint
         run: |
           set -euo pipefail
           mapfile -t dockerfiles < <(git ls-files 'Dockerfile' '**/Dockerfile' '**/Dockerfile.*')
           [ "${#dockerfiles[@]}" -gt 0 ] || { echo "no Dockerfiles tracked; nothing to lint"; exit 0; }
-          mise exec -- hadolint "${dockerfiles[@]}"
+          hadolint "${dockerfiles[@]}"

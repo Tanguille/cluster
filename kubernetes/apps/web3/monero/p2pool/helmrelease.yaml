@@ -22,11 +22,8 @@ spec:
       p2pool:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
-        # A surge pod at low-priority-chain cannot preempt its way onto a full cluster, so the rollout would hang.
-        rollingUpdate:
-          surge: 0
-          unavailable: 1
+        # Chart default Recreate: a surge pod at low-priority-chain cannot preempt its way onto a
+        # full cluster, so a surging rollout would hang.
         containers:
           app:
             image:

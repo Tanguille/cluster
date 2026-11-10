@@ -65,7 +65,7 @@ For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` wit
 ## Secrets management (SOPS)
 
 1. Create unencrypted file first
-2. Encrypt with: `sops --encrypt --in-place <file>`
+2. Encrypt with: `just kube encrypt` (every unencrypted `*.sops.*` under `kubernetes/`), or `sops --encrypt --in-place <file>` for one file or anything under `talos/`
 3. Or create with: `sops <file>.yaml` (edits encrypted)
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
