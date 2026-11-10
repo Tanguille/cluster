@@ -16,9 +16,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
-      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
-      # nodeSelector pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -32,7 +29,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:b5f99c093094d54c51e5bb9d79a87f7da28ca7021a7995ce62f769d7e47cc4b9
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:28a56d03c5cc4abeb16b2a5422c5286d9e48020a3cb3416434bff5fbf847bfa6
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch from queueing behind memini (bench: 7.43s median for 194
   # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs
@@ -47,22 +44,15 @@ spec:
   batchSize: 8192
   uBatchSize: 8192
   extraArgs:
-    - "--alias"
-    # served model name memini sends in /v1/embeddings
-    - "embeddinggemma-2"
     # gemma-embedding2 requires mean pooling.
     - "--pooling"
     - "mean"
-    # Host prompt cache (default 8192 MiB) is never released: 100 distinct
-    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never
-    # hit it.
-    - "--cache-ram"
-    - "0"
   # Pin to an iGPU node. On the dGPU it took 1.2 GiB of VRAM and left 0.93 GiB
   # free, under the then-used 1.82 GiB Jellyfin reserve.
   nodeSelector:
     amd.com/igpu: "true"
-  # One iGPU model per node; both sides carry the rule (checked for the moving pod only).
+  # One iGPU model per node. The scheduler enforces a required anti-affinity in both
+  # directions, so this rule alone also keeps d3-nano off this node.
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -71,16 +61,18 @@ spec:
               app: d3-nano
           topologyKey: kubernetes.io/hostname
   # Render/video groups for /dev/dri (Vulkan path); mirrored by d3-nano.
+  # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
   resources:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
-    # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
-    memory: 512Mi
+    # Request AND limit (llmkube >= 0.9.29); working set ~0.2Gi plus amdgpu GTT
+    # (uncharged by memcg; control-3 7d average 1.21Gi, p95 1.88Gi, all this model).
+    memory: 1280Mi
   endpoint:
     path: /v1/embeddings

@@ -252,9 +252,9 @@ def load_tier(path, target, keep_missing=False):
     """Restore one retention tier from disk; leave it empty if unreadable.
 
     keep_missing distinguishes the two tiers' nulls. In the 10s log a null is
-    junk from a legacy file and coerces to 0.0; in the rollup it is the
-    backfill's "never measured" marker and has to survive the round trip, or
-    the first restart turns every price-only bucket into a real 0 H/s reading.
+    junk from a legacy file and coerces to 0.0; in the rollup it is the removed
+    price backfill's "never measured" marker and has to survive the round trip
+    until those buckets age out, or a restart turns each into a real 0 H/s reading.
     """
     if not os.path.exists(path):
         print(f"No existing {os.path.basename(path)} found, starting fresh")
@@ -349,7 +349,7 @@ def downsample(source, hours, max_points=CHART_MAX_POINTS):
     for i in range(0, len(timestamps), width):
         out["timestamps"].append(timestamps[i])
         for k in SERIES:
-            # None marks "never measured" — a backfilled price bucket has no
+            # None marks "never measured" — an older price-only bucket has no
             # hashrate. Averaging it as 0 would invent a reading.
             chunk = [v for v in series[k][i:i + width] if v is not None]
             out[k].append(sum(chunk) / len(chunk) if chunk else None)
@@ -400,41 +400,6 @@ def _fetch_json(request, timeout=5):
     with urllib.request.urlopen(request, timeout=timeout) as r:
         return json.load(r)
 
-PRICE_HISTORY_URL = (f"https://api.coingecko.com/api/v3/coins/monero/market_chart"
-                     f"?vs_currency=eur&days={ROLLUP_MAX_AGE // 86400}")
-
-def backfill_price_history():
-    """Seed the rollup's price series for buckets the logger never recorded.
-
-    Until the logger learned to run through an idle miner it only sampled while
-    xmrig was up, so on the long ranges the price line exists exactly where the
-    solar gate happened to be open. CoinGecko serves hourly closes over the
-    retention horizon; fill only the buckets we have nothing for, leaving the
-    hashrate series None there rather than claiming we measured 0 H/s.
-    """
-    try:
-        points = _fetch_json(PRICE_HISTORY_URL, timeout=15)["prices"]
-    except Exception as e:
-        print(f"Price backfill unavailable, charting logged prices only: {e}")
-        return
-
-    with log_lock:
-        buckets = {ts: {k: rollup[k][i] for k in SERIES}
-                   for i, ts in enumerate(rollup["timestamps"])}
-        logged = len(buckets)
-        for ms, price in points:
-            ts = int(ms / 1000) // ROLLUP_INTERVAL * ROLLUP_INTERVAL
-            # setdefault, not assignment: a bucket we logged has a real price
-            # and a real hashrate, and CoinGecko must not flatten either.
-            buckets.setdefault(ts, {**{k: None for k in SERIES}, "price": price})
-        if len(buckets) == logged:
-            return
-
-        rollup["timestamps"] = deque(sorted(buckets))
-        for k in SERIES:
-            rollup[k] = deque(buckets[ts][k] for ts in rollup["timestamps"])
-    print(f"Backfilled {len(buckets) - logged} price-only rollup buckets from CoinGecko")
-
 def read_pool_hashrate():
     """p2pool writes its stats to the shared API dir; no HTTP hop needed."""
     with open(os.path.join(DATA_DIR, "pool", "stats")) as f:
@@ -462,8 +427,6 @@ def poll_miners():
     except socket.gaierror:
         return []  # no ready pods: the headless name has no records
     ips = sorted({info[4][0] for info in infos})
-    if not ips:
-        return []
     with ThreadPoolExecutor(max_workers=len(ips)) as executor:
         return [m for m in executor.map(miner_summary, ips) if m]
 
@@ -492,8 +455,6 @@ def log_loop():
     Runs in a separate daemon thread.
     """
     last_save = 0
-    # Runs here rather than in main(): a slow CoinGecko must not delay the bind.
-    backfill_price_history()
     with ThreadPoolExecutor(max_workers=2) as pool_executor:
         while not shutdown_event.is_set():
             try:

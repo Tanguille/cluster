@@ -20,6 +20,12 @@
 [![Memory](https://kromgo.tanguille.site/badges/cluster_memory_usage)](https://github.com/home-operations/kromgo)&nbsp;&nbsp;
 [![Alerts](https://kromgo.tanguille.site/badges/cluster_alert_count)](https://github.com/home-operations/kromgo)
 
+<br/>
+
+[![Self-hosted LLM tokens](https://kromgo.tanguille.site/badges/llm_tokens_30d)](docs/llm-hosting/radiance-2026-11.md)&nbsp;&nbsp;
+[![Backups](https://kromgo.tanguille.site/badges/backup_snapshots_30d)](docs/kopiur-restore.md)&nbsp;&nbsp;
+[![Ceph](https://kromgo.tanguille.site/badges/ceph_health)](docs/storage_benchmarks.md)
+
 </div>
 
 ---
@@ -118,7 +124,7 @@ Tuning constraints and benchmark history for the inference stack live in
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
-Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr ·
+Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR ·
 Unpackerr · BRRPolice · FileFlows · Qui
 
 </details>
@@ -127,7 +133,14 @@ Unpackerr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisfactory
+Ghostfolio · IT-Tools · PicoShare · DumbAssets · Satisfactory
+
+</details>
+
+<details>
+<summary>🖨️ <b>Maker</b> (namespace <code>maker/</code>)</summary>
+
+Obico · Spoolman · Mesh Organiser
 
 </details>
 
@@ -144,7 +157,7 @@ External-Service · SMTP-Relay · Cloudflare-DDNS
 
 Prometheus Operator CRDs · Grafana · Gatus (uptime) · Siren ·
 VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
-kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
+kube-state-metrics · Kromgo (cluster stats badges) ·
 Kepler (power metrics) · custom exporters
 
 </details>

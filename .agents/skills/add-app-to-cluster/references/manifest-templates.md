@@ -17,10 +17,9 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/<namespace>/<app-name>/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+  # sourceRef comes from the cluster-apps defaults patch (kubernetes/flux/cluster/ks.yaml), which
+  # overwrites any value set here; it does the same to a plain GrafanaDashboard's instanceSelector
+  # and allowCrossNamespaceImport. Without sourceRef this file fails its $schema; that is expected.
   # dependsOn:
   #   - name: <other-app>
   # stateful apps: uncomment for kopiur-backed persistence — full var list in
@@ -82,7 +81,7 @@ spec:
   values:
     controllers:
       <app-name>:
-        strategy: RollingUpdate  # use Recreate for RWO ceph-block when needed
+        strategy: RollingUpdate  # drop for RWO ceph-block: Recreate is the chart default
 
         annotations:
           reloader.stakater.com/auto: "true"
@@ -110,13 +109,12 @@ spec:
         runAsNonRoot: true
         runAsUser: 568
         runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
+        # fsGroup: 568  # with a PVC only, like config below
+        # fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
 
     service:
       app:
-        controller: <app-name>
         ports:
           http:
             port: <port>

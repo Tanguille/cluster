@@ -1,6 +1,6 @@
 # Common Operations
 
-**When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, kopiur, snapshot.
+**When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt.
 
 Also serves as the authoritative command reference linked from `docs/useful_commands.md`.
 
@@ -60,15 +60,12 @@ Two related traps in the same family:
 
 Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full procedure.
 
-1. For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` with `namespace: <ns>` and component `../../components/common`; existing namespaces need no namespace step
-2. Create app in `kubernetes/apps/<namespace>/<app>/`
-3. Add Kustomization in appropriate `ks.yaml`
-4. Run validation on the new app: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (or `mise exec -- flate test all` directly, which renders the HelmRelease too — `kustomize build` alone doesn't)
+For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` with `namespace: <ns>` and component `../../components/common`; existing namespaces need no namespace step.
 
 ## Secrets management (SOPS)
 
 1. Create unencrypted file first
-2. Encrypt with: `sops --encrypt --in-place <file>`
+2. Encrypt with: `just kube encrypt` (every unencrypted `*.sops.*` under `kubernetes/`), or `sops --encrypt --in-place <file>` for one file or anything under `talos/`
 3. Or create with: `sops <file>.yaml` (edits encrypted)
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
@@ -76,15 +73,3 @@ Never commit plaintext secrets or the age key. Use placeholders so I can add the
 See the [SOPS runbook](../docs/sops.md) for key scope, index-based guardrails,
 human-held Vaultwarden backup, recovery, and coordinated rotation.
 `flux-system/sops-age` is the only key Flux reads (`--sops-age-secret`); never remove it.
-
-## Debugging
-
-Use [debug-cluster](skills/debug-cluster/SKILL.md) skill for structured 5-Whys analysis and troubleshooting.
-
-## Backup & Restore
-
-Use [backup-restore](skills/backup-restore/SKILL.md) skill for kopiur Kopia operations.
-
-## Other skills
-
-See the [skill catalog](../AGENTS.md#load-context-on-demand) for the remaining skills.

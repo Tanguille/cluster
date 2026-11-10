@@ -9,6 +9,13 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  # homelab-optional pods may sit Pending; don't wait on them.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
 
   values:
     controllers:
@@ -18,20 +25,26 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/anomalyco/opencode
-              tag: 1.18.35@sha256:ae90ec960c871b0ea6df9abc1c2ec1e6b36464e8eca9b0e71e1ed3b553f47aa2
+              # Same binary as upstream's image, which has no git and runs as root.
+              repository: ghcr.io/joryirving/opencode
+              tag: 2.2.7@sha256:d3ace7e4dc9fa146b7532bc812f5d3796eb29e7fe67c92f5b4e2a0281b54181f
             env:
               TZ: ${TIMEZONE}
-              HOME: /home/opencode
+              # Sessions migrated from the VM store absolute paths under this home.
+              HOME: /home/tanguille
               OPENCODE_CONFIG: /config/opencode.jsonc
               LLM_API_KEY: ${LLM_API_KEY}
+            envFrom:
+              - secretRef:
+                  name: opencode-secret
             securityContext:
               allowPrivilegeEscalation: false
-            command:
-              - opencode
-              - web
+            args:
+              - serve
               - --hostname
               - "0.0.0.0"
+              - --port
+              - "4096"
             probes:
               liveness:
                 enabled: true
@@ -55,15 +68,20 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
+                memory: 64Mi
               limits:
                 cpu: 1
                 memory: 2Gi
 
     defaultPodOptions:
-      priorityClassName: homelab-important
+      priorityClassName: homelab-optional
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
 
     service:
       app:
@@ -89,7 +107,7 @@ spec:
       home:
         existingClaim: *app
         globalMounts:
-          - path: /home/opencode
+          - path: /home/tanguille
       config-file:
         type: configMap
         name: opencode-config

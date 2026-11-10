@@ -6,9 +6,8 @@ metadata:
   name: d3-nano
 spec:
   # vllm-sr/d3-nano, vLLM Semantic Router's 2B decision model: llama-server answers its typed questions at
-  # /v1/systemone with per-option probabilities in one forward pass. Revision-pinned; Renovate bumps the sha via
-  # the git-refs manager in .renovaterc.json5, and refreshPolicy makes the bump re-fetch.
-  source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/50dea2057df10c4b393559a155ab3bf0bc7532c6/vllm-d3-nano-Q8_0.gguf
+  # /v1/systemone with per-option probabilities in one forward pass.
+  source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/f2256dfaff5b8337e8bf67ca064aeef18ee14a79/vllm-d3-nano-Q8_0.gguf
   refreshPolicy: OnChange
   # Only Q8_0 and BF16 are published.
   quantization: Q8_0
@@ -19,7 +18,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -29,8 +27,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  # /v1/systemone needs llama.cpp b11361 or later; this digest is b12033.
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:b5f99c093094d54c51e5bb9d79a87f7da28ca7021a7995ce62f769d7e47cc4b9
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:28a56d03c5cc4abeb16b2a5422c5286d9e48020a3cb3416434bff5fbf847bfa6
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
@@ -43,19 +40,14 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # One iGPU model per node; both sides carry the rule because anti-affinity is
-  # only checked for the moving pod.
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels:
-              app: embeddinggemma-2
-          topologyKey: kubernetes.io/hostname
+  # One iGPU model per node: embeddinggemma-2's required anti-affinity keeps this pod off its
+  # node too (the scheduler checks existing pods' rules against the incoming pod).
 
+  # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
@@ -64,6 +56,7 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); the 2.4 GiB Q8_0 lives mostly in amdgpu GTT (uncharged by memcg,
-    # counted by the scheduler).
-    memory: 2Gi
+    # memcg does not charge amdgpu GTT, so the request counts it: 0.2Gi cgroup plus its share of
+    # control-2's GTT (7d average 1.05Gi, p95 1.86Gi, shared with the reranker).
+    memory: 896Mi
+    memoryLimit: 2Gi

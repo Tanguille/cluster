@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserverentry_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServerEntry
+metadata:
+  name: cloudflare
+spec:
+  # Hosted Code Mode server (search + execute over the whole Cloudflare API); OAuth is
+  # interactive-only, so authenticate with an API token as a bearer header instead.
+  remoteUrl: https://mcp.cloudflare.com/mcp
+  transport: streamable-http
+  groupRef:
+    name: all
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          # The secret value must be the full header: "Bearer <token>".
+          key: CLOUDFLARE_API_TOKEN

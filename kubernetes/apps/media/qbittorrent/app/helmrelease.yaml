@@ -40,13 +40,6 @@ spec:
                 enabled: true
                 spec:
                   failureThreshold: 30
-            lifecycle:
-              preStop:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - sleep 5
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -54,11 +47,13 @@ spec:
             resources:
               requests:
                 cpu: 200m
-                memory: 1Gi
+                memory: 256Mi
               limits:
                 cpu: 1
                 memory: 3Gi
     defaultPodOptions:
+      # Fastresume flush for a large session outlasts the 30s default; SIGKILL loses torrent state.
+      terminationGracePeriodSeconds: 120
       securityContext:
         runAsNonRoot: true
         runAsUser: 568

@@ -9,18 +9,8 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/ai/llmkube/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
-  # Targeted healthCheck rather than spec.wait: llmkube-models only needs the
-  # CRD-providing HelmRelease Ready, not every rendered resource.
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2
-      kind: HelmRelease
-      name: llmkube
-      namespace: ai
+  wait: true
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -38,8 +28,4 @@ spec:
   # every rollout.
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace

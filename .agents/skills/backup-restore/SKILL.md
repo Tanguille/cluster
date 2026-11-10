@@ -40,7 +40,7 @@ the PVC, resume, verify. That file is the single copy, and also covers point-in-
 check.
 
 Not in that file: when the live uid does not match the manifest's `runAsUser`,
-`KOPIUR_PUID`/`KOPIUR_PGID` (and, only for genuine root,
+`KOPIUR_PUID` (and, only for genuine root,
 `KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"`) go in the app's own `ks.yaml`
 `postBuild.substitute` block — see [references/restore-pvc.md](references/restore-pvc.md).
 
@@ -51,9 +51,9 @@ Reference patterns in `kubernetes/components/kopiur/`. See
 
 ## Troubleshooting (inline)
 
-- Repository secret: `kubectl get secret -n kopiur-system kopia-nas-password` (shared across all apps
+- Repository secret: `kubectl get secret -n kopiur-system kopia-s3-credentials` (shared across all apps
   via credential projection — apps don't carry their own copy)
-- `ClusterRepository` health: `kubectl get clusterrepository kopia-nas`
+- `ClusterRepository` health: `kubectl get clusterrepository kopia-s3` (see [docs/kopiur-s3.md](../../../docs/kopiur-s3.md))
 
 Symptom-keyed failures (PVC never claimed, restore stalling, wrong `dataSourceRef`, mover stuck
 with no output) → [docs/kopiur-restore.md](../../../docs/kopiur-restore.md) Troubleshooting.

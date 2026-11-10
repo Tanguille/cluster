@@ -6,15 +6,9 @@ metadata:
   name: bge-reranker-v2-m3
 spec:
   # Cross-encoder reranker for memini recall (Cohere-style /v1/rerank).
-  # BGE-reranker-v2-m3, 568M params: one forward pass per (query, doc) pair on
-  # the shared iGPU; ~636MB of Q8_0 weights — small next to the 27B models,
-  # ~2x the embedder it reorders; both iGPU nodes host ~300MB-1.2GB models.
   # gpustack's re-quant: the cstr build omits the bert.context_length GGUF
-  # key, which llama.cpp's rerank path requires — the server hard-exits at
+  # key, which llama.cpp's rerank path requires: the server hard-exits at
   # model load ("key not found") and the pod crash-loops.
-  # Revision-pinned to the repo HEAD commit (immutable at that ref) —
-  # Renovate bumps the sha via the git-refs manager in .renovaterc.json5;
-  # refreshPolicy makes the bump actually re-fetch.
   source: https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/3093af03b1a635e67b084b1d8c03c5f5e020fd05/bge-reranker-v2-m3-Q8_0.gguf
   quantization: Q8_0
   refreshPolicy: OnChange
@@ -25,10 +19,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
-      # Slot counts live at the device plugin
-      # (kube-system/generic-device-plugin);
-      # nodeSelector below pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -43,7 +33,7 @@ spec:
   # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
   # model load before this Vulkan server is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:b5f99c093094d54c51e5bb9d79a87f7da28ca7021a7995ce62f769d7e47cc4b9
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:28a56d03c5cc4abeb16b2a5422c5286d9e48020a3cb3416434bff5fbf847bfa6
   # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
   # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
   parallelSlots: 1
@@ -56,8 +46,6 @@ spec:
     # 12 x 1024-char pairs: 3.5s with flash attention auto (on), 3.15s off; rankings identical.
     - "-fa"
     - "off"
-    - "--alias"
-    - "bge-reranker-v2-m3" # served model name memini sends (MEMINI_RERANK_MODEL)
   # Pin to the iGPU node, as with the embedder; without this the scheduler
   # could place it on the dGPU node (which also advertises squat.ai/dri) and
   # steal a dGPU slot from the 27B serving pod.
@@ -78,18 +66,21 @@ spec:
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime
   # path. Mirrored by embeddinggemma-2 / d3-nano.
+  # uid 101 is the model downloader's (llmkube --init-container-user); the root
+  # model-cache-prep init hands /models to group 102, so the server needs no root.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
 
   resources:
     cpu: "100m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.65Gi of amdgpu
-    # GTT. memcg does not charge GTT, but the scheduler must count it. 2Gi did
-    # not fit control-3 (1.76Gi requestable), pushing it onto the embedder's node.
-    memory: 1Gi
+    # ~0.2Gi cgroup plus its share of amdgpu GTT (0.4Gi in fdinfo). memcg does
+    # not charge GTT, but the scheduler must count it.
+    memory: 512Mi
+    memoryLimit: 1Gi
   endpoint:
     path: /v1/rerank

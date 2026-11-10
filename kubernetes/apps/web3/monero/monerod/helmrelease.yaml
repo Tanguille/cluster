@@ -9,6 +9,14 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  # low-priority-chain pods may sit Pending on a full cluster; waiting on them fails the upgrade and
+  # its rollback alike.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
   values:
     controllers:
       monerod:
@@ -16,10 +24,12 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: v0.18.5.4@sha256:465a9458f148d31748731cfb6bc1ab38289313dcb858a699838ab8d1b828578d
+              tag: v0.18.5.4@sha256:1d48b2b2fb22e7dff04f97132495bdc7b83608faffd3b2c213a09d72a4f7f99c
             securityContext:
-              # Entrypoint chowns data as root then su-execs to the app UID, so capabilities stay.
               allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -38,7 +48,7 @@ spec:
             resources:
               requests:
                 cpu: 50m
-                memory: 1Gi
+                memory: 64Mi
               limits:
                 cpu: 500m
                 memory: 1Gi
@@ -63,10 +73,15 @@ spec:
                   httpGet: *get-info
                   failureThreshold: 60
     defaultPodOptions:
+      priorityClassName: low-priority-chain
       # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s
       # default risks killing it mid-write.
       terminationGracePeriodSeconds: 120
+      # Started as 1000, the entrypoint skips its root chown + su-exec.
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
     service:

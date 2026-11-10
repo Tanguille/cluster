@@ -54,9 +54,11 @@ Two conventions keep the layers honest:
 
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
-`vip` and `gateway` are defined once in `mod.just` and passed to every layer. Node addresses and
-the `192.168.0.0/24` subnet are still literals in the files that use them; only these two are
-centralised.
+`vip` is defined once in `mod.just` and passed to every layer. `gateway` and `log_relay_ip` are
+read from `OPNSENSE_IP` and `TALOS_LOG_RELAY_IP` in
+`kubernetes/components/common/cluster-settings.yaml`, the values Flux uses for the router and
+the relay's Service. Node addresses and the `192.168.0.0/24` subnet are still
+literals in the files that use them; only these three are centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is
@@ -73,8 +75,8 @@ Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, 
 overrides, because it is the TrueNAS VM and the only dGPU host.
 
 Schematics are plain YAML, deliberately not templates. Routing them through `template` would
-decrypt the secrets bundle to render a file that references no secrets, on the hot path of nearly
-every `just talos` command. If a schematic ever needs a variable, add the extension back.
+decrypt the secrets bundle to render a file that references no secrets. If a schematic ever needs a
+variable, add the extension back.
 
 **The ID is content-addressed, so any change to a schematic's fields moves it** — including a
 one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
@@ -119,8 +121,8 @@ not scrub or trim in lockstep. That is what makes weekly safe on control-3 despi
 thermal-shutdown history: it never runs at the same moment as its peers.
 
 Trim reaches only what the node can discard. control-2 and control-3 install to real NVMe; control-1
-is the TrueNAS VM, installs to `/dev/vda`, and has no NVMe device at all (`talosctl get disks` shows
-only virtio and rbd), so its discards pass through to whatever the hypervisor does with them.
+is the TrueNAS VM, installs to virtio `/dev/vda` (its `nvme` devices are TrueNAS NVMe-oF
+namespaces), so its discards pass through to whatever the hypervisor does with them.
 
 ### Deliberately not adopted
 

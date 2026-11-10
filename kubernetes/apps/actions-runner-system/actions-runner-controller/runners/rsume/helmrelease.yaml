@@ -1,0 +1,144 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: rsume-runner
+spec:
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: 0.15.1
+      url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+  interval: 1h
+  values:
+    # Tanguille is a user account, not an org, so each repo needs its own scale set.
+    githubConfigUrl: https://github.com/Tanguille/rsume
+    # The tanguille-cluster GitHub App, also installed on rsume, so cluster-runner's secret serves both.
+    githubConfigSecret: cluster-runner-secret
+    minRunners: 0
+    # One runner at a time: the pod requests far below what a build uses and bursts up to its limits.
+    # A second runner would double that burst.
+    maxRunners: 1
+    controllerServiceAccount:
+      name: actions-runner-controller
+      namespace: actions-runner-system
+    # A rootless Podman sidecar serves the Docker API instead of privileged Docker-in-Docker: it
+    # runs as the runner's uid with only SETUID/SETGID. Costs: seccomp Unconfined (the default
+    # profile blocks user namespaces) and no bridge networks.
+    template:
+      spec:
+        # 1001 is the runner's gid; Podman runs as it too, so both can write the shared volumes.
+        securityContext:
+          fsGroup: 1001
+        initContainers:
+          # Native sidecar.
+          - name: podman
+            image: quay.io/podman/stable:v6.1.3@sha256:4cc31850c189386faca95d72988fe9573b3df06360cb65aea3ff5b17a04d0454
+            restartPolicy: Always
+            command:
+              [
+                "podman",
+                "system",
+                "service",
+                "--time=0",
+                "unix:///run/podman/podman.sock"
+              ]
+            env:
+              - name: HOME
+                value: /var/home
+              - name: CONTAINERS_CONF_OVERRIDE
+                value: /etc/containers/runner.conf
+            securityContext:
+              runAsUser: 1001
+              runAsGroup: 1001
+              # newuidmap/newgidmap are setuid helpers.
+              allowPrivilegeEscalation: true
+              capabilities:
+                drop: ["ALL"]
+                add: ["SETUID", "SETGID"]
+              seccompProfile:
+                type: Unconfined
+            startupProbe:
+              exec:
+                command:
+                  [
+                    "podman",
+                    "--remote",
+                    "--url",
+                    "unix:///run/podman/podman.sock",
+                    "info"
+                  ]
+              periodSeconds: 2
+              timeoutSeconds: 5
+              failureThreshold: 30
+            # Containers run inside the sidecar's cgroup (rootless, no cgroup delegation), so the
+            # app and Playwright count here.
+            resources:
+              requests:
+                cpu: 250m
+                # Far below a build's use, which bursts toward the limit.
+                memory: 128Mi
+                # The podman-home store's sizeLimit, so the scheduler accounts for it.
+                ephemeral-storage: 8Gi
+              limits:
+                memory: 4Gi
+            volumeMounts:
+              - name: podman-home
+                mountPath: /var/home
+              - name: podman-sock
+                mountPath: /run/podman
+              # Same path as the runner, so bind mounts in `docker run -v` resolve.
+              - name: work
+                mountPath: /home/runner/_work
+              - name: podman-ids
+                mountPath: /etc/passwd
+                subPath: passwd
+              - name: podman-ids
+                mountPath: /etc/group
+                subPath: group
+              - name: podman-ids
+                mountPath: /etc/subuid
+                subPath: subuid
+              - name: podman-ids
+                mountPath: /etc/subgid
+                subPath: subgid
+              - name: podman-ids
+                mountPath: /etc/containers/runner.conf
+                subPath: containers.conf
+        containers:
+          - name: runner
+            image: ghcr.io/home-operations/actions-runner:2.338.2@sha256:2dd7caa094a425c041539447cb0e6ae63cda10b5242773764683b695b8fa5613
+            command: ["/home/runner/run.sh"]
+            env:
+              - name: DOCKER_HOST
+                value: unix:///run/podman/podman.sock
+              # buildx's requests fail on rootless Podman without cgroups; the classic builder works.
+              - name: DOCKER_BUILDKIT
+                value: "0"
+            # The Rust build runs here, on the runner itself.
+            resources:
+              requests:
+                cpu: "1"
+                # See the Podman sidecar's requests: real use is up to the limit.
+                memory: 128Mi
+              limits:
+                memory: 8Gi
+            volumeMounts:
+              - name: podman-sock
+                mountPath: /run/podman
+              - name: work
+                mountPath: /home/runner/_work
+        volumes:
+          - name: work
+            emptyDir: {}
+          # Podman's image and container store; one job's images fit well inside this.
+          - name: podman-home
+            emptyDir:
+              sizeLimit: 8Gi
+          - name: podman-sock
+            emptyDir: {}
+          - name: podman-ids
+            configMap:
+              name: rsume-runner-podman

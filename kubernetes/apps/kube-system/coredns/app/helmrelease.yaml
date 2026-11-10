@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 1.50.1
+        tag: 1.50.4
       url: oci://ghcr.io/coredns/charts/coredns
   interval: 1h
   values:
@@ -36,7 +36,6 @@ spec:
     servers:
       - zones:
           - zone: .
-            scheme: dns://
             use_tcp: true
         port: 53
         plugins:

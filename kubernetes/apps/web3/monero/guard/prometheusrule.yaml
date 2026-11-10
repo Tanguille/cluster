@@ -102,3 +102,16 @@ spec:
               and can never re-earn safe=1 until queries recover
           labels:
             severity: warning
+        - alert: MoneroChainUnavailable
+          # KubePodNotReady and ReplicasMismatch are muted for the chain because preemption by a
+          # full cluster is expected; this catches real failures (PVC mount, upstream loss) and
+          # displacement that never recovers.
+          expr: |-
+            kube_deployment_status_replicas_available{namespace="web3", deployment=~"monerod|p2pool"} == 0
+          for: 2h
+          annotations:
+            summary: >-
+              {{ $labels.deployment }} has had no available replica for 2h: a failure, or the
+              cluster has had no room for the preemptible chain
+          labels:
+            severity: warning

@@ -30,8 +30,8 @@ and exports `xmrig_guard_safe{node}` plus `xmrig_guard_rank{node}`. It treats te
 untrusted: a complete set of fresh samples is required before a node can be safe, and every
 failure path fails closed. Policy is code, so changing a threshold requires a reviewed diff.
 
-`SENSORS` decides which source gates which node. control-1 is a VM with no visible NVMe, so it
-is gated on CPU headroom; the bare-metal mini PCs are gated on NVMe Composite temperature.
+`SENSORS` decides which source gates which node. control-1 is a VM with a properly cooled NVMe the guard
+cannot read, so it is gated on CPU headroom; the bare-metal mini PCs are gated on NVMe Composite temperature.
 
 | node | source | recover | trip | recovery dwell | trip dwell | panic |
 |---|---|---|---|---|---|---|
@@ -87,6 +87,10 @@ removing three hardcoded numbers that had to stay consistent with `threshold: 50
 The gate itself is a separate factor in the same query: cardinality must be exactly 1 and the
 sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
+A last `unless` drops every miner once the tech cave UPS load has peaked at 85 % or more in
+the past 5 minutes; missing UPS data leaves the other factors in charge. It is the first stage
+of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`.
+
 ## Measured
 
 Replayed against 180d of `node_hwmon_temp_celsius` (VM retention) at the native 20s cadence.
@@ -125,6 +129,13 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   The KEDA query therefore also requires allocatable memory minus Pending/Running pod requests,
   excluding the miner itself, to cover the 2Gi request, so a full node scales to 0 instead of
   leaving a miner Pending.
+  Requests now sit below usage, so the query also wants 4Gi of `MemAvailable`, counting the
+  miner's own use.
+- **The chain yields too.** On a full cluster regular pods preempt monerod and p2pool
+  (`low-priority-chain`). Both request a 64Mi token, so preemption rarely needs them. Under real memory pressure the kubelet
+  evicts by priority and use over request: a running miner first, then these. Once a node has room, a preempted monerod was observed Ready again in
+  30-92s and p2pool in 7-108s; without room it stays Pending, and `MoneroChainUnavailable` fires
+  after 2h.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
   node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
   idle but only ~320Mi while mining, since xmrig then requests 2Gi of regular pages instead.

@@ -13,14 +13,9 @@ spec:
     - ../../../../components/kopiur
   wait: true
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:
       APP: *app
       # Wizarr drops to uid 1000 and every PVC file is 1000:1000, so the mover needs no root.
       KOPIUR_PUID: "1000"
-      KOPIUR_PGID: "1000"

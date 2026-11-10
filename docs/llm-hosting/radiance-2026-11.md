@@ -24,7 +24,7 @@ did not move.
 - Cold prefill 2,209 tok/s against 1,250 (vLLM); single-request TTFT at 16K/64K/128K 8.3/43.3/114.5 s against 15.0/81.2/221.8 s on `9cef623`.
 - Single-stream decode at 4K 36.7 tok/s against 33.5.
 - Today's vLLM nightly is no faster than `9cef623` (25.8/42.6/54.4 against 26.0/41.5/54.3 at 1/2/4 sessions).
-- Quality: GSM8K 146/150 on every arm and on vLLM; tools 12/12, vision 2/2. Greedy agreement against `n009` is 26-27% on
+- Quality: GSM8K 146/150 on every arm and on vLLM; tools 12/12, vision 2/2. Greedy agreement against `n009` (baseline in git at `db102e988`) is 26-27% on
   radiance and 63% on vLLM today, so that gate cannot compare engines.
 - Speculation (MTP, DFlash2) roughly doubles decode at 1-4 sessions (DFlash2 63/78/64 agg tok/s at 1/2/4, adaptive window
   85.5 at 4) but stalled at 8 with 8 slots (agg 40-49, itl p90 430-490 ms); see Speculation.
@@ -32,6 +32,8 @@ did not move.
   (observed minimum 1.82 GiB with Jellyfin; not a guaranteed reserve).
 
 ## Speculation
+
+`bench/spectest.py` is the correctness check: the output must quote a long prompt back verbatim.
 
 Production since 2026-11-02: the bold row (flags in the manifest). Live idle-engine runs,
 `bench/prodshape.py --levels N --warmup --runs 2`, median agg tok/s, 0 preemptions unless noted:
@@ -60,6 +62,52 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 - Prompt lookup alone (`--spec-ngram`) is refused for a container that declares a draft head, and on 1.15.1
   `rad-convert --max-spec 0` drops the head's weights but still declares `mtp`, so it is untested. Untested: `--prefill-interleave`.
 - Draft acceptance in production ~52-60% (`radiance:draft_acceptance_ratio`).
+- Ceiling 6 since 2026-11-06, set from production counters, not a bench. At ceiling 4, 91% of verify steps ran at depth 4
+  (`radiance:draft_verify_depth_total`) and the last position still accepted 83%, at 3.21 tokens a step. Upstream's cost prior
+  is 6% a draft, so 6 should give about 17% more tokens for 10% more step time. 8 sequences x 7 rows stays under the 64-row
+  int8 path. Compare with the 4-ceiling baseline from 11-05 09:53Z to 11-06 00:48Z: decode p10/p50/p90 31.8/70.8/94.2 tok/s on
+  replies of 200+ tokens, production pool 537,840 tokens.
+
+## Long context (RULER)
+
+`bench/ruler.py` runs [RULER](https://github.com/NVIDIA/RULER) at `db43f92`: its 13 synthetic tasks at 4K-128K, 10 samples
+a cell, greedy, thinking off, RULER's answer prefix and string-match metric (no judge model). The prompt wrapper is the sharp
+template's no-thinking render, token-identical to the server's (26 tokens, same greedy output); each run checks that first.
+`runs/<name>/meta.json` pins a run to its per-cell sample hashes and the served `.rad`, checked before every prompt; a flag
+change needs a new run name. Each row records the production preemptions during its prompt. Sequential against the live pod
+with production alongside: 780 requests, 6.5 h (median 99 s a request at 128K, 39 s at 64K).
+
+Keep the samples: `~/.local/state/radiance-tune/ruler/data/10` (fingerprint `9c875ea2f4b4f25b`, also
+`ruler-data-10-2026-11-08.tar.gz`; 256K: `15b593cc2507426b`, `ruler-data-10-261888-2026-11-09.tar.gz`). RULER fetches the
+essays live, so a regenerated set does not compare.
+
+Baseline 2026-11-08, 1.17.0 at the manifest's flags (k6_v4, MTP ceiling 6, `--prefix-resume nearest`):
+
+| Task | 4K | 8K | 16K | 32K | 64K | 128K |
+| --- | --- | --- | --- | --- | --- | --- |
+| 8 NIAH tasks, vt, cwe | 100 | 100 | 100 | 100 | 100 | 100 |
+| fwe | 100 | 96.7 | 96.7 | 96.7 | 96.7 | 100 |
+| qa_1 | 70 | 70 | 70 | 80 | 80 | 70 |
+| qa_2 | 70 | 80 | 70 | 80 | 80 | 80 |
+| **Average** | **95.4** | **95.9** | **95.1** | **96.7** | **96.7** | **96.2** |
+
+- No falloff with length.
+- QA misses are the strict substring match and turns ended right after `Answer:` (qa_2 #1 at 4K: `<|im_end|>` at p 0.42).
+- Noise: a 32K rerun matched every cell; 121 of 130 outputs byte-identical, the other 9 only in formatting or list order.
+- Gate: any non-QA cell below baseline is a regression. A QA cell moves 10 per changed answer, so read QA from the averages
+  and rerun the cell before acting on one flip.
+
+Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (the 262,144 limit less room for the wrapper),
+10 samples, median 272 s a prompt (`--lengths 261888 --tasks niah_multikey_3,niah_multivalue,vt,cwe,qa_2`):
+
+| Task | 256K |
+| --- | --- |
+| niah_multikey_3, niah_multivalue, vt, cwe | 100 |
+| qa_2 | 70 (80 at 128K: one answer) |
+
+- A 256K prompt holds half the KV pool. Started beside agents, also under an at-most-2-running gate, these preempted 3
+  production sessions; `ruler.py` now holds any prompt over a third of the pool until the engine is idle on two scrapes 30 s
+  apart, and the last 11 ran with none.
 
 ## Cache
 
@@ -80,8 +128,8 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   1.24 GiB now if media peaks at the same absolute use (arithmetic, not measured), above `DgpuVramLow`'s 1 GiB and enough for a
   0.85 GB 4K DV transcode. 1536 would sit under the alert for about
   54 minutes per 36 h.
-- Tier 16384 with a 30Gi request (48Gi limit): about 27.4 GiB working set, estimated. control-1's requests were at 97% of allocatable,
-  leaving 1.6 GiB schedulable, now 3.6. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
+- Tier 16384 with a 26Gi request (48Gi limit, was 30Gi): working set settled at 26.8 GiB and grew at most 0.17 GiB under load (measured 2026-11-10). The request sits just
+  below that, 4 GiB under the old 30Gi. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
 - After a roll, check working set, pool size, whole-card free VRAM during media use, returning-chat TTFT and preemptions. Rollback:
   headroom 2560, tier 19456 and request 32Gi together.
 
@@ -92,9 +140,6 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   provisional.
 - Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
   so both move in one `radiance` PR, opened as soon as the release appears; merging stays manual.
-- Cutover, once after this migration merges: the live InferenceService carries `kustomize.toolkit.fluxcd.io/reconcile=disabled`
-  from the trial, so Flux skips it. Wait for `qwen38-27b-rad-convert` to finish, then
-  `kubectl -n ai annotate isvc qwen38-27b-vllm kustomize.toolkit.fluxcd.io/reconcile-`; the idle-gated rollout does the rest.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.

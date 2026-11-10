@@ -119,8 +119,7 @@ spec:
               find /models -mindepth 1 -maxdepth 1 -type d ! -path "$$src" -exec rm -rf {} +
               ls -l /out
           resources:
-            # control-1's memory requests are full (136 MiB left on 2026-11-02), so a token request lets it schedule;
-            # the limit covers the 1.15 GiB peak working set (coarse samples of a 45 s run).
+            # Token request so the download never waits for request room; the limit covers the 1.15 GiB peak working set (coarse samples of a 45 s run).
             requests:
               cpu: "2"
               memory: 64Mi
@@ -149,10 +148,10 @@ spec:
   # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
   command: [radiance]
-  parallelSlots: 7
   # After a bump the owner runs bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the
-  # KV pool under --max-num-seqs); baseline: docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the
-  # card holds one engine, so a bench means stopping production.
+  # KV pool under --max-num-seqs), plus bench/ruler.py after a KV, resume, attention or chat template change; baselines:
+  # docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the card holds one engine, so a bench means
+  # stopping production.
   image: docker.io/stilldeadcode/radiance:1.17.0@sha256:6fb0e99bfb862e17cc15cb7b2f116c7dbdc831df59f82456a0691122e6cf5330
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
@@ -200,10 +199,10 @@ spec:
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
-    # MTP drafts up to 4; the adaptive window picks the depth per step from measured step cost
+    # Ceiling for MTP drafts; the adaptive window picks the depth per step from measured step cost
     # (docs/llm-hosting/radiance-2026-11.md).
     - --num-speculative-tokens
-    - "4"
+    - "6"
     - --draft-window
     - adaptive
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
@@ -246,21 +245,14 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins 16 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); ~27.4 GiB working set, estimated.
-    memory: 30Gi
-    # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: control-1's
-    # requests are full, and 64Gi would pass its 59 GiB allocatable.
+    # Engine log pins 16.00 tier + 7.15 checkpoints + 3.23 host pool GiB; working set 26.8 GiB, see docs/llm-hosting/radiance-2026-11.md.
+    memory: 26Gi
+    # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: 64Gi would pass
+    # control-1's 59 GiB allocatable.
     memoryLimit: 48Gi
   endpoint:
     port: 8000
   probeOverrides:
-    startup:
-      httpGet:
-        path: /health
-        port: 8000
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      failureThreshold: 180
     # No slow-band restart probe: none seen on radiance; LLMDecodeStepLatched pages instead.
     liveness:
       httpGet:

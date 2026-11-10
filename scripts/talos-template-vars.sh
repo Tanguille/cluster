@@ -30,12 +30,7 @@ injected="$(grep -hoP -- '-D "\K[a-zA-Z_][a-zA-Z0-9_]*' \
 
 templates=("${TALOS}"/*.yaml.j2 "${TALOS}"/nodes/*/*.yaml.j2)
 
-# {% set x = %} / {% for x in %} bind locally and are not context variables. Often empty, so the
-# filter below is applied conditionally -- `grep -vxF ""` matches every line and would empty the set.
-local_names="$(grep -hoP '\{%-? *(?:set|for) +\K[a-zA-Z_][a-zA-Z0-9_]*' "${templates[@]}" | sort -u || true)"
-
 used="$(grep -hoP '\{\{-? *\K[a-zA-Z_][a-zA-Z0-9_.]*' "${templates[@]}" | sort -u)"
-[[ -n "${local_names}" ]] && used="$(grep -vxF "${local_names}" <<<"${used}" || true)"
 [[ -n "${used}" ]] || {
     echo "no {{ }} references found under talos/" >&2
     exit 1
@@ -54,6 +49,19 @@ while IFS= read -r var; do
     echo "ORPHANED    -D ${var} is injected but no template references it" >&2
     rc=1
 done <<<"${injected}"
+
+# render-config reads some -D values from the Flux cluster settings; a renamed key fails here.
+settings="${REPO_ROOT}/kubernetes/components/common/cluster-settings.yaml"
+keys="$(grep -oP '\.data\.\K[A-Z0-9_]+' "${TALOS}/mod.just" | sort -u)"
+[[ -n "${keys}" ]] || {
+    echo "no cluster-settings reads found in talos/mod.just" >&2
+    exit 1
+}
+while IFS= read -r key; do
+    yq -e ".data.${key}" "${settings}" >/dev/null 2>&1 && continue
+    echo "MISSING     cluster-settings has no ${key}, which talos/mod.just reads" >&2
+    rc=1
+done <<<"${keys}"
 
 ((rc)) || echo "ok: $(wc -l <<<"${used}") references resolve, $(wc -l <<<"${injected}") injected and all used"
 exit "${rc}"

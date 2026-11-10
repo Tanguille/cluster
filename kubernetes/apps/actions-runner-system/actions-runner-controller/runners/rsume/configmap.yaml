@@ -1,0 +1,27 @@
+---
+# Identity and config for rsume-runner's rootless Podman sidecar, which runs as the runner's
+# uid 1001 so files containers write to the shared work volume belong to the runner.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rsume-runner-podman
+data:
+  passwd: |
+    root:x:0:0:root:/root:/bin/bash
+    runner:x:1001:1001:runner:/var/home:/bin/bash
+  group: |
+    root:x:0:
+    runner:x:1001:
+  # Subordinate ids for the rootless user namespace; they must not include 1001 itself.
+  subuid: |
+    runner:100000:65536
+  subgid: |
+    runner:100000:65536
+  containers.conf: |
+    [containers]
+    # Bind the pod's /proc: mounting a fresh one is refused under the container's masked /proc.
+    volumes = ["/proc:/proc"]
+    # Podman's default ping_group_range sysctl is refused in the pod's network namespace.
+    default_sysctls = []
+    # Container uid 1001 maps to the runner itself.
+    userns = "keep-id"

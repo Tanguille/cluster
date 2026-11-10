@@ -304,10 +304,6 @@ passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go`), so an
 node is never enumerated as a candidate and takes no outdated taint. `kubernetes.io/hostname
 NotIn [<node>]` is the shape; the CR itself says which nodes are currently held, if any.
 
-`getTargetVersion` still prefers a node annotation over the CR (`upgrade.go`) and Talos no
-longer owns that key, so `kubectl annotate node <node> tuppr.home-operations.com/version=<string>`
-is the imperative fallback for a hold that leaves no diff — see "Rolling a bump back".
-
 **A third thing is true for the CR.** Once a node reports `v<talos>-k<kernel>`, tuppr derives the
 talosctl job image tag from that same string and pulls
 `ghcr.io/siderolabs/talosctl:v1.13.9-k7.1.9`, which siderolabs never publishes — the job hangs in

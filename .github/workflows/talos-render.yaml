@@ -11,6 +11,7 @@ on:
       - talos/**
       - .justfile
       - scripts/talos-template-vars.sh
+      - kubernetes/components/common/cluster-settings.yaml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -26,7 +27,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          # No cache: this job runs on PRs only, so every PR would save its own copy.
+          cache: false
+          install_args: aqua:casey/just aqua:mikefarah/yq
 
       - name: Check template variables
         run: scripts/talos-template-vars.sh

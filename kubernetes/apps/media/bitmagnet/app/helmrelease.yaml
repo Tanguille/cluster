@@ -17,8 +17,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 568
         runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
     controllers:
       bitmagnet:
@@ -40,7 +38,6 @@ spec:
             env:
               # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
               POSTGRES_HOST: &pg-host pgbouncer-session.database.svc.cluster.local
-              HOME: /tmp
               # Loads /etc/bitmagnet/classifier.yml from the config mount.
               XDG_CONFIG_HOME: /etc
               CLASSIFIER_WORKFLOW: movies_tv
@@ -64,7 +61,7 @@ spec:
             resources:
               requests:
                 cpu: 250m
-                memory: 512Mi
+                memory: 192Mi
               limits:
                 memory: 2Gi
             securityContext: &container-security
@@ -79,12 +76,14 @@ spec:
           backoffLimit: 1
           # A kept failed Job holds KubeJobFailed until it is deleted (same as etcd-defrag).
           ttlSecondsAfterFinished: 3600
+          # Bounds a hung run (same as etcd-defrag).
+          activeDeadlineSeconds: 3600
         initContainers:
           select:
             # The postgres16 cluster's image: already on every node.
             image:
               repository: ghcr.io/cloudnative-pg/postgresql
-              tag: 18.6-standard-trixie@sha256:03d91d7e0d9bc84be41ed3dc654080eed30233a45d6fbdb523d2091c4dafc37e
+              tag: 18.6-standard-trixie@sha256:45317a79602e17ce64e747fd0e06e0d5e1d692a9008e8d4e2347eebdd830b8b9
             # -q: command tags (DELETE n, DROP INDEX) would otherwise land in the hash list.
             command:
               [
@@ -120,7 +119,7 @@ spec:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
             image:
               repository: python
-              tag: 3.15-slim@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
+              tag: 3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
             command: [python3, /prune/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security

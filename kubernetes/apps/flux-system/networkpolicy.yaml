@@ -24,7 +24,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: konflate-ingress-toolhive
 spec:
-  # The toolhive vmcp reaches konflate /mcp (MCPServerEntry); nothing else in ai gets into flux-system.
+  # The toolhive vmcp reaches konflate /mcp (MCPServerEntry); ai is not in the allowlist above.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: konflate

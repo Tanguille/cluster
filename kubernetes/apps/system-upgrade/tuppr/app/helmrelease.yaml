@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.5.12
+        tag: 0.5.13
       url: oci://ghcr.io/home-operations/charts/tuppr
   interval: 1h
   timeout: 10m
@@ -17,8 +17,9 @@ spec:
     replicaCount: 2
     resources:
       requests:
-        memory: 512Mi
+        memory: 32Mi
     # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
+    # pod-template-hash: only same-revision pods repel, so a rollout surge pod may share a node with an old pod.
     affinity:
       podAntiAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
@@ -26,6 +27,8 @@ spec:
             labelSelector:
               matchLabels:
                 app.kubernetes.io/name: tuppr
+            matchLabelKeys:
+              - pod-template-hash
     monitoring:
       serviceMonitor:
         enabled: true

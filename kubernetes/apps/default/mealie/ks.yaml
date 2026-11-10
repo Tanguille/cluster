@@ -11,10 +11,6 @@ spec:
       namespace: database
   path: ./kubernetes/apps/default/mealie/app
   targetNamespace: *namespace
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   prune: true
   interval: 30m
   components:
@@ -23,4 +19,3 @@ spec:
     substitute:
       APP: *app
       KOPIUR_PUID: "1000"
-      KOPIUR_PGID: "1000"

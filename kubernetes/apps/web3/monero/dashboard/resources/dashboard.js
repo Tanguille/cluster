@@ -123,11 +123,6 @@ function isPositiveNumber(value) {
   return typeof value === "number" && !Number.isNaN(value) && value > 0;
 }
 
-function safeParseInt(value, fallback = 0) {
-  const parsed = parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
 function scaleHashrate(hashrate) {
   if (!isPositiveNumber(hashrate)) return "0 H/s";
 
@@ -164,15 +159,14 @@ function formatDate24Hours(date) {
  * Formats relative time (e.g., "5m ago")
  * @param {number} timestamp - Unix timestamp in seconds
  * @param {Object} opts - options for edge-case labels
- * @param {string} [opts.zeroLabel="Never"] - label for null/zero timestamps
  * @param {string} [opts.invalidLabel="Unknown"] - label for invalid timestamps
  * @param {(diff: number) => string} [opts.underMinute] - formatter for <60s; default: `${diff}s ago`
  * @returns {string}
  */
 function formatRelativeTime(timestamp, opts = {}) {
-  const { zeroLabel = "Never", invalidLabel = "Unknown", underMinute } = opts;
+  const { invalidLabel = "Unknown", underMinute } = opts;
 
-  if (!timestamp || timestamp === 0) return zeroLabel;
+  if (!timestamp) return "Never";
   if (!isPositiveNumber(timestamp)) return invalidLabel;
 
   const diff = Math.floor(Date.now() / 1000 - timestamp);
@@ -333,13 +327,10 @@ function calculateMovingAverages(
 
 async function loadObserverConfig() {
   const cfg = await fetchJSON("/observer_config");
-  if (!isValidObject(cfg) || !cfg.wallet || !cfg.observer) {
-    return null;
-  }
+  if (!isValidObject(cfg) || !cfg.wallet || !cfg.observer) return;
 
   state.observerBase = cfg.observer;
   state.observerWallet = cfg.wallet;
-  return cfg;
 }
 
 async function getWindowStartTimestamp(allShares) {
@@ -420,13 +411,8 @@ const CHART_COLORS = Object.fromEntries(
   }).map(([name, token]) => [name, ROOT_STYLE.getPropertyValue(token).trim()])
 );
 
-/**
- * Shared Chart.js options used by both hashrate and price charts.
- * Override yTicks or tooltipCallbacks as needed.
- */
-function sharedChartOptions(overrides = {}) {
-  const { yTicks, tooltipCallbacks } = overrides;
-
+/** Shared Chart.js options used by both hashrate and price charts. */
+function sharedChartOptions({ yTicks, tooltipCallbacks }) {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -441,7 +427,7 @@ function sharedChartOptions(overrides = {}) {
         borderWidth: 1,
         padding: 10,
         displayColors: false,
-        ...(tooltipCallbacks ? { callbacks: tooltipCallbacks } : {})
+        callbacks: tooltipCallbacks
       }
     },
     scales: {
@@ -470,7 +456,7 @@ function sharedChartOptions(overrides = {}) {
         }
       },
       y: {
-        ...(yTicks ? { ticks: yTicks } : {}),
+        ticks: yTicks,
         border: { display: false },
         grid: {
           color: CHART_COLORS.grid,
@@ -514,16 +500,15 @@ function lineDataset(
 /**
  * Creates or updates a Chart.js instance.
  * @param {HTMLCanvasElement} canvas
- * @param {Object} chartState - state object
  * @param {string} stateKey - key in state (e.g. 'hashrateChart')
  * @param {Object} chartConfig - { label, data, yTicks, tooltipCallbacks }
  */
-function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
+function initOrUpdateChart(canvas, stateKey, chartConfig) {
   if (!canvas) return;
 
-  if (!chartState[stateKey]) {
+  if (!state[stateKey]) {
     // options are read only at construction; building them per tick was pure waste
-    chartState[stateKey] = new Chart(canvas, {
+    state[stateKey] = new Chart(canvas, {
       type: "line",
       data: {
         labels: chartConfig.labels,
@@ -536,15 +521,12 @@ function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
           )
         ]
       },
-      options: sharedChartOptions({
-        yTicks: chartConfig.yTicks,
-        tooltipCallbacks: chartConfig.tooltipCallbacks
-      })
+      options: sharedChartOptions(chartConfig)
     });
   } else {
-    chartState[stateKey].data.labels = chartConfig.labels;
-    chartState[stateKey].data.datasets[0].data = chartConfig.data;
-    chartState[stateKey].update();
+    state[stateKey].data.labels = chartConfig.labels;
+    state[stateKey].data.datasets[0].data = chartConfig.data;
+    state[stateKey].update();
   }
 }
 
@@ -604,7 +586,7 @@ function initializeHashrateChart(chartWindow) {
       DOM.hashrateChart,
       chartWindow.myHash.length === 0
     );
-    initOrUpdateChart(DOM.hashrateChart, state, "hashrateChart", {
+    initOrUpdateChart(DOM.hashrateChart, "hashrateChart", {
       label: "Your Hashrate",
       data: chartWindow.myHash,
       labels: chartWindow.labels,
@@ -630,7 +612,7 @@ function initializePriceChart(chartWindow) {
       DOM.priceChart,
       chartWindow.price.length === 0
     );
-    initOrUpdateChart(DOM.priceChart, state, "priceChart", {
+    initOrUpdateChart(DOM.priceChart, "priceChart", {
       label: "XMR Price (EUR)",
       line: CHART_COLORS.alt,
       fill: CHART_COLORS.altFill,
@@ -960,7 +942,7 @@ function updateWorkersList() {
     .map((workerStr) => {
       const parts = workerStr.split(",");
       const ipPort = parts[0] || "Unknown";
-      const hashrate = safeParseInt(parts[1], 0);
+      const hashrate = parseInt(parts[1], 10);
       const name =
         parts[4]?.trim() && parts[4] !== "x"
           ? parts[4]
@@ -1027,7 +1009,7 @@ function sampleStepMs(timestamps) {
 
 /**
  * Split a /stats_history.json window into local calendar days, newest first.
- * A null hashrate is "not recorded" (logger down or price-only backfill), which
+ * A null hashrate is "not recorded" (logger down or an older price-only bucket), which
  * is kept apart from a recorded 0 H/s so it never reads as an idle day.
  */
 function splitDays(data, count) {
@@ -1528,15 +1510,13 @@ async function updateStats() {
     // Fetch observer data once — shared by payments, shares, and luck
     // Note: p2pool.observer /shares does NOT support ?miner= filter,
     // so we fetch all recent shares and filter client-side.
-    const fetched =
-      state.observerBase && state.observerWallet
-        ? await Promise.all([
-            fetchJSON(`/observer/payouts/${state.observerWallet}`),
-            fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
-            fetchJSON("/observer/pool_info")
-          ])
-        : [null, null, null];
-    const [payouts, allShares, poolInfo] = fetched;
+    const [payouts, allShares, poolInfo] = isObserverReady()
+      ? await Promise.all([
+          fetchJSON(`/observer/payouts/${state.observerWallet}`),
+          fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
+          fetchJSON("/observer/pool_info")
+        ])
+      : [null, null, null];
 
     // Filter shares to only this miner's
     // Note: API returns `miner` as a numeric ID, so we match on `miner_address`
@@ -1544,17 +1524,14 @@ async function updateStats() {
       ? allShares.filter((s) => s.miner_address === state.observerWallet)
       : [];
 
-    const [newestPayoutTime, totalXMR] = await updateRecentPayments(
+    const [newestPayoutTime, totalXMR] = updateRecentPayments(
       payouts,
       priceEUR
     );
 
-    await updateSharesCard(minerShares, payouts);
+    updateSharesCard(minerShares, payouts);
 
-    const pplnsWeight =
-      poolData?.pool_statistics?.pplnsWeight ||
-      poolData?.pool_statistics?.pplns_weight ||
-      0;
+    const pplnsWeight = poolData?.pool_statistics?.pplnsWeight || 0;
     const windowStart = await getWindowStartTimestamp(allShares);
     const windowEnd = Date.now() / 1000;
     const windowDuration = windowEnd - windowStart;

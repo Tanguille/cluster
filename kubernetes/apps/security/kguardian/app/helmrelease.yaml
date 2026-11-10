@@ -131,7 +131,7 @@ spec:
       # Rescanned ~13k unresolved DHT-peer rows every ~76s and resolved 1 in 16 passes; ingest still resolves.
       peerResolution:
         lateResolveWindowSeconds: 0
-      # Its own window; it followed the audit retention (14 -> chart 30) when unset.
+      # Its own window; unset it follows the audit retention (chart 30).
       podInventory:
         retention:
           deadPodDays: 3
@@ -155,6 +155,7 @@ spec:
 
     # Memory covers the 368Mi 30d peak (grows with pod age); CPU trim saves 150m across the DaemonSet.
     controller:
+      priorityClassName: homelab-critical
       resources:
         requests:
           cpu: 50m

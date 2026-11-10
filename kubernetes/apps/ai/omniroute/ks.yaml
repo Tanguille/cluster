@@ -9,10 +9,6 @@ spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/ai/omniroute/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   wait: true
   interval: 30m
   components:
@@ -22,4 +18,3 @@ spec:
       APP: *app
       PVC_CAPACITY: 4Gi
       KOPIUR_PUID: "1000"
-      KOPIUR_PGID: "1000"

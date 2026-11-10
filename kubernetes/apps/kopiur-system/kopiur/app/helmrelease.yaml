@@ -9,24 +9,10 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.10.17
+        tag: 0.10.18
       url: oci://ghcr.io/home-operations/charts/kopiur
   interval: 1h
   values:
-    # Controller runs kopia in-process; Restore fails "/repo not mounted" without this (kopiur#137).
-    extraVolumes:
-      - name: repo
-        nfs:
-          server: "${TRUENAS_IP}"
-          path: ${BACKUP_NFS_PATH}
-    extraVolumeMounts:
-      - name: repo
-        mountPath: /repo
-    podSecurityContext:
-      # 568 not chart-default 65534: must read the uid-568 NFS repo
-      runAsUser: 568
-      runAsGroup: 568
-      fsGroup: 568
     features:
       credentialProjection:
         enabled: true # shared repo, movers in many namespaces
@@ -47,7 +33,12 @@ spec:
       auth:
         anonymous:
           enabled: true
-          user: kopiur-lan
+          user: &lanUser kopiur-lan
+      rbac:
+        bindings:
+          - role: viewer
+            users:
+              - *lanUser
       networkPolicy:
         enabled: true
         proxySelector:

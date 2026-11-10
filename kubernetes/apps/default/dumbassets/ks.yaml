@@ -11,14 +11,9 @@ spec:
     - ../../../../components/kopiur
   path: ./kubernetes/apps/default/dumbassets/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:
       APP: *app
       PVC_CAPACITY: 1Gi
       KOPIUR_PUID: "65532"
-      KOPIUR_PGID: "65532"

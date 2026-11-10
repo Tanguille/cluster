@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""One /metrics scrape (running/waiting + spec-decode counters) shared by walltime.py,
-toolbench.py and prodshape.py; one call per check because port-forwarded scrapes wedged."""
+"""One /metrics scrape (running/waiting + spec-decode counters) shared by the bench scripts;
+one call per check because port-forwarded scrapes wedged."""
 import time
 import urllib.request
 
@@ -57,7 +57,7 @@ def wait_idle(port, tries=60, delay=5):
     pre-run counter baseline instead of scraping again. Benchmarks must gate on
     0 running / 0 waiting -- production traffic contaminates the numbers.
 
-    TWO consecutive idle scrapes, matching longctx.py: a single one can land in
+    TWO consecutive idle scrapes: a single one can land in
     the gap between two production requests and read idle on a busy engine.
 
     On timeout this returns a NON-idle Sample rather than raising; every caller

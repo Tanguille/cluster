@@ -5,12 +5,11 @@ kind: Kustomization
 
 resources:
   - helmrelease.yaml
-  - networkpolicy.yaml
   - secret.sops.yaml
 configMapGenerator:
   - name: searxng-configmap
     files:
       - settings.yml=./resources/settings.yaml
-      - limiter.toml=./resources/limiter.toml
+      - ./resources/limiter.toml
 generatorOptions:
   disableNameSuffixHash: true

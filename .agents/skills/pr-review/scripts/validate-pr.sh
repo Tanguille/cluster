@@ -6,7 +6,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 ERRORS=0
-WARNINGS=0
 
 echo "======================================"
 echo "  GitOps PR Validation (Local)"
@@ -15,7 +14,6 @@ echo ""
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 pass() {
@@ -25,11 +23,6 @@ pass() {
 fail() {
     echo -e "${RED}✗${NC} $1"
     ERRORS=$((ERRORS + 1))
-}
-
-warn() {
-    echo -e "${YELLOW}⚠${NC} $1"
-    WARNINGS=$((WARNINGS + 1))
 }
 
 # Phase 1: Flux Manifest Validation
@@ -47,7 +40,7 @@ else
 fi
 echo ""
 
-# Phase 2: Shellcheck (if shell scripts exist)
+# Phase 2: Shellcheck
 echo "[2/3] Shell Script Validation..."
 # Include tracked and new non-ignored scripts, never ignored clones or nested worktrees.
 # Git paths are relative to REPO_ROOT, so its own path may safely contain /worktrees/.
@@ -66,18 +59,12 @@ if git -C "${REPO_ROOT}" ls-files --cached --others --exclude-standard -z -- '*.
 else
     fail "Unable to discover repository shell scripts"
 fi
-if [ "${#SHELL_SCRIPTS[@]}" -gt 0 ]; then
-    if command -v shellcheck &>/dev/null; then
-        if shellcheck "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
-            pass "shellcheck passed"
-        else
-            fail "shellcheck found issues"
-        fi
-    else
-        warn "shellcheck not installed"
-    fi
+if ! command -v shellcheck &>/dev/null; then
+    fail "shellcheck not installed (run via mise exec)"
+elif shellcheck "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
+    pass "shellcheck passed"
 else
-    pass "No shell scripts to check"
+    fail "shellcheck found issues"
 fi
 echo ""
 
@@ -96,17 +83,11 @@ echo "  Validation Summary"
 echo "======================================"
 echo ""
 
-if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
+if [ $ERRORS -eq 0 ]; then
     echo -e "${GREEN}All checks passed!${NC} Safe to commit and push."
     exit 0
-elif [ $ERRORS -eq 0 ]; then
-    echo -e "${YELLOW}Warnings found:${NC} $WARNINGS"
-    echo "Consider addressing warnings before PR."
-    exit 0
-else
-    echo -e "${RED}Errors found:${NC} $ERRORS"
-    echo -e "${YELLOW}Warnings found:${NC} $WARNINGS"
-    echo ""
-    echo "Fix errors before pushing."
-    exit 1
 fi
+echo -e "${RED}Errors found:${NC} $ERRORS"
+echo ""
+echo "Fix errors before pushing."
+exit 1

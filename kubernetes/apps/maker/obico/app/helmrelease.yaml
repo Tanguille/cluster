@@ -1,0 +1,91 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: obico
+spec:
+  chart:
+    kind: OCIRepository
+    spec:
+      interval: 1h
+      ref:
+        tag: 0.6.0
+      url: oci://ghcr.io/gabe565/charts/obico
+  interval: 30m
+  timeout: 15m
+
+  values:
+    # Both chart pods run as the namespace default SA and never call the apiserver.
+    automountServiceAccountToken: false
+    server:
+      # Server and tasks containers share this pod, so one label covers both.
+      podLabels:
+        egress.home.arpa/dragonfly: allow
+      securityContext: &nonroot-context
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities: { drop: [ALL] }
+      initContainers:
+        # Chart runs collectstatic as root; keep its uid and capabilities.
+        collectstatic:
+          securityContext:
+            allowPrivilegeEscalation: false
+        migrate:
+          securityContext: *nonroot-context
+      image:
+        repository: ghcr.io/gabe565/obico/web
+        tag: release@sha256:a7c9eb558743508da46f2e66dcf51c42956affb7b8ed161a189ab4886fa38a65
+      env:
+        ACCOUNT_ALLOW_SIGN_UP: "True"
+        CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
+        # The map renders sorted, so REDIS_PASSWORD precedes the REDIS_URL that expands it.
+        REDIS_PASSWORD:
+          secretKeyRef:
+            name: dragonfly-auth
+            key: password
+        REDIS_URL: "redis://:$(REDIS_PASSWORD)@dragonfly.database.svc.cluster.local:6379"
+        SITE_USES_HTTPS: "True"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi # measured 163Mi steady
+        limits:
+          memory: 1Gi
+      additionalContainers:
+        tasks:
+          securityContext: *nonroot-context
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi # measured 316Mi steady
+            limits:
+              memory: 1Gi
+      persistence:
+        data:
+          enabled: true
+          storageClass: ceph-block
+          accessMode: ReadWriteOnce
+          size: 10Gi
+        media:
+          enabled: true
+          storageClass: ceph-block
+          accessMode: ReadWriteOnce
+          size: 20Gi
+
+    ml-api:
+      securityContext: *nonroot-context
+      image:
+        repository: ghcr.io/gabe565/obico/ml-api
+        tag: release@sha256:a85d2931912309265b2d8d502a29c938e8aa0931564743a4e37a71838f9a2271
+      env:
+        DEBUG: "False"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 192Mi
+        limits:
+          memory: 1Gi
+
+    redis:
+      enabled: false

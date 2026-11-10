@@ -24,7 +24,7 @@ List silenced and inhibited instances separately as known conditions, so a silen
 kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?active=false&unprocessed=false' | jq -r '.[] | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-", (if (.status.silencedBy | length) > 0 then "silenced" else "inhibited" end)] | @tsv'
 ```
 
-Without kubectl, drop instances matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` (`alerting_silences_read` sees only Grafana's own silences). In `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`, also drop those routed to `blackhole`, and `inhibit_rules` targets only while a source alert with the same `equal` labels fires.
+Without kubectl, drop instances matched by the `Watchdog` `inhibit_rules` in `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml` (`alerting_silences_read` sees only Grafana's own silences). In `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`, also drop those routed to `blackhole`, and `inhibit_rules` targets only while a source alert with the same `equal` labels fires.
 
 ## Step 2 — CPU by workload
 

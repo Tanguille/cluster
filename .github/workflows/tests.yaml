@@ -25,10 +25,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
+          # Save from main only; PR-scoped copies crowd the Actions cache quota.
+          cache_save: ${{ github.event_name == 'push' }}
           # Secret-check tests need yq and exercise hook ordering with pinned Lefthook; the bootstrap test builds the helmfiles.
           install_args: aqua:mikefarah/yq aqua:evilmartians/lefthook aqua:helm/helm aqua:helmfile/helmfile
 
       - name: Regression tests
-        run: mise exec -- python3 -m unittest discover -s scripts -v
+        run: python3 -m unittest discover -s scripts -v

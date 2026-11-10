@@ -65,7 +65,7 @@ spec:
                     - control-1
     image:
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:a95dee2ba3e6be69840baac100dc81741f145427a92d0489711a85819d8cb448
+      tag: 35.0.2-fpm@sha256:187e41745c65a2c5e136fbc92137979d6b62d1bf8844f9ebd7681677ad361d63
 
     lifecycle:
       postStartCommand:
@@ -75,8 +75,17 @@ spec:
     nginx:
       enabled: true
       image:
-        repository: nginx
-        tag: 1.31.8-alpine@sha256:b2f80f8f88146b0772fdcc7d92cea621aa8c2889fa8d07ed61d4884fcea53e09
+        repository: nginxinc/nginx-unprivileged
+        tag: 1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
+      # containerd allows unprivileged ports, so the chart's listen 80 still binds.
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -85,11 +94,11 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
-      # 256Mi OOMKilled mid-upload of the nightly HA backup (08-23, 09-04, 09-05); 30d scraped peak 101Mi.
+      # 7d scraped peak 32Mi; upload spikes fall between scrapes, and a 256Mi limit OOMKilled the nightly HA backup (08-23, 09-04, 09-05).
       resources:
         requests:
           cpu: 50m
-          memory: 256Mi
+          memory: 64Mi
         limits:
           cpu: 2
           memory: 512Mi
@@ -363,7 +372,8 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 500Mi
+            # Affinity pins it to the app pod's node; a large request there went Pending.
+            memory: 256Mi
           limits:
             cpu: "2"
             # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
@@ -383,7 +393,7 @@ spec:
     resources:
       requests:
         cpu: 100m
-        memory: 500Mi
+        memory: 192Mi
       limits:
         cpu: 4
         # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)

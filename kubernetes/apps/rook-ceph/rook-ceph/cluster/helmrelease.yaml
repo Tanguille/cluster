@@ -22,6 +22,9 @@ spec:
           disabled: true
     toolbox:
       enabled: true
+      resources:
+        requests:
+          memory: 32Mi
     route:
       dashboard:
         annotations:
@@ -41,6 +44,9 @@ spec:
       repository: quay.io/ceph/ceph
       tag: v21.2.0@sha256:c9e6ed4ac3fcf67b28f38358bb9619dee4d1dfb96ddd4b9b583eee316a15f04d
     cephClusterSpec:
+      priorityClassNames:
+        crashcollector: homelab-critical
+        exporter: homelab-critical
       # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
       # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
@@ -112,6 +118,7 @@ spec:
         osd:
           requests:
             cpu: "500m"
+            # Not sized to the average: Ceph takes osd_memory_target from this request.
             memory: "2Gi"
           limits:
             memory: "6Gi"

@@ -5,7 +5,7 @@ name: Flate
 on:
   pull_request:
     branches: ["main"]
-    paths: ["kubernetes/**", "flate/**"]
+    paths: ["kubernetes/**", "flate-supply.yaml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -28,17 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Flate
-        id: install
-        uses: home-operations/flate/action@631b76b69c4e58c6f4d1cb01e23616fa61aebafa # v0.6.5
-
-      # Drop once released (home-operations/flate#1377): v0.6.5 renders inline chart.kind OCIRepository as empty.
-      - if: ${{ steps.install.outputs.version == '0.6.5' }}
-        name: Install Flate (main)
-        run: |
-          mkdir -p "$RUNNER_TEMP/flate-main"
-          docker create --name flate-main ghcr.io/home-operations/flate@sha256:47f7e536115d7f22edf7318effc3aa3f76948cce31f04726891aa6da754b7ece # main d806d58
-          docker cp flate-main:/flate "$RUNNER_TEMP/flate-main/flate"
-          echo "$RUNNER_TEMP/flate-main" >> "$GITHUB_PATH"
+        uses: home-operations/flate/action@bbb6ebc344da051752dbdb1b413860ceffcfb63d # v0.7.3
 
       # All three diffs share one job: the first render warms flate's on-disk cache,
       # so the other two are near-free. Separate jobs each render from cold.
@@ -47,7 +37,8 @@ jobs:
         env:
           FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
-          FLATE_PATH: ./flate
+          # No FLATE_PATH: root discovery, like konflate and validate-pr.sh.
+          FLATE_SUPPLY: ./flate-supply.yaml
         # Diffs go to files, not step outputs: the comment action receives an input as one
         # environment variable, and Linux caps a single one at 128 KiB ("Argument list too
         # long" on large PRs). Outputs only flag which comments to post.
@@ -100,53 +91,26 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
-      # Only the tuppr upgrade CRs, for the talosctl version below.
+      # Only the lockfile, for the pinned talosctl.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: kubernetes/apps/system-upgrade/tuppr/upgrades
+          sparse-checkout: mise.lock
+          sparse-checkout-cone-mode: false
 
-      # 96MiB per run, on every container PR. /tool-cache is a shared RWX cache: optional,
-      # and writable by any job, so every binary is sha256-checked against the release.
+      # The mise.lock linux-x64 entry: release url and sha256, so CI runs the pinned binary.
       - name: Install talosctl
         run: |
           set -euo pipefail
-          # yq -e, not yq: a plain yq prints "null" and exits 0 for a missing key.
-          # .spec.talosctl.image.tag, NOT .spec.talos.version: the latter carries the -k<kernel>
-          # suffix, which siderolabs never published a release for, so the download 404s.
-          TALOS_VERSION="$(yq -e '.spec.talosctl.image.tag' \
-            kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml)"
-          echo "talosctl ${TALOS_VERSION} (from talosupgrade.yaml)"
-          base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"
+          entry="$(sed -n '/^\[tools\."aqua:siderolabs\/talos"\."platforms\.linux-x64"\]$/,/^$/p' mise.lock)"
+          url="$(sed -n 's/^url = "\(.*\)"$/\1/p' <<<"${entry}")"
+          sum="$(sed -n 's/^checksum = "sha256:\(.*\)"$/\1/p' <<<"${entry}")"
+          [[ -n "${url}" && -n "${sum}" ]] || { echo "no linux-x64 talos entry in mise.lock" >&2; exit 1; }
           bin="$HOME/.local/bin"
-          cache="/tool-cache/talosctl-${TALOS_VERSION}"
           mkdir -p "$bin"
-
-          want=$(curl -fsSL "${base}/sha256sum.txt" | awk '$2 == "talosctl-linux-amd64" { print $1 }')
-          [[ -n "$want" ]] || { echo "no sha256 published for talosctl-linux-amd64"; exit 1; }
-          verify() { [[ -f "$1" ]] && echo "${want}  $1" | sha256sum --check --status; }
-
-          # verify the copy, not the shared entry: check-then-read leaves a swap window
-          if cp "$cache" "$bin/talosctl" 2>/dev/null && verify "$bin/talosctl"; then
-            echo "talosctl ${TALOS_VERSION} served from cache"
-          else
-            curl -fsSL -o "$bin/talosctl" "${base}/talosctl-linux-amd64"
-            verify "$bin/talosctl" || { echo "sha256 mismatch on downloaded talosctl"; exit 1; }
-            if [[ -w /tool-cache ]]; then
-              # mktemp, not $$: PIDs collide across pods sharing the mount
-              tmp=$(mktemp "/tool-cache/.talosctl.XXXXXX")
-              trap 'rm -f -- "$tmp"' EXIT
-              cp "$bin/talosctl" "$tmp"
-              chmod 0644 "$tmp"
-              mv -f "$tmp" "$cache"
-              trap - EXIT
-              # only the pinned version is read; -ignore_readdir_race so a concurrent
-              # pruner removing the same entry is not a failure
-              find /tool-cache -maxdepth 1 -ignore_readdir_race \
-                -name 'talosctl-*' ! -name "talosctl-${TALOS_VERSION}" -delete
-            fi
-          fi
+          curl -fsSL -o "$bin/talosctl" "$url"
+          echo "${sum}  $bin/talosctl" | sha256sum --check --strict
           chmod +x "$bin/talosctl"
           echo "$bin" >> "$GITHUB_PATH"
 

@@ -20,17 +20,19 @@ spec:
               repository: boky/postfix
               tag: 5.2.1-alpine
             env:
-              RELAY_HOST: smtp.gmail.com:587
-              POSTFIX_mynetworks: "10.0.0.0/8;172.16.0.0/12;192.168.0.0/16"
-              MYHOSTNAME: "smtp-relay.network.svc.cluster.local"
+              RELAYHOST: smtp.gmail.com:587
+              POSTFIX_mynetworks: "${POD_CIDR}"
+              POSTFIX_myhostname: "smtp-relay.network.svc.cluster.local"
               POSTFIX_message_size_limit: "52428800"
+              # The default "may" exposes the Gmail credentials to a STARTTLS strip; "encrypt" skips the cert check.
+              POSTFIX_smtp_tls_security_level: secure
               ALLOW_EMPTY_SENDER_DOMAINS: "true"
-              RELAY_USERNAME:
+              RELAYHOST_USERNAME:
                 valueFrom:
                   secretKeyRef:
                     name: smtp-relay-secret
                     key: RELAY_USERNAME
-              RELAY_PASSWORD:
+              RELAYHOST_PASSWORD:
                 valueFrom:
                   secretKeyRef:
                     name: smtp-relay-secret
@@ -38,25 +40,16 @@ spec:
             probes:
               liveness:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: &smtpPort 25
                   periodSeconds: 30
                   timeoutSeconds: 5
               readiness:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: *smtpPort
                   timeoutSeconds: 5
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: *smtpPort
                   initialDelaySeconds: 5
                   periodSeconds: 5
                   failureThreshold: 30
@@ -72,4 +65,4 @@ spec:
       app:
         ports:
           smtp:
-            port: *smtpPort
+            port: 25

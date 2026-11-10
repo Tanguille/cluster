@@ -18,6 +18,12 @@ spec:
             sum by (model) (
               increase(agentgateway_requests_total{namespace="ai", listener="models", model!="omniroute", status=~"5.."}[15m])
             ) > 2
+            # Mute qwen-3.8* while qwen38 is at 0 on purpose (UPS shed or by hand) and 1h after: the window
+            # plus a slow engine start. A start that never finishes is AgentgatewayFallbackBackendDown.
+            unless on(model) (
+              agentgateway_requests_total{model=~"qwen-3.8.*"}
+              and on() min_over_time(kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"}[1h]) == 0
+            )
           for: 10m
           annotations:
             summary: >-
@@ -52,9 +58,14 @@ spec:
         # Structural rule, needs no traffic to fire; the deployment name is hardcoded, so it moves with the omniroute backend's fallback group or goes blind.
         - alert: AgentgatewayFallbackBackendDown
           expr: |-
-            kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"} == 0
-            or
-            absent(kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"})
+            (
+              kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"} == 0
+              or
+              absent(kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"})
+            )
+            # Scaled to 0 on purpose (UPS load shed in llmkube/models/ups-load-shed.yaml, or by hand).
+            unless on()
+            kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} == 0
           # replicas: 1 on a single dGPU node, so every pod roll dips to 0.
           for: 10m
           annotations:

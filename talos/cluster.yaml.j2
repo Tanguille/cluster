@@ -65,6 +65,13 @@ machine:
   time:
     disabled: false
     servers: [{{ gateway }}]
+  # Kernel log rides along as service "kernel", so no KmsgLogConfig (it would send it twice).
+  # Cilium socket LB serves talos-log-relay's ClusterIP to host-network senders. TCP, not UDP: Talos
+  # connects once at boot, before Cilium, and only redials on a write error, which UDP never returns.
+  logging:
+    destinations:
+      - endpoint: tcp://{{ log_relay_ip }}:6050/
+        format: json_lines
   features:
     diskQuotaSupport: true
     kubePrism:
@@ -130,7 +137,7 @@ content: |
 ---
 # fstrim. Absent on an upgraded cluster means no automatic trimming at all. Talos picks a stable
 # hash-derived slot per volume per node, so the fleet does not trim in lockstep. control-1 is the
-# TrueNAS VM with no NVMe device, so its discards pass through to the hypervisor.
+# TrueNAS VM on virtio disks, so its discards pass through to the hypervisor.
 # Interval is stated rather than defaulted: talosctl accepts 0s while rejecting 1s against its own
 # 10s minimum, so zero is an unset sentinel and an omitted field lands on it.
 apiVersion: v1alpha1

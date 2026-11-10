@@ -9,12 +9,21 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  # low-priority-chain pods may sit Pending on a full cluster; waiting on them fails the upgrade and
+  # its rollback alike.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
   values:
     controllers:
       p2pool:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
+        # Chart default Recreate: a surge pod at low-priority-chain cannot preempt its way onto a
+        # full cluster, so a surging rollout would hang.
         containers:
           app:
             image:
@@ -50,13 +59,13 @@ spec:
                     key: address
             securityContext:
               allowPrivilegeEscalation: false
-              # Cache/log/peers use the /home/p2pool PVC; API output and /tmp have their own mounts.
+              # Cache/log/peers use the /home/p2pool PVC; API output has its own mount.
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 50m
-                memory: 1Gi
+                memory: 64Mi
               limits:
                 # Bursty share validation throttled ~33% at a 500m limit (kguardian) despite low average use.
                 cpu: 1000m
@@ -64,26 +73,17 @@ spec:
             probes:
               liveness:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: &stratum 3333
                   periodSeconds: 30
               readiness:
                 enabled: true
-                custom: true
-                spec:
-                  tcpSocket:
-                    port: *stratum
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: *stratum
                   failureThreshold: 30
                   periodSeconds: 5
     defaultPodOptions:
+      priorityClassName: low-priority-chain
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -100,7 +100,8 @@ spec:
           - ${LAN_CIDR}
         ports:
           stratum:
-            port: *stratum
+            primary: true
+            port: 3333
           p2p:
             port: 37890
     persistence:
@@ -117,5 +118,3 @@ spec:
         size: 1Gi
         globalMounts:
           - path: /var/lib/p2pool/api
-      tmp:
-        type: emptyDir

@@ -3,9 +3,8 @@
 Single R9700 (gfx1201), kernel 7.1.9, ROCm 7.2.3 userspace, qwen38-27b-vllm
 (W4A16 GDN hybrid, AITER unified attention, KV offload connector).
 
-The investigation that pinned `0d07767` and listed 84 vLLM commits as suspects
-is in `spec-decode-rejected.md`, "Unrelated finding: the nightly regression
-persists". None of those commits was the cause.
+An earlier investigation pinned `0d07767` and listed 84 vLLM commits as suspects.
+None of those commits was the cause.
 
 ## What it is
 

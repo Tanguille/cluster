@@ -8,10 +8,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/rook-ceph/rook-ceph/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: rook-ceph
   wait: true
 ---
@@ -26,10 +22,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/rook-ceph/rook-ceph/csi
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: rook-ceph
   wait: true
 ---
@@ -58,8 +50,4 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/rook-ceph/rook-ceph/cluster
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: rook-ceph

@@ -9,7 +9,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  maxHistory: 3
   values:
     controllers:
       homepage:
@@ -80,8 +79,6 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         runAsNonRoot: true
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
 
     # RBAC binds to the chart-default ServiceAccount (release name `homepage`).

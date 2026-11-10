@@ -10,14 +10,9 @@ spec:
   path: ./kubernetes/apps/ai/eightball/app
   targetNamespace: *namespace
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   components:
     - ../../../../components/kopiur
   postBuild:
     substitute:
       APP: *app
       KOPIUR_PUID: "65532"
-      KOPIUR_PGID: "65532"

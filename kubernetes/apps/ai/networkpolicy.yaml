@@ -6,16 +6,16 @@ metadata:
   name: ai-ingress-allowlist
   namespace: ai
 spec:
-  # Default-deny ingress for every pod in the namespace. The per-pod allowlists (vmcp,
-  # MCP proxies/backends, inference pods) stay and union with this one. Egress
-  # stays default-allow.
+  # Default-deny ingress for every pod in the namespace; egress stays default-allow. Allows
+  # union, so a narrower per-pod allow enforces nothing here: only a deny fences inside this
+  # list (toolhive-ingress-deny).
   endpointSelector: {}
   ingress:
     # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo):
     # default = karakeep -> agentgateway; observability = vmagent scrapes +
     # gatus probes; security = kguardian llm-bridge -> agentgateway;
     # network = envoy-internal fronting the HTTPRoutes; ai = intra-namespace.
-    # kritika = review, confidence and embedding models through agentgateway on :4000.
+    # kritika = review and embedding models through agentgateway on :4000.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai

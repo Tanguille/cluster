@@ -33,6 +33,11 @@ cluster:
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: "true"
+    resources:
+      requests:
+        # Talos default is 200m/512Mi. Under the 7d p95 (3.2-3.5GiB, 5.3GiB on control-3) on purpose:
+        # 4-6Gi per node does not fit. No limit: an apiserver OOM kill is worse than a low request.
+        memory: 2Gi
   controllerManager:
     image: registry.k8s.io/kube-controller-manager:{{ kubernetesVersion }}
     extraArgs:

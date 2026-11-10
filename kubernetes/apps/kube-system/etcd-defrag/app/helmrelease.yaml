@@ -32,6 +32,8 @@ spec:
           backoffLimit: 1
           # A kept failed Job held KubeJobFailed ~10h; the next hourly run retries anyway.
           ttlSecondsAfterFinished: 3600
+          # Under Forbid a hung run blocks every later tick and CronJobNotScheduled does not see it.
+          activeDeadlineSeconds: 1800
         containers:
           app:
             image:

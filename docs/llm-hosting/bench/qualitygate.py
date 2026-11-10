@@ -15,7 +15,7 @@ composition changes numerics, so agree/nll run strictly sequentially.
 
 nll uses prompt_logprobs (teacher forced). vLLM materialises logits for each scheduled
 prefill chunk, so it can allocate GPU memory beyond what boot profiled: watch free VRAM
-the first time (bench/vramfree.sh).
+the first time.
 """
 import argparse, json, os, random, re, statistics, struct, sys, time, urllib.request, zlib
 import base64
