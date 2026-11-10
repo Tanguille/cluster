@@ -13,8 +13,6 @@ spec:
       url: oci://ghcr.io/home-operations/charts/kopiur
   interval: 1h
   values:
-    # No /repo NFS mount or uid 568: every policy is on kopia-s3. Restoring NFS history needs both
-    # back (docs/kopiur-s3.md, NFS history).
     features:
       credentialProjection:
         enabled: true # shared repo, movers in many namespaces
