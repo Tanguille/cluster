@@ -240,6 +240,8 @@ sops: {json.dumps(META)}
         bin_dir.mkdir()
         stubs = {
             "flate": "#!/bin/bash\nset -euo pipefail\nexit 0\n",
+            # Drop "exec ... --" and run the command, so the test never resolves real tools.
+            "mise": "#!/bin/bash\nset -euo pipefail\nwhile [ \"$1\" != \"--\" ]; do shift; done\nshift\nexec \"$@\"\n",
             "shellcheck": "#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath('checked.json').write_text(json.dumps(sys.argv[1:]))\n",
         }
         for name, body in stubs.items():

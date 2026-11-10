@@ -72,7 +72,9 @@ echo ""
 echo "[3/3] Repository Secret Guardrails..."
 # mise exec puts the real binaries ahead of the shims: a test that runs lefthook from a temp dir
 # outside .mise.toml otherwise hits a shim with no version.
-if (cd "${REPO_ROOT}" && mise exec -- python3 scripts/secret-check.py --all && mise exec -- python3 -m unittest discover -s scripts -v); then
+if ! command -v mise &>/dev/null; then
+    fail "mise not installed: secret guardrails and tests NOT run"
+elif (cd "${REPO_ROOT}" && mise exec -- python3 scripts/secret-check.py --all && mise exec -- python3 -m unittest discover -s scripts -v); then
     pass "Secret guardrails and regression tests passed"
 else
     fail "Secret guardrails or regression tests failed"
