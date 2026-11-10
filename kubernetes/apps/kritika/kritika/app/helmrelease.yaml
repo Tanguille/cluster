@@ -34,6 +34,12 @@ spec:
       podTemplate:
         spec:
           runtimeClassName: gvisor
+          # gh telemetry (cafe.github.com) was the most refused host; kritika refuses GH_* env names.
+          containers:
+            - name: runner
+              env:
+                - name: DO_NOT_TRACK
+                  value: "1"
           resources:
             requests:
               cpu: 10m
@@ -144,7 +150,8 @@ spec:
             and pinned dependency defaults; for Helm, inspect templates or
             rendered output. Cite evidence of changed behavior, not just a
             removed explicit value. Put unverified concerns in the summary as
-            checks, and report concrete defects even when tests pass.
+            checks: a finding whose case rests on "if", "may" or "verify
+            whether" is one. Report concrete defects even when tests pass.
         - id: renovate
           when:
             - expr: pr.headRef.startsWith("renovate/")
@@ -227,16 +234,14 @@ spec:
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
       # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs).
-      # github.com and api.github.com are implicit; cafe.github.com (gh telemetry) stays refused.
+      # github.com and api.github.com are implicit.
       egress:
         allow:
-          # GitHub source archives, registry and release assets (redirects/fallbacks).
-          - raw.githubusercontent.com
-          - release-assets.githubusercontent.com
-          - objects.githubusercontent.com
-          - pkg-containers.githubusercontent.com
+          # GitHub content hosts: source archives, registry and release assets, Actions results, Pages docs.
+          - "*.githubusercontent.com"
           - codeload.github.com
-          # GHCR registry endpoint (blobs use pkg-containers above).
+          - "*.github.io"
+          # GHCR registry endpoint (blobs come from pkg-containers.githubusercontent.com).
           - ghcr.io
           # Docker registry/auth and blob CDN hosts.
           - "*.docker.io"
@@ -251,20 +256,30 @@ spec:
           - "*.pkg.dev"
           - gcr.io
           - mirror.gcr.io
+          # Never *.blob.core.windows.net (gsoci and Actions log blobs): anyone can register a storage account there.
           - gsoci.azurecr.io
-          - registry.erwanleboucher.dev
-          # Rust package index and downloads.
+          - "*.erwanleboucher.dev"
+          - forgejo.ellis.link
+          - docker.dragonflydb.io
+          - mcr.microsoft.com
+          - "*.data.mcr.microsoft.com"
+          # Package indexes and downloads.
           - crates.io
           - static.crates.io
+          - registry.npmjs.org
+          - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
           - grafana.com
           - huggingface.co
+          - "*.hf.co"
+          - git.sable.moe
+          - continuwuity.org
+          - modelcontextprotocol.io
+          - k8s-schemas.home-operations.com
           - cloudnative-pg.io
           - nginx.org
-          - rook.github.io
           - "*.kernel.org"
-          - rocm.github.io
           - doc.rust-lang.org
           - pypi.org
           # SQLite documentation, shadcn docs/assets, and Flathub metadata.
