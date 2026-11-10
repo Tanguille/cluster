@@ -125,8 +125,11 @@ jobs:
           set -euo pipefail
           images=$(yq -r '.[]' <<< "$IMAGES")
           [ -n "$images" ] || { echo "no images parsed from flate output: $IMAGES"; exit 1; }
+          # talosctl pulls anonymously; private GHCR images pull with the pod's imagePullSecrets instead.
+          images=$(grep -v '^ghcr\.io/tanguille/rsume[:@]' <<< "$images" || true)
           rc=0
           while IFS= read -r image; do
+            [ -n "$image" ] || continue # an rsume-only diff leaves nothing to pull
             echo "Pulling ${image}"
             talosctl --nodes "$NODE" image pull "${image}" || rc=1
           done <<< "$images"

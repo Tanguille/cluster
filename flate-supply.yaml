@@ -7,3 +7,12 @@ metadata:
   namespace: default
 stringData:
   FROM_ADDRESS: nextcloud@example.invalid
+---
+# cluster-secrets is SOPS-only, so a bare "${SECRET_DOMAIN}" (rsume on the apex) renders null and fails the chart schema.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-secrets
+  namespace: default
+stringData:
+  SECRET_DOMAIN: example.invalid

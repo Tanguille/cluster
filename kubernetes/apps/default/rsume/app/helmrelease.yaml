@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: ghcr.io/tanguille/rsume
-              tag: 0.1.366@sha256:fa1434bb59f9cdfa6915b4357a22ceb1a91093d7447fc2e711f7a76b849a0a7a
+              tag: 0.1.524@sha256:54c6ac0eb9866f032d1a7b02f70f4461f30a54a4a4a53be6108a1d63569d372e
             env:
               SITE_URL: https://${SECRET_DOMAIN}
             probes:
@@ -43,6 +43,9 @@ spec:
               limits:
                 memory: 256Mi
     defaultPodOptions:
+      # The GHCR package is private; the token is read:packages only.
+      imagePullSecrets:
+        - name: rsume-ghcr
       securityContext:
         runAsNonRoot: true
         seccompProfile:
