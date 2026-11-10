@@ -240,8 +240,9 @@ sops: {json.dumps(META)}
         bin_dir.mkdir()
         stubs = {
             "flate": "#!/bin/bash\nset -euo pipefail\nexit 0\n",
-            # Drop "exec ... --" and run the command, so the test never resolves real tools.
-            "mise": "#!/bin/bash\nset -euo pipefail\nwhile [ \"$1\" != \"--\" ]; do shift; done\nshift\nexec \"$@\"\n",
+            # Log the call so the test proves phase 3 goes through mise, then run the command
+            # without "exec ... --" so it never resolves real tools.
+            "mise": "#!/bin/bash\nset -euo pipefail\nprintf '%s\\n' \"$*\" >> mise-calls.txt\nwhile [ \"$1\" != \"--\" ]; do shift; done\nshift\nexec \"$@\"\n",
             "shellcheck": "#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath('checked.json').write_text(json.dumps(sys.argv[1:]))\n",
         }
         for name, body in stubs.items():
@@ -253,6 +254,10 @@ sops: {json.dumps(META)}
             env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}, timeout=30,
         )
         self.assertEqual(result.returncode, 0, (result.stdout + result.stderr).decode())
+        self.assertEqual(
+            (self.root / "mise-calls.txt").read_text().splitlines(),
+            ["exec -- python3 scripts/secret-check.py --all", "exec -- python3 -m unittest discover -s scripts -v"],
+        )
         checked = set(json.loads((self.root / "checked.json").read_text()))
         wanted = {"tracked.sh", str(validator.relative_to(self.root)), *expected}
         self.assertEqual(checked, {str(self.root / path) for path in wanted})
