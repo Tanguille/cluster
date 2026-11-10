@@ -42,14 +42,20 @@ find_card() {
 
 # A rejected sysfs write (cap outside the driver's range, commit failing during a GPU reset) is
 # logged, not fatal: under set -e it would crashloop the pod, and read_state then reports the
-# mismatch so the next tick retries.
+# mismatch so the next tick retries. Each returns 1 so apply_profile stops at the first failure.
 set_cap() {
-    echo "$(($1 * 1000000))" >"$hw/power1_cap" || log "write power1_cap=$1W failed"
+    echo "$(($1 * 1000000))" >"$hw/power1_cap" || {
+        log "write power1_cap=$1W failed"
+        return 1
+    }
 }
 
 set_offset() {
     { echo "vo $1" >"$card/pp_od_clk_voltage" && echo c >"$card/pp_od_clk_voltage"; } ||
-        log "write vo=$1mV failed"
+        {
+            log "write vo=$1mV failed"
+            return 1
+        }
 }
 
 read_state() {
@@ -68,9 +74,10 @@ apply_profile() {
     esac
     read_state
     [ "$cur_w" = "$3" ] && [ "$cur_mv" = "$4" ] && return 0
-    if [ "$3" -lt "$cur_w" ]; then set_cap "$3"; fi
-    if [ "$4" != "$cur_mv" ]; then set_offset "$4"; fi
-    if [ "$3" -gt "$cur_w" ]; then set_cap "$3"; fi
+    # A failed step ends the tick: continuing would raise the cap against an offset that never applied.
+    if [ "$3" -lt "$cur_w" ]; then set_cap "$3" || return 0; fi
+    if [ "$4" != "$cur_mv" ]; then set_offset "$4" || return 0; fi
+    if [ "$3" -gt "$cur_w" ]; then set_cap "$3" || return 0; fi
     read_state
     if [ "$cur_w" = "$3" ] && [ "$cur_mv" = "$4" ]; then
         log "profile $1: $3W $4mV ($2)"
