@@ -62,7 +62,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 - A workload is named after the release alone when it has one controller (`opencode`, not `opencode-app`); the controller name is appended only with several controllers.
 - `automountServiceAccountToken` defaults to `false`; an app that omits it mounts no token.
 - A route without `rules` gets its backend from the service matching the route identifier.
-- Chart-made `configMaps` roll the pod through a `checksum/configMaps` annotation; Reloader is only for ConfigMaps and Secrets made outside the chart.
+- Chart-made `configMaps` roll the pod through a `checksum/configMaps` annotation over their `data` (not `binaryData`); Reloader is only for ConfigMaps and Secrets made outside the chart.
 - Images are pinned as `tag: <version>@sha256:<digest>` in every chart, also where the chart has a `digest` field, so Renovate bumps both in one value.
 
 ## CNPG

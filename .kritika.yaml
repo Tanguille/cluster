@@ -17,7 +17,7 @@ rules:
   - id: render-helm
     paths: ["kubernetes/**/helmrelease.yaml"]
     rule: >-
-      Render a HelmRelease with `flate build hr <name> -n <namespace> -p kubernetes` (`--base origin/main` to compare) and quote the rendered field: chart defaults and the cluster-apps patches supply what the file omits.
+      Render a HelmRelease with `flate build hr <name> -n <namespace> -p kubernetes` (`flate diff hr` with the same arguments plus `--base origin/main` to compare) and quote the rendered field: chart defaults and the cluster-apps patches supply what the file omits.
   - id: ceph-csi-lockstep
     paths: ["kubernetes/apps/rook-ceph/**"]
     rule: >-
