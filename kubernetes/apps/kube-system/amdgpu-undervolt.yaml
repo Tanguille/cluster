@@ -24,12 +24,14 @@ spec:
         - name: app
           image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
           env:
-            # -100 was bit-identical to -82 on the quality gate; -120 silently changed greedy tokens.
-            - name: VOLTAGE_OFFSET_MV
-              value: "-100"
-            # Decode is bandwidth-bound (flat ~23 TG from 210W to 330W); 250W buys +15% PP over 210W for 2.8% worse PP/W.
-            - name: POWER_LIMIT_WATTS
-              value: "250"
+            # Efficiency is the default and the fallback. Each profile is a power cap plus the deepest
+            # offset that passed the greedy quality gate at that cap: -100 passed at 250W and was
+            # bit-identical to -82, -120 silently changed greedy tokens.
+            # Decode is bandwidth-bound (flat ~23 TG from 210W to 330W); 250W buys +15% PP over 210W.
+            - name: EFFICIENCY_PROFILE
+              value: "210 -100"
+            - name: BALANCED_PROFILE
+              value: "250 -100"
             # Auto-mode scalars, NOT fan_curve (driver 0x2E vs PMFW 0x32 mismatch on this SKU); a 70C target cost +36% rpm for ~3C mem.
             # 82C held ~3500rpm at 250W (junction up to 102C); 76C lets it pass 4000rpm. Not edge-gated: edge 66C still ramped.
             - name: FAN_TARGET_TEMP_C
@@ -45,8 +47,8 @@ spec:
             - |
               set -eu
 
-              SYSFS_ROOT=/host-sys/class/drm
-              POWER_LIMIT_UW=$((POWER_LIMIT_WATTS * 1000000))
+              VM=http://vmsingle-victoria-metrics.observability.svc:8428/api/v1/query
+              DWELL=900
 
               log() {
                 printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"
@@ -58,7 +60,7 @@ spec:
                 node_name=$(basename "$node")
 
                 if [ ! -w "$node" ]; then
-                  log "skipping $${node_name}: not writable"
+                  log "skipping $node_name: not writable"
                   return
                 fi
 
@@ -66,82 +68,137 @@ spec:
                 echo c > "$node"
                 got=$(tr -d '\000' < "$node" | awk 'NR==2{print $1; exit}')
                 if [ "$got" = "$want" ]; then
-                  log "set $${node_name} to $${want}"
+                  log "set $node_name to $want"
                 else
-                  log "$${node_name} failed: wanted $${want}, got $${got:-unknown}"
+                  log "$node_name failed: wanted $want, got $got"
                 fi
               }
 
-              apply_gpu_tuning() {
-                card="$1"
-                card_name=$(basename "$(dirname "$card")")
-                od="$card/pp_od_clk_voltage"
-                perf="$card/power_dpm_force_performance_level"
-                fan_ctrl="$card/gpu_od/fan_ctrl"
-
-                if [ -w "$perf" ] && [ -w "$od" ]; then
-                  echo manual > "$perf"
-                  echo "vo $${VOLTAGE_OFFSET_MV}" > "$od"
-                  echo c > "$od"
-                  applied_mv=$(tr -d '\000' < "$od" | awk '/OD_VDDGFX_OFFSET:/{getline; gsub(/[^0-9-]/,""); print; exit}')
-                  if [ "$applied_mv" = "$VOLTAGE_OFFSET_MV" ]; then
-                    log "set $${card_name} VDDGFX offset to $${VOLTAGE_OFFSET_MV}mV"
-                  else
-                    log "VDDGFX offset failed for $${card_name}: wanted $${VOLTAGE_OFFSET_MV}mV, got $${applied_mv:-unknown}mV"
-                  fi
-                else
-                  log "skipping VDDGFX offset for $${card_name}: pp_od or perf level not writable"
-                fi
-
-                apply_fan_setting "$fan_ctrl/fan_target_temperature" "$FAN_TARGET_TEMP_C"
-                apply_fan_setting "$fan_ctrl/acoustic_target_rpm_threshold" "$ACOUSTIC_TARGET_RPM"
-                apply_fan_setting "$fan_ctrl/acoustic_limit_rpm_threshold" "$ACOUSTIC_LIMIT_RPM"
-
-                for cap in "$card"/hwmon/hwmon*/power1_cap; do
-                  [ -e "$cap" ] || continue
-                  [ -w "$cap" ] || continue
-
-                  min_file="$${cap}_min"
-                  max_file="$${cap}_max"
-                  if [ -r "$min_file" ] && [ "$POWER_LIMIT_UW" -lt "$(cat "$min_file")" ]; then
-                    log "requested $${POWER_LIMIT_WATTS}W is below minimum for $cap; skipping"
-                    continue
-                  fi
-                  if [ -r "$max_file" ] && [ "$POWER_LIMIT_UW" -gt "$(cat "$max_file")" ]; then
-                    log "requested $${POWER_LIMIT_WATTS}W is above maximum for $cap; skipping"
-                    continue
-                  fi
-
-                  echo "$POWER_LIMIT_UW" > "$cap"
-                  log "set $${card_name} power limit to $${POWER_LIMIT_WATTS}W via $cap"
-                  return 0
+              find_card() {
+                for card in /host-sys/class/drm/card[0-9]/device; do
+                  [ "$(cat "$card/vendor" 2>/dev/null)" = 0x1002 ] || continue
+                  for hw in "$card"/hwmon/hwmon*; do
+                    [ -w "$hw/power1_cap" ] && [ -w "$card/pp_od_clk_voltage" ] && return 0
+                  done
                 done
-
-                log "no writable power1_cap found under $card"
+                return 1
               }
 
-              attempts=0
-              while [ "$attempts" -lt 120 ]; do
-                for card in "$SYSFS_ROOT"/card[0-9]/device; do
-                  [ -d "$card" ] || continue
-                  vendor="$card/vendor"
-                  if [ ! -r "$vendor" ]; then
-                    continue
-                  fi
-                  read -r vendor_id < "$vendor" || continue
-                  [ "$vendor_id" = "0x1002" ] || continue
+              set_cap() {
+                echo "$(($1 * 1000000))" > "$hw/power1_cap"
+              }
 
-                  apply_gpu_tuning "$card"
-                  exec sleep infinity
-                done
+              set_offset() {
+                echo "vo $1" > "$card/pp_od_clk_voltage"
+                echo c > "$card/pp_od_clk_voltage"
+              }
 
-                attempts=$((attempts + 1))
-                log "waiting for AMD DRM devices under $SYSFS_ROOT"
+              read_state() {
+                cur_w=$(($(cat "$hw/power1_cap") / 1000000))
+                cur_mv=$(tr -d '\000' < "$card/pp_od_clk_voltage" | awk '/OD_VDDGFX_OFFSET:/{getline; gsub(/[^0-9-]/,""); print; exit}')
+              }
+
+              # Goes through the safe corner (lower cap, shallower offset) so a cap and offset pair
+              # that never passed the gate is never live, even for one write.
+              apply_profile() {
+                name="$1"
+                # shellcheck disable=SC2086 # the profile is a "W mV" pair
+                set -- $2
+                read_state
+                set_cap "$(min "$cur_w" "$1")"
+                set_offset "$(max "$cur_mv" "$2")"
+                set_offset "$2"
+                set_cap "$1"
+                read_state
+                if [ "$cur_w" = "$1" ] && [ "$cur_mv" = "$2" ]; then
+                  log "profile $name: $1W $2mV ($reason)"
+                else
+                  log "profile $name failed: wanted $1W $2mV, got $cur_w W $cur_mv mV"
+                fi
+              }
+
+              min() { [ "$1" -lt "$2" ] && echo "$1" || echo "$2"; }
+              max() { [ "$1" -gt "$2" ] && echo "$1" || echo "$2"; }
+
+              # Instant query, prints the single value or nothing. PromQL here must not contain + & or %.
+              q() {
+                wget -qO- -T 10 --post-data "query=$1" "$VM" 2>/dev/null \
+                  | sed -n 's/.*"value":\[[^,]*,"\([^"]*\)"\].*/\1/p'
+              }
+
+              # True when $1 is a number and $1 $2 $3 holds; missing data is never true.
+              cmp() {
+                [ -n "$1" ] && awk -v a="$1" -v b="$3" "BEGIN{exit !(a $2 b)}"
+              }
+
+              until find_card; do
+                log "waiting for a writable AMD GPU"
                 sleep 5
               done
+              echo manual > "$card/power_dpm_force_performance_level"
+              apply_fan_setting "$card/gpu_od/fan_ctrl/fan_target_temperature" "$FAN_TARGET_TEMP_C"
+              apply_fan_setting "$card/gpu_od/fan_ctrl/acoustic_target_rpm_threshold" "$ACOUSTIC_TARGET_RPM"
+              apply_fan_setting "$card/gpu_od/fan_ctrl/acoustic_limit_rpm_threshold" "$ACOUSTIC_LIMIT_RPM"
 
-              log "timed out waiting for AMD GPU under $SYSFS_ROOT"
-              exit 1
+              reason=startup
+              apply_profile efficiency "$EFFICIENCY_PROFILE"
+              profile=efficiency
+              changed=$(date +%s)
+              solar=0
+              ups_block=1
+              held=0
+
+              # Balanced while 200W solar surplus is exported (5 min to set, 5 min of 100W import to
+              # clear), 15 min dwell. UPS danger (85% over 5 min, OB/LB/OVER) or missing data forces
+              # efficiency at once; it lifts after 10 min below 75%, then the dwell applies.
+              while sleep 30; do
+                load5=$(q 'max(max_over_time(network_ups_tools_ups_load[5m]))')
+                load10=$(q 'max(max_over_time(network_ups_tools_ups_load[10m]))')
+                ups_age=$(q 'time() - max(timestamp(network_ups_tools_ups_load))')
+                ups_bad=$(q 'max(network_ups_tools_ups_status{flag=~"OB|LB|OVER"})')
+                p1_max=$(q 'max(max_over_time(hass_sensor_power_w{job="homeassistant",entity="sensor.p1_meter_power"}[5m]))')
+                p1_min=$(q 'max(min_over_time(hass_sensor_power_w{job="homeassistant",entity="sensor.p1_meter_power"}[5m]))')
+                p1_age=$(q 'time() - max(timestamp(hass_sensor_power_w{job="homeassistant",entity="sensor.p1_meter_power"}))')
+
+                force=0
+                if ! cmp "$ups_age" '<' 180 || cmp "$load5" '>=' 85 || ! cmp "$ups_bad" '==' 0; then
+                  force=1
+                  ups_block=1
+                elif [ "$ups_block" = 1 ] && cmp "$load10" '<' 75; then
+                  ups_block=0
+                fi
+
+                if ! cmp "$p1_age" '<' 180; then
+                  force=1
+                  solar=0
+                elif cmp "$p1_max" '<=' -200; then
+                  solar=1
+                elif cmp "$p1_min" '>=' 100; then
+                  solar=0
+                fi
+
+                # A bench run owns the card while it keeps /tmp/hold fresh (kubectl exec touch), but
+                # UPS danger or missing data still forces efficiency through the hold.
+                if [ -e /tmp/hold ] && [ $(($(date +%s) - $(stat -c %Y /tmp/hold))) -lt 3600 ]; then
+                  held=1
+                  [ "$force" = 1 ] || continue
+                fi
+
+                want=efficiency
+                [ "$solar" = 1 ] && [ "$ups_block" = 0 ] && want=balanced
+                now=$(date +%s)
+                if [ "$want" != "$profile" ] && { [ "$force" = 1 ] || [ $((now - changed)) -ge "$DWELL" ]; } || [ "$held" = 1 ]; then
+                  reason="solar=$solar ups_block=$ups_block force=$force held=$held load5=$load5 p1=$p1_min..$p1_max"
+                  if [ "$want" = balanced ]; then
+                    apply_profile balanced "$BALANCED_PROFILE"
+                  else
+                    apply_profile efficiency "$EFFICIENCY_PROFILE"
+                  fi
+                  [ "$want" != "$profile" ] && changed=$now
+                  profile=$want
+                  held=0
+                fi
+              done
           securityContext:
             privileged: true
             readOnlyRootFilesystem: true
@@ -154,7 +211,13 @@ spec:
           volumeMounts:
             - name: sys
               mountPath: /host-sys
+            - name: tmp
+              mountPath: /tmp
       volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
         - name: sys
           hostPath:
             path: /sys
