@@ -6,7 +6,7 @@
 > were a 2026-10-27 quality-gate run, not the soak below. The engine is
 > radiance since 2026-11-01 ([radiance-2026-11.md](radiance-2026-11.md)) and
 > the decode latch is unseen there; re-check the premise before reusing this.
-
+>
 > Since 2026-11 the DaemonSet takes `EFFICIENCY_PROFILE` / `BALANCED_PROFILE` ("W mV" pairs) and
 > re-applies them every 30 s; `VOLTAGE_OFFSET_MV` and `POWER_LIMIT_WATTS` below are the 2026-09 names.
 
