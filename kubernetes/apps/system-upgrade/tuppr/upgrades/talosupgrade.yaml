@@ -16,7 +16,8 @@ spec:
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.5
   # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
-  # excluded nodes are never enumerated, so they take no outdated taint either.
+  # excluded nodes are never enumerated, so they take no outdated taint either. A held node must stay at or
+  # above the readAffinity kernel floor (scripts/test_read_affinity_kernel.py).
   policy:
     rebootMode: powercycle
     # tuppr owns the drain and uncordons when it fails; a failed talosctl drain leaves the node cordoned.

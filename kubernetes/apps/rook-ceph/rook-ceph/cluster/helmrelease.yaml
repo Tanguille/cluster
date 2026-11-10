@@ -88,10 +88,9 @@ spec:
       logCollector:
         enabled: false
       csi:
-        # Needs libceph d6c7a5fcd088 "only set read_from_replica on read requests" (stable 7.3.4, v7.4) on every
-        # node. Older kernels put the replica-read flag on CephFS writes too, Ceph v21 OSDs reject those with EINVAL
-        # (tracker 73997) and writeback drops it silently, so files read back as zeros. Never roll a node below
-        # 7.3.4 while this is on. A mount only picks it up once every pod using the volume left the node.
+        # Needs libceph d6c7a5fcd088 on every node (floor in scripts/test_read_affinity_kernel.py): older kernels
+        # send the replica-read flag on CephFS writes, Ceph v21 rejects them (tracker 73997) and files read back as
+        # zeros. A mount only picks this up once every pod using the volume has left the node.
         readAffinity:
           enabled: true
       dashboard:
