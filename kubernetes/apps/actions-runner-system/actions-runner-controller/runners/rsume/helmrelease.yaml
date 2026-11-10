@@ -112,7 +112,7 @@ spec:
             image: ghcr.io/home-operations/actions-runner:2.338.2@sha256:2dd7caa094a425c041539447cb0e6ae63cda10b5242773764683b695b8fa5613
             command: ["/home/runner/run.sh"]
             env:
-              # Job steps inherit this: CLIs that honour the convention stay off telemetry.
+              # Steps run on the runner inherit this: CLIs that honour the convention stay off telemetry.
               - name: DO_NOT_TRACK
                 value: "1"
               - name: DOCKER_HOST
