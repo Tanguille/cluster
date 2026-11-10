@@ -26,6 +26,7 @@ class FluxWaitTests(unittest.TestCase):
             key = (ns, doc["metadata"]["name"])
             self.assertNotIn(key, docs, f"{path}: duplicate Kustomization {key[0]}/{key[1]}")
             docs[key] = (path, doc["spec"])
+        self.assertTrue(any(spec.get("dependsOn") for _, spec in docs.values()), "scan found no dependsOn edges")
         unready = set()
         for (ns, _), (path, spec) in docs.items():
             for dep in spec.get("dependsOn") or []:
