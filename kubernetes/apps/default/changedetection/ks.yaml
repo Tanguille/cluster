@@ -11,10 +11,6 @@ spec:
     - ../../../../components/kopiur
   path: ./kubernetes/apps/default/changedetection/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:

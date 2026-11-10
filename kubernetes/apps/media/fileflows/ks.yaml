@@ -17,10 +17,6 @@ spec:
   wait: true
   path: ./kubernetes/apps/media/fileflows/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:

@@ -21,6 +21,7 @@ spec:
         # by flux-operator from a ResourceSet, not rendered by kustomize-controller.
         driftDetection:
           mode: enabled
+        maxHistory: 2
         chartRef:
           kind: OCIRepository
           name: app-template

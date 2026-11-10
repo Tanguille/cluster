@@ -10,10 +10,6 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/ai/hermes/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   components:
     - ../../../../components/kopiur
   postBuild:

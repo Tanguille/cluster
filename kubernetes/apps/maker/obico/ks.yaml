@@ -12,10 +12,6 @@ spec:
       namespace: database
   path: ./kubernetes/apps/maker/obico/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -30,8 +26,4 @@ spec:
     - name: obico
   path: ./kubernetes/apps/maker/obico/moonraker-obico
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m

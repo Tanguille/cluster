@@ -28,13 +28,20 @@ spec:
         kind: Secret
         optional: true
   patches:
-    # Replaces substituteFrom/timeout/retryInterval wholesale; setting them in a child is a no-op.
+    # Child defaults. Scalars and lists (sourceRef fields, substituteFrom, patches, deletionPolicy,
+    # timeout, retryInterval) replace a child's own value, so children omit them; maps merge, so a
+    # child's postBuild.substitute still applies. sourceRef is schema-required, so a trimmed ks.yaml
+    # fails standalone validation.
     - patch: |-
         apiVersion: kustomize.toolkit.fluxcd.io/v1
         kind: Kustomization
         metadata:
           name: not-used
         spec:
+          sourceRef:
+            kind: GitRepository
+            name: flux-system
+            namespace: flux-system
           decryption:
             provider: sops
           postBuild:
@@ -57,6 +64,8 @@ spec:
                 spec:
                   driftDetection:
                     mode: enabled
+                  # Release secrets were 120 of 143 MiB of apiserver storage at the default 5.
+                  maxHistory: 2
                   install:
                     crds: CreateReplace
                   rollback:
@@ -71,6 +80,22 @@ spec:
               target:
                 group: helm.toolkit.fluxcd.io
                 kind: HelmRelease
+            # Plain-manifest dashboards only (ResourceSet and chart-rendered ones keep their own). It
+            # overwrites a dashboard's own instanceSelector, so one for another Grafana instance cannot be
+            # a plain manifest; instanceSelector is schema-required, so trimmed dashboards fail standalone.
+            - patch: |-
+                apiVersion: grafana.integreatly.org/v1beta1
+                kind: GrafanaDashboard
+                metadata:
+                  name: _
+                spec:
+                  allowCrossNamespaceImport: true
+                  instanceSelector:
+                    matchLabels:
+                      grafana.internal/instance: grafana
+              target:
+                group: grafana.integreatly.org
+                kind: GrafanaDashboard
             # Dry-run diff breaks on CephBlockPool/CephFilesystem (live spec.replicated.minSize
             # isn't in the installed CRD schema), leaving the release in a permanent StateError.
             - patch: |-
