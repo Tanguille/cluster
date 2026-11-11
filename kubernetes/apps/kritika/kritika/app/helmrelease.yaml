@@ -127,7 +127,7 @@ spec:
         local:
           <<: *llm
           # A quarter of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
-          # At 4, queueing behind Hermes pushed 64-151K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
+          # At 4, queueing behind Hermes pushed 64-188K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
           concurrency: 2
           # Fallback calls took up to 807s (p95 387s) unqueued; 5m default abandoned them and resent the step.
           # 25m rides out queueing and stays under the engine's 1800s backend timeout.

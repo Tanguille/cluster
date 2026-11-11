@@ -74,7 +74,8 @@ spec:
                 unhealthyCondition: "!has(response.code)"
                 eviction:
                   duration: 10s
-                  # A client hanging up has no status either: one above Kritika's 4 calls in flight.
+                  # A client hanging up has no status either: Kritika's 2 fallback calls can all hang up at once and Hermes's
+                  # stalled streams add more, so 5 stays.
                   consecutiveFailures: 5
       # Fail open: uncompressed while Headroom is unreachable.
       - providers:
