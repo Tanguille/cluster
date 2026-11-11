@@ -87,6 +87,12 @@ spec:
       # Off: duplicates stdout (victoria-logs has it); its 100Mi request left rook-ceph-exporter-control-2 unschedulable.
       logCollector:
         enabled: false
+      csi:
+        # Needs libceph d6c7a5fcd088 on every node (floor in scripts/test_read_affinity_kernel.py): older kernels
+        # send the replica-read flag on CephFS writes, Ceph v21 rejects them (tracker 73997) and files read back as
+        # zeros. A mount only picks this up once every pod using the volume has left the node.
+        readAffinity:
+          enabled: true
       dashboard:
         urlPrefix: /
         ssl: false
