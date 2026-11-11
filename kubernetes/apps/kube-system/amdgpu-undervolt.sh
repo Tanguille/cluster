@@ -41,8 +41,7 @@ find_card() {
 }
 
 # A rejected sysfs write (cap outside the driver's range, commit failing during a GPU reset) is
-# logged, not fatal: under set -e it would crashloop the pod, and read_state then reports the
-# mismatch so the next tick retries. Each returns 1 so apply_profile stops at the first failure.
+# logged, not fatal: under set -e it would crashloop the pod, and the next tick retries the cap.
 set_cap() {
     echo "$(($1 * 1000000))" >"$hw/power1_cap" || {
         log "write power1_cap=$1W failed"
@@ -50,39 +49,36 @@ set_cap() {
     }
 }
 
+# The offset is the same in both profiles, so it is written once at start.
 set_offset() {
     { echo "vo $1" >"$card/pp_od_clk_voltage" && echo c >"$card/pp_od_clk_voltage"; } ||
         {
             log "write vo=$1mV failed"
-            return 1
+            return 0
         }
-}
-
-read_state() {
-    cur_w=$(($(cat "$hw/power1_cap") / 1000000))
-    cur_mv=$(tr -d '\000' <"$card/pp_od_clk_voltage" | awk '/OD_VDDGFX_OFFSET:/{getline; gsub(/[^0-9-]/,""); print; exit}')
-}
-
-# apply_profile NAME REASON: writes only what differs, lowering the cap before and raising it
-# after the offset change, so a cap and offset pair that never passed the gate is never live.
-# Runs every tick, so it also undoes anything else that changed the card.
-apply_profile() {
-    # shellcheck disable=SC2086 # each profile is a "W mV" pair
-    case $1 in
-    balanced) set -- "$1" "$2" $BALANCED_PROFILE ;;
-    *) set -- "$1" "$2" $EFFICIENCY_PROFILE ;;
-    esac
-    read_state
-    [ "$cur_w" = "$3" ] && [ "$cur_mv" = "$4" ] && return 0
-    # A failed step ends the tick: continuing would raise the cap against an offset that never applied.
-    if [ "$3" -lt "$cur_w" ]; then set_cap "$3" || return 0; fi
-    if [ "$4" != "$cur_mv" ]; then set_offset "$4" || return 0; fi
-    if [ "$3" -gt "$cur_w" ]; then set_cap "$3" || return 0; fi
-    read_state
-    if [ "$cur_w" = "$3" ] && [ "$cur_mv" = "$4" ]; then
-        log "profile $1: $3W $4mV ($2)"
+    got=$(tr -d '\000' <"$card/pp_od_clk_voltage" | awk '/OD_VDDGFX_OFFSET:/{getline; gsub(/[^0-9-]/,""); print; exit}')
+    if [ "$got" = "$1" ]; then
+        log "set vo to ${1}mV"
     else
-        log "profile $1 failed: wanted $3W $4mV, got $cur_w W $cur_mv mV"
+        log "vo failed: wanted ${1}mV, got ${got:-unknown}mV"
+    fi
+}
+
+# apply_profile NAME REASON: writes the cap only when it differs. Runs every tick, so it also
+# undoes anything else that changed the cap.
+apply_profile() {
+    case $1 in
+    balanced) w=$BALANCED_WATTS ;;
+    *) w=$EFFICIENCY_WATTS ;;
+    esac
+    cur_w=$(($(cat "$hw/power1_cap") / 1000000))
+    [ "$cur_w" = "$w" ] && return 0
+    set_cap "$w" || return 0
+    cur_w=$(($(cat "$hw/power1_cap") / 1000000))
+    if [ "$cur_w" = "$w" ]; then
+        log "profile $1: ${w}W ($2)"
+    else
+        log "profile $1 failed: wanted ${w}W, got ${cur_w}W"
     fi
 }
 
@@ -97,13 +93,17 @@ cmp() {
     [ -n "$1" ] && awk -v a="$1" -v b="$3" "BEGIN{exit !(a $2 b)}"
 }
 
-# A malformed pair would only fail inside the loop under set -u; refuse it up front instead.
-for pair in "$EFFICIENCY_PROFILE" "$BALANCED_PROFILE"; do
-    if ! echo "$pair" | grep -Eq '^[0-9]+ -?[0-9]+$'; then
-        log "invalid profile '$pair': want 'W mV', e.g. '210 -100'"
+# A malformed value would only fail inside the loop under set -u; refuse it up front instead.
+for w in "$EFFICIENCY_WATTS" "$BALANCED_WATTS"; do
+    if ! echo "$w" | grep -Eq '^[0-9]+$'; then
+        log "invalid watts '$w': want a whole number, e.g. 210"
         exit 1
     fi
 done
+if ! echo "$VOLTAGE_OFFSET_MV" | grep -Eq '^-?[0-9]+$'; then
+    log "invalid VOLTAGE_OFFSET_MV '$VOLTAGE_OFFSET_MV': want a whole number, e.g. -100"
+    exit 1
+fi
 
 until find_card; do
     log "waiting for a writable AMD GPU"
@@ -114,6 +114,7 @@ apply_fan_setting "$card/gpu_od/fan_ctrl/fan_target_temperature" "$FAN_TARGET_TE
 apply_fan_setting "$card/gpu_od/fan_ctrl/acoustic_target_rpm_threshold" "$ACOUSTIC_TARGET_RPM"
 apply_fan_setting "$card/gpu_od/fan_ctrl/acoustic_limit_rpm_threshold" "$ACOUSTIC_LIMIT_RPM"
 
+set_offset "$VOLTAGE_OFFSET_MV"
 apply_profile efficiency startup
 profile=efficiency
 changed=$(date +%s)

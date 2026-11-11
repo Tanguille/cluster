@@ -24,14 +24,16 @@ spec:
         - name: app
           image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
           env:
-            # Efficiency is the default and the fallback. Each profile is a power cap plus the deepest
-            # offset that passed the greedy quality gate at that cap: -100 passed at 250W and was
-            # bit-identical to -82, -120 silently changed greedy tokens.
+            # -100 was bit-identical to -82 on the quality gate; -120 silently changed greedy tokens.
+            # Held at 210W: -125 diverged on 8/60 prompts, -157 and deeper faulted the GPU (2026-11-11).
+            - name: VOLTAGE_OFFSET_MV
+              value: "-100"
+            # Efficiency is the default and the fallback; balanced runs while solar surplus is exported.
             # Decode is bandwidth-bound (flat ~23 TG from 210W to 330W); 250W buys +15% PP over 210W.
-            - name: EFFICIENCY_PROFILE
-              value: "210 -100"
-            - name: BALANCED_PROFILE
-              value: "250 -100"
+            - name: EFFICIENCY_WATTS
+              value: "210"
+            - name: BALANCED_WATTS
+              value: "250"
             # Auto-mode scalars, NOT fan_curve (driver 0x2E vs PMFW 0x32 mismatch on this SKU); a 70C target cost +36% rpm for ~3C mem.
             # 82C held ~3500rpm at 250W (junction up to 102C); 76C lets it pass 4000rpm. Not edge-gated: edge 66C still ramped.
             - name: FAN_TARGET_TEMP_C
