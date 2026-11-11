@@ -89,7 +89,8 @@ sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
 A last `unless` drops every miner once the tech cave UPS load has peaked at 85 % or more in
 the past 5 minutes; missing UPS data leaves the other factors in charge. It is the first stage
-of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`.
+of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`, together with the
+R9700 dropping to its efficiency power profile (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
 
 ## Measured
 
