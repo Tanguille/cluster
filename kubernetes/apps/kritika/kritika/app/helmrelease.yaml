@@ -126,10 +126,12 @@ spec:
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
           <<: *llm
-          # Half of radiance's 8 slots, shared with Hermes; caps what a Logfare outage shifts here.
-          concurrency: 4
-          # Fallback calls took up to 807s (p95 387s); 5m default abandoned them and resent the step.
-          timeout: 15m
+          # A quarter of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
+          # At 4, queueing behind Hermes pushed 64-151K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
+          concurrency: 2
+          # Fallback calls took up to 807s (p95 387s) unqueued; 5m default abandoned them and resent the step.
+          # 25m rides out queueing and stays under the engine's 1800s backend timeout.
+          timeout: 25m
         # Own provider so the iGPU embedder doesn't scale with llm: index runs hold all but one slot.
         embed:
           <<: *llm
