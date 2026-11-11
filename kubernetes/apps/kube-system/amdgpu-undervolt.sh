@@ -64,6 +64,16 @@ set_offset() {
     fi
 }
 
+# The node can vanish for a moment during a GPU reset: an empty read would fail the arithmetic
+# and, under set -e, end the script, so skip the tick and retry on the next one.
+read_cap() {
+    raw=$(cat "$hw/power1_cap" 2>/dev/null) && [ -n "$raw" ] || {
+        log "read power1_cap failed"
+        return 1
+    }
+    cur_w=$((raw / 1000000))
+}
+
 # apply_profile NAME REASON: writes the cap only when it differs. Runs every tick, so it also
 # undoes anything else that changed the cap.
 apply_profile() {
@@ -71,10 +81,10 @@ apply_profile() {
     balanced) w=$BALANCED_WATTS ;;
     *) w=$EFFICIENCY_WATTS ;;
     esac
-    cur_w=$(($(cat "$hw/power1_cap") / 1000000))
+    read_cap || return 0
     [ "$cur_w" = "$w" ] && return 0
     set_cap "$w" || return 0
-    cur_w=$(($(cat "$hw/power1_cap") / 1000000))
+    read_cap || return 0
     if [ "$cur_w" = "$w" ]; then
         log "profile $1: ${w}W ($2)"
     else
