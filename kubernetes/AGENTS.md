@@ -9,5 +9,6 @@
 - Store secrets with SOPS; never commit plaintext secrets or `age.key`.
 - Child `ks.yaml` files omit `sourceRef`, and plain GrafanaDashboards omit `instanceSelector`/`allowCrossNamespaceImport`: the cluster-apps defaults patch (`kubernetes/flux/cluster/ks.yaml`) injects them, so those files fail their `$schema` standalone by design.
 - Use lowercase-dash Kubernetes names. Applications live under `kubernetes/apps/<namespace>/<app>/`; follow peer layouts and include `ks.yaml`.
+- Set `wait: true` on any Kustomization another one lists in `dependsOn`; without it the edge is satisfied once manifests are applied, before the HelmRelease or CRDs are Ready. A target with curated `healthChecks` keeps those instead: `wait: true` makes Flux ignore `healthChecks`.
 - Check new or changed selectors and label references (NetworkPolicy peers, affinity, ServiceMonitor ports, alert annotations) against the labels and ports the target actually has, rendered or live.
 - Ask before applying or reconciling live resources or decrypting or editing SOPS secrets.

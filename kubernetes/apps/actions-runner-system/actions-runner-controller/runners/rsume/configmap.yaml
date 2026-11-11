@@ -25,3 +25,5 @@ data:
     default_sysctls = []
     # Container uid 1001 maps to the runner itself.
     userns = "keep-id"
+    # The runner's own env does not reach containers started through the socket; append keeps the default PATH entry.
+    env = ["DO_NOT_TRACK=1", {append=true}]
