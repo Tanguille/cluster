@@ -19,7 +19,7 @@ Same fio commands, test node (control-1) and storage classes as December 2025. R
 
 **Writes roughly doubled.** Pools went from size 3 to size 2 on 2025-12-16, so each write now waits for one fewer replica. Ceph, Rook (1.18.8 to 1.21.2), Talos (1.11.5 to 1.14.5) and the kernel (now 7.3.1) all moved too, so the gain cannot be split between them.
 
-**CephFS sequential read halved.** Likely cause, not proven: CSI `readAffinity` was on in December and has been off since 2026-11-02, the fix for Ceph v21 rejecting CephFS writes. With size 3 and read affinity, a client on control-1 always had a local copy. The run has only 4 synchronous jobs, so it is latency bound: 4 x 1 MiB per 10 ms is the measured 400 MiB/s.
+**CephFS sequential read halved.** Likely cause, not proven: CSI `readAffinity` was on in December and off from 2026-11-02 (the fix for Ceph v21 rejecting CephFS writes) until kernel 7.3.4; re-run to confirm. With size 3 and read affinity, a client on control-1 always had a local copy. The run has only 4 synchronous jobs, so it is latency bound: 4 x 1 MiB per 10 ms is the measured 400 MiB/s.
 
 **RBD read numbers have no valid December baseline.** December's 6,906 MiB/s and 1.67M IOPS were marked "likely cached", but those commands mostly read unwritten extents, which ext4 answers with zeros without touching Ceph. The same commands today report 2,079 MiB/s and 876,000 IOPS. The Nov column instead reads a file fully written first (CephFS was unaffected: 390 MiB/s and 28,957 IOPS on a written file).
 
