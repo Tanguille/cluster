@@ -1,0 +1,26 @@
+# ALL style rules (S*) are on, on top of shuck's defaults. That is more than the quoting checks
+# (S001 and friends): S078-S085 also police the shebang, file and function comments, a `main`
+# call and script length.
+[lint]
+extend-select = ["S"]
+
+# Scripts that a live workload mounts or runs are not edited for style rules: a content change
+# rolls the workload. They are ignored here instead.
+[lint.per-file-ignores]
+# DaemonSet script (busybox ash, 177 lines): bash-only shebang policy, no `main`, undocumented functions.
+"kubernetes/apps/kube-system/amdgpu-undervolt.sh" = [
+  "S078",
+  "S079",
+  "S080",
+  "S083",
+  "S084",
+  "S085"
+]
+# Nextcloud lifecycle hooks mounted into the pod: no file header comment.
+"kubernetes/apps/default/nextcloud/app/scripts/cron.sh" = ["S081"]
+"kubernetes/apps/default/nextcloud/app/scripts/post-start.sh" = ["S081"]
+# Satisfactory init container script: no file header comment.
+"kubernetes/apps/default/satisfactory/app/scripts/mods.sh" = ["S081"]
+# Dev and CI tooling: restructuring into `main` or splitting for length is not worth the risk.
+"scripts/talos-kernel-build.sh" = ["S080", "S085"]
+".agents/skills/pr-review/scripts/validate-pr.sh" = ["S085"]
