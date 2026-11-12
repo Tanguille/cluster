@@ -12,7 +12,7 @@ spec:
       rules:
         # The outage itself, per model on the models listener; 5xx only, so client errors (an
         # oversized prompt, an unknown model) do not page. Keyless probes stop at the http listener.
-        # omniroute failing after its fallback is AgentgatewayFallbackTargetUnavailable.
+        # omniroute is excluded: its free-tier providers run out of quota daily, so it is not alerted on.
         - alert: AgentgatewayRequestsFailing
           expr: |-
             sum by (model) (
@@ -74,34 +74,3 @@ spec:
               target is gone and hermes has no local model
           labels:
             severity: critical
-
-        # omniroute 5xx the client saw after the fallback; > 0 as the chain is one deep.
-        - alert: AgentgatewayFallbackTargetUnavailable
-          expr: |-
-            sum(
-              increase(agentgateway_requests_total{namespace="ai", listener="models", model="omniroute", status=~"5.."}[30m])
-            ) > 0
-          for: 5m
-          annotations:
-            summary: >-
-              omniroute requests are failing and the qwen-3.8 fallback did not rescue them
-              (bodies over 64 KiB are never retried)
-          labels:
-            severity: warning
-
-        # An eviction sends all omniroute traffic to qwen-3.8 for 30s+, so alert on the fallback serving most of it (and over 5).
-        - alert: AgentgatewayPrimaryDegraded
-          expr: |-
-            sum(
-              increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", model="omniroute", gen_ai_system="vllm", gen_ai_token_type="input"}[30m])
-            )
-            > clamp_min(sum(
-              increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", model="omniroute", gen_ai_token_type="input"}[30m])
-            ) / 2, 5)
-          for: 5m
-          annotations:
-            summary: >-
-              omniroute has leaned on its qwen-3.8 fallback for most requests — the primary is
-              not recovering
-          labels:
-            severity: warning
