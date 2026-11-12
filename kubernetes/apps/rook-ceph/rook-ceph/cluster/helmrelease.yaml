@@ -88,7 +88,7 @@ spec:
       logCollector:
         enabled: false
       csi:
-        # Needs libceph d6c7a5fcd088 on every node (floor in scripts/test_read_affinity_kernel.py): older kernels
+        # Needs libceph d6c7a5fcd088 on every node (Linux 7.3.4+): older kernels
         # send the replica-read flag on CephFS writes, Ceph v21 rejects them (tracker 73997) and files read back as
         # zeros. A mount only picks this up once every pod using the volume has left the node.
         readAffinity:

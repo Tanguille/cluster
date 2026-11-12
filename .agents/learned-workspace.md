@@ -50,7 +50,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 - The app-template chart defaults to `Recreate`. If it emits `rollingUpdate` too, fix the chart, postRenderer, or patch.
 - `openebs-hostpath` does not enforce PVC size; the node disk is the only limit, so a volume holding more than its request is not an overflow.
 - The shared kopiur SnapshotPolicy's `sourcePathOverride: /data` is the path recorded in the snapshot identity, not the app's mount path: the mover mounts the PVC itself, so apps mounting it elsewhere (`/app/data`, `/config`) are backed up.
-- CSI `readAffinity` is on: never run a node below the kernel floor in `scripts/test_read_affinity_kernel.py` (reason in the rook-ceph cluster HelmRelease), including a node held back by the tuppr nodeSelector.
+- CSI `readAffinity` is on: never run a node below Linux 7.3.4 (libceph `d6c7a5fcd088`; reason in the rook-ceph cluster HelmRelease), including a node held back by the tuppr nodeSelector.
 
 ## Flux
 
