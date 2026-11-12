@@ -8,6 +8,7 @@ if [[ ! -f /config/gamefiles/FactoryServer.sh ]]; then
 fi
 
 # Fresh state each run: `installation add` fails if a retry finds the previous one.
+# shuck: disable=K006 # HOME is /tmp/ficsit (helmrelease.yaml), not a real home
 rm -rf "$HOME"
 mkdir -p "$HOME/.local/share/ficsit"
 curl -fsSL -o "$HOME/ficsit" "https://github.com/satisfactorymodding/ficsit-cli/releases/download/$FICSIT_VERSION/ficsit_linux_amd64"
