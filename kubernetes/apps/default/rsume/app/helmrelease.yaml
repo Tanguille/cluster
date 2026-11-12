@@ -56,6 +56,15 @@ spec:
             port: 3000
     route:
       app:
+        annotations:
+          # The apex resolves publicly by design (cloudflared tunnel owns it), so envoy-internal's
+          # inherited `guarded: true` DNS canary can never pass. Probe the route as HTTP instead,
+          # against the internal gateway's own hostname, keeping the route's Host so it still matches.
+          gatus.home-operations.com/endpoint: |-
+            guarded: false
+            url: https://internal.${SECRET_DOMAIN}/
+            headers:
+              Host: ${SECRET_DOMAIN}
         hostnames:
           - "${SECRET_DOMAIN}"
         parentRefs:
