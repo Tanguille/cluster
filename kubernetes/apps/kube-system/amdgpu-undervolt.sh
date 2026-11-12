@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 # R9700 power-profile controller, run by the amdgpu-undervolt DaemonSet (env comes from there).
 # shellcheck shell=busybox
 set -euo pipefail

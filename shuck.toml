@@ -7,8 +7,10 @@ extend-select = ["S"]
 # Scripts that a live workload mounts or runs are not edited for style rules: a content change
 # rolls the workload. They are ignored here instead.
 [lint.per-file-ignores]
-# DaemonSet script (busybox ash, 177 lines): bash-only shebang policy, no `main`, undocumented functions.
+# DaemonSet script (busybox sh, 177 lines): `set -o pipefail` is fine on busybox (X021), the shebang
+# policy wants bash, and the script has no `main` and undocumented functions.
 "kubernetes/apps/kube-system/amdgpu-undervolt.sh" = [
+  "X021",
   "S078",
   "S079",
   "S080",
