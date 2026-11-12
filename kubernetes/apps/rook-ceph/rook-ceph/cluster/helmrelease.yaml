@@ -88,14 +88,11 @@ spec:
       logCollector:
         enabled: false
       csi:
-        # Off: the CephFS kernel client puts the replica-read flag on writes too (ceph_osdc_new_request), and
-        # Ceph v21 OSDs reject those with EINVAL (tracker 73997), which writeback drops silently, so files read
-        # back as zeros. ceph-csi applies it per cluster after any driver mount option, so RBD loses local reads
-        # as well (replicas served 23% of reads). Turn it back on once the Talos kernel carries libceph
-        # d6c7a5fcd088 "only set read_from_replica on read requests" (v7.4-rc1, stable 7.3.4; not in 7.3.1), then
-        # scale every CephFS user to 0 and back so the volumes remount.
+        # Needs libceph d6c7a5fcd088 on every node (floor in scripts/test_read_affinity_kernel.py): older kernels
+        # send the replica-read flag on CephFS writes, Ceph v21 rejects them (tracker 73997) and files read back as
+        # zeros. A mount only picks this up once every pod using the volume has left the node.
         readAffinity:
-          enabled: false
+          enabled: true
       dashboard:
         urlPrefix: /
         ssl: false

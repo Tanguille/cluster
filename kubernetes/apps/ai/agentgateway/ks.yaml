@@ -29,6 +29,18 @@ spec:
     - name: agentgateway-controller
     # The ModelRouter CRD and its webhook (models.yaml).
     - name: llmkube
+  # Gate dependents (memini) on the Gateway only: wait: true would also block them on the
+  # optional embedding-cache HelmRelease.
+  healthChecks:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      name: agentgateway
+      namespace: *namespace
+  healthCheckExprs:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      failed: status.conditions.filter(e, e.type == 'Programmed').all(e, e.status == 'False')
+      current: status.conditions.filter(e, e.type == 'Programmed').all(e, e.status == 'True')
   path: ./kubernetes/apps/ai/agentgateway/app
   prune: true
   targetNamespace: *namespace

@@ -6,6 +6,10 @@
 > were a 2026-10-27 quality-gate run, not the soak below. The engine is
 > radiance since 2026-11-01 ([radiance-2026-11.md](radiance-2026-11.md)) and
 > the decode latch is unseen there; re-check the premise before reusing this.
+>
+> Since 2026-11 the DaemonSet has two power caps instead of `POWER_LIMIT_WATTS`:
+> `EFFICIENCY_WATTS` (default) and `BALANCED_WATTS` (solar surplus), re-asserted every 30 s.
+> `VOLTAGE_OFFSET_MV` is unchanged and written once at start.
 
 Runbook for pushing `VOLTAGE_OFFSET_MV` on the production R9700 (gfx1201,
 `control-1`) past the -82mV it ran in 2026-09. Whoever runs it: follow

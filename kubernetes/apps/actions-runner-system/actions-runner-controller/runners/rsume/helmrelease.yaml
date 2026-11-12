@@ -35,7 +35,7 @@ spec:
         initContainers:
           # Native sidecar.
           - name: podman
-            image: quay.io/podman/stable:v6.1.3@sha256:4cc31850c189386faca95d72988fe9573b3df06360cb65aea3ff5b17a04d0454
+            image: quay.io/podman/stable:v6.1.3@sha256:d29c7fdd99acee4990e8e9f3e097fcb82b06f2ffeb44bdf2aa76230e6b5a690d
             restartPolicy: Always
             command:
               [
@@ -112,6 +112,9 @@ spec:
             image: ghcr.io/home-operations/actions-runner:2.338.2@sha256:2dd7caa094a425c041539447cb0e6ae63cda10b5242773764683b695b8fa5613
             command: ["/home/runner/run.sh"]
             env:
+              # Steps run on the runner inherit this: CLIs that honour the convention stay off telemetry.
+              - name: DO_NOT_TRACK
+                value: "1"
               - name: DOCKER_HOST
                 value: unix:///run/podman/podman.sock
               # buildx's requests fail on rootless Podman without cgroups; the classic builder works.
