@@ -62,7 +62,8 @@ machine:
   install:
     wipe: false
     grubUseUKICmdline: true
-    # Schematic id resolved per node (control-1 has its own); tuppr derives upgrade targets from it.
+    # Schematic id resolved per node (control-1 has its own). tuppr re-tags the RUNNING node's install-image
+    # repo, so this drives upgrades only once apply-node has landed it.
     image: factory.talos.dev/metal-installer/{{ schematic }}:{{ talosVersion }}
   time:
     disabled: false

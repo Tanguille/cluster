@@ -143,8 +143,21 @@ Evaluate separately rather than adopting blindly: NRI is enabled by default in 1
 
 ## Talos 1.15 adoption
 
-Same rule as 1.14: apply only after tuppr has rolled every node to 1.15, since a 1.14 node rejects
-the whole config over the two new documents.
+Same rule as 1.14: apply only after every node runs 1.15, since a 1.14 node rejects the whole config
+over the two new documents.
+
+**Rollout order.** tuppr builds a node's target from the install image in its *live* config, which
+still names the self-built `ghcr.io/tanguille/installer/*` repos that no longer get new tags. So
+merging first parks tuppr on an image nothing publishes. Move the nodes by hand from this branch
+before merging, one at a time (control-1 last), waiting for `Ready` and a running Cilium agent:
+
+```sh
+just talos upgrade-node <node> <ip>   # reads the rendered Factory image for v1.15.0-beta.0
+```
+
+Then merge (tuppr finds every node at its target and completes), run `diff-node` on all three, and
+`apply-node` to land the Factory install image and the two documents. Only then drop the
+`talosctl.image.tag` pins.
 
 | Document | Replaces / adds |
 | --- | --- |
