@@ -9,10 +9,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true
 ---
@@ -28,8 +24,25 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/cluster
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+  # Gate rsume on the shared secret only, not on the cluster runner's HelmRelease.
+  healthChecks:
+    - apiVersion: v1
+      kind: Secret
+      name: cluster-runner-secret
+      namespace: *namespace
+  targetNamespace: *namespace
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: actions-runner-controller-rsume-runners
+  namespace: &namespace actions-runner-system
+spec:
+  dependsOn:
+    # Creates cluster-runner-secret, which rsume-runner borrows.
+    - name: actions-runner-controller-runners
+  interval: 1h
+  path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/rsume
+  prune: true
   targetNamespace: *namespace

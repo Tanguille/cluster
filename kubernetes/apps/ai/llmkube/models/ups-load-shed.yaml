@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/keda.sh/scaledobject_v1alpha1.json
+# Last resort before the tech cave UPS (Ellipse ECO 1200) trips; xmrig stops and the R9700 drops to its efficiency
+# profile (kube-system/amdgpu-undervolt) at 85 %, Home Assistant pushes at 90 %.
+# The LLM idles at ~11 W, so it is only paused while the dGPU is busy (~250 W).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: qwen38-27b-vllm-ups-shed
+spec:
+  scaleTargetRef:
+    apiVersion: inference.llmkube.dev/v1alpha1
+    kind: InferenceService
+    name: qwen38-27b-vllm
+  maxReplicaCount: 1
+  # Hysteresis lives in the query, so drop to 0 as soon as it says so.
+  cooldownPeriod: 0
+  advanced:
+    restoreToOriginalReplicaCount: true
+  fallback:
+    # Fail open: a scaler or VictoriaMetrics error must not take the LLM down.
+    failureThreshold: 3
+    replicas: 1
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+        # 97 % to pause, 80 % to resume; a busy LLM adds ~25 points, so a resume above ~72 % may re-trip.
+        # Missing data keeps it running.
+        query: >-
+          (
+            vector(1) unless on() (
+              (
+                min_over_time(network_ups_tools_ups_load[1m]) > 97
+                and on() avg_over_time(node_hwmon_power_average_watt{kubernetes_node="control-1"}[1m]) > 100
+                and on() kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} > 0
+              )
+              or
+              (
+                max_over_time(network_ups_tools_ups_load[10m]) >= 80
+                and on() kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} == 0
+              )
+            )
+          ) or vector(0)
+        threshold: "1"

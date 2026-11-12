@@ -7,6 +7,7 @@ metadata:
 spec:
   discoveryFilters:
     - Tanguille/8-ball
+    - Tanguille/apks
     - Tanguille/cluster
     - Tanguille/mesh-organiser
     - Tanguille/rsume
@@ -20,7 +21,13 @@ spec:
   extraEnv:
     - name: RENOVATE_CUSTOM_ENV_VARIABLES
       value: '{"MISE_USE_VERSIONS_HOST":"false"}'
-  image: ghcr.io/renovatebot/renovate:44.223.1@sha256:4d82316637556d793f1c0e248e003a3842ebadecea0a9f4e9b77c12421da2122
+    # Private ghcr.io/tanguille/rsume: same read:packages PAT as default/rsume-ghcr (rotate both).
+    - name: RENOVATE_HOST_RULES
+      valueFrom:
+        secretKeyRef:
+          name: renovate-github-app
+          key: ghcr_host_rules
+  image: ghcr.io/renovatebot/renovate:44.236.4@sha256:c00542ee2c0ca5623fd9e98b3878ae175ddc7b6a695c7bd04aceba8a9b44d0e4
   parallelism: 1
   provider:
     name: github

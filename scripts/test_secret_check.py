@@ -217,7 +217,7 @@ sops: {json.dumps(META)}
                 self.assertNotIn(PQ_IDENTITY, output)
                 self.assertEqual(self.git("show", ":candidate.txt").decode(), PQ_IDENTITY)
 
-    def test_validator_discovers_only_repository_scripts_including_new_files(self):
+    def test_validator_discovers_repository_scripts_and_runs_checks_via_mise(self):
         source = CHECKER.parents[1] / ".agents/skills/pr-review/scripts/validate-pr.sh"
         validator = self.root / ".agents/skills/pr-review/scripts/validate-pr.sh"
         validator.parent.mkdir(parents=True)
@@ -230,7 +230,7 @@ sops: {json.dumps(META)}
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("#!/bin/bash\nset -euo pipefail\n")
-        # Stub other phases and record shellcheck arguments; this test targets discovery only.
+        # Stub the tools; assert the discovered shellcheck inputs and the phase-3 mise calls.
         (self.root / "scripts").mkdir(parents=True)
         (self.root / "scripts/test_fixture.py").write_text(
             "import unittest\nclass Fixture(unittest.TestCase):\n    def test_fixture(self):\n        pass\n"
@@ -240,6 +240,9 @@ sops: {json.dumps(META)}
         bin_dir.mkdir()
         stubs = {
             "flate": "#!/bin/bash\nset -euo pipefail\nexit 0\n",
+            # Log the call so the test proves phase 3 goes through mise, then run the command
+            # without "exec ... --" so it never resolves real tools.
+            "mise": "#!/bin/bash\nset -euo pipefail\nprintf '%s\\n' \"$*\" >> mise-calls.txt\nwhile [ \"$1\" != \"--\" ]; do shift; done\nshift\nexec \"$@\"\n",
             "shellcheck": "#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath('checked.json').write_text(json.dumps(sys.argv[1:]))\n",
         }
         for name, body in stubs.items():
@@ -251,9 +254,45 @@ sops: {json.dumps(META)}
             env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}, timeout=30,
         )
         self.assertEqual(result.returncode, 0, (result.stdout + result.stderr).decode())
+        self.assertEqual(
+            (self.root / "mise-calls.txt").read_text().splitlines(),
+            ["exec -- python3 scripts/secret-check.py --all", "exec -- python3 -m unittest discover -s scripts -v"],
+        )
         checked = set(json.loads((self.root / "checked.json").read_text()))
         wanted = {"tracked.sh", str(validator.relative_to(self.root)), *expected}
         self.assertEqual(checked, {str(self.root / path) for path in wanted})
+
+    def test_validator_fails_closed_without_mise(self):
+        # Same nested path as the sibling test, so REPO_ROOT is the fixture and only phase 3 fails.
+        validator = self.root / ".agents/skills/pr-review/scripts/validate-pr.sh"
+        validator.parent.mkdir(parents=True)
+        shutil.copyfile(CHECKER.parents[1] / ".agents/skills/pr-review/scripts/validate-pr.sh", validator)
+        stubs = self.root / "bin"
+        stubs.mkdir()
+        for name in ("flate", "shellcheck"):
+            (stubs / name).write_text("#!/bin/bash\nexit 0\n")
+            (stubs / name).chmod(0o755)
+        entries = [str(stubs)]
+        # Hide every real mise so the guard, not the host, decides. mise can share a dir with bash
+        # (/usr/bin), so mirror such dirs without it instead of dropping them.
+        for i, entry in enumerate(e for e in os.environ["PATH"].split(os.pathsep) if e):
+            if (Path(entry) / "mise").exists():
+                mirror = self.root / f"path{i}"
+                mirror.mkdir()
+                for tool in Path(entry).iterdir():
+                    if tool.name != "mise":
+                        (mirror / tool.name).symlink_to(tool)
+                entry = str(mirror)
+            entries.append(entry)
+        result = subprocess.run(
+            [shutil.which("bash"), str(validator)], cwd=self.root, input=b"", capture_output=True,
+            env={**os.environ, "PATH": os.pathsep.join(entries)}, timeout=30,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mise not installed", result.stdout.decode())
+        # Phases 1 and 2 passed with the stubs, so the nonzero exit is phase 3's guard alone.
+        self.assertIn("flate test all passed", result.stdout.decode())
+        self.assertIn("shellcheck passed", result.stdout.decode())
 
 
 if __name__ == "__main__":

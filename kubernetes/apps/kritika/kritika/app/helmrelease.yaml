@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.0.118
+        tag: 0.0.119
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -34,6 +34,12 @@ spec:
       podTemplate:
         spec:
           runtimeClassName: gvisor
+          # gh telemetry (cafe.github.com) was the most refused host; kritika refuses GH_* env names.
+          containers:
+            - name: runner
+              env:
+                - name: DO_NOT_TRACK
+                  value: "1"
           resources:
             requests:
               cpu: 10m
@@ -98,11 +104,8 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      # PRs reviewed at once; 6 drained the free omniroute tiers (Logfare 20/min, 3 concurrent) in bursts.
-      reviewWorkers: 4
-      limits:
-        # Model calls in flight, split-review parts included; matches reviewWorkers so bursts stay off the free tiers.
-        concurrency: 4
+      # PRs reviewed at once; a split review takes every free llm slot, so llm has more.
+      reviewWorkers: 12
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
@@ -114,14 +117,29 @@ spec:
           privateKey: { env: GITHUB_APP_PRIVATE_KEY }
           webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
       providers:
-        llm:
+        llm: &llm
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
+          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen.
+          concurrency: 16
+        # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
+        local:
+          <<: *llm
+          # A quarter of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
+          # At 4, queueing behind Hermes pushed 64-188K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
+          concurrency: 2
+          # Fallback calls took up to 807s (p95 387s) unqueued; 5m default abandoned them and resent the step.
+          # 25m rides out queueing and stays under the engine's 1800s backend timeout.
+          timeout: 25m
+        # Own provider so the iGPU embedder doesn't scale with llm: index runs hold all but one slot.
+        embed:
+          <<: *llm
+          concurrency: 3
       review:
         model: llm/omniroute
         # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
-        fallback: llm/qwen-3.8
+        fallback: local/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
@@ -138,7 +156,8 @@ spec:
             and pinned dependency defaults; for Helm, inspect templates or
             rendered output. Cite evidence of changed behavior, not just a
             removed explicit value. Put unverified concerns in the summary as
-            checks, and report concrete defects even when tests pass.
+            checks: a finding whose case rests on "if", "may" or "verify
+            whether" is one. Report concrete defects even when tests pass.
         - id: renovate
           when:
             - expr: pr.headRef.startsWith("renovate/")
@@ -149,8 +168,12 @@ spec:
             list). Then search this repository for uses of the package,
             including the comments in those files, and report each breaking
             change, deprecation, rename or changed default that affects it,
-            and any version it must stay in lockstep with. Start with a
-            verdict, safe to merge or not, and name the sources you read.
+            and any version it must stay in lockstep with. Name the range as
+            from-version to to-version and read every release between them, or
+            list the ones skipped. A target published before the current
+            version lacks that version's later fixes: compare the two release
+            dates and name what is lost. Start with a verdict, safe to merge
+            or not, and name the sources you read.
         - id: radiance-bump
           when:
             - expr: pr.headRef.startsWith("renovate/radiance")
@@ -211,7 +234,7 @@ spec:
       ignore:
         - "**/*.out"
       embedding:
-        model: llm/embeddinggemma-2
+        model: embed/embeddinggemma-2
         dims: 768
         # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
         maxBatchChars: 50000
@@ -221,16 +244,15 @@ spec:
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
       # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs).
-      # github.com and api.github.com are implicit; cafe.github.com (gh telemetry) stays refused.
+      # github.com and api.github.com are implicit. CONNECT tunnels carry any method, so add no host that takes
+      # uploads from self-registered accounts (npm, public forges); the self-hosted forges below are trusted.
       egress:
         allow:
-          # GitHub source archives, registry and release assets (redirects/fallbacks).
-          - raw.githubusercontent.com
-          - release-assets.githubusercontent.com
-          - objects.githubusercontent.com
-          - pkg-containers.githubusercontent.com
+          # GitHub content hosts: source archives, registry and release assets, Actions results, Pages docs.
+          - "*.githubusercontent.com"
           - codeload.github.com
-          # GHCR registry endpoint (blobs use pkg-containers above).
+          - "*.github.io"
+          # GHCR registry endpoint (blobs come from pkg-containers.githubusercontent.com).
           - ghcr.io
           # Docker registry/auth and blob CDN hosts.
           - "*.docker.io"
@@ -245,20 +267,33 @@ spec:
           - "*.pkg.dev"
           - gcr.io
           - mirror.gcr.io
+          # Never *.blob.core.windows.net (gsoci and Actions log blobs): anyone can register a storage account there.
           - gsoci.azurecr.io
-          - registry.erwanleboucher.dev
-          # Rust package index and downloads.
+          # Self-hosted forges of home-operations community members.
+          - forgejo.ellis.link
+          - git.sable.moe
+          - git.enoent.fr
+          - "*.erwanleboucher.dev"
+          - docker.dragonflydb.io
+          - mcr.microsoft.com
+          - "*.data.mcr.microsoft.com"
+          # Package indexes and downloads.
           - crates.io
           - static.crates.io
+          - index.crates.io
+          - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
           - grafana.com
           - huggingface.co
+          - "*.cdn.hf.co"
+          - continuwuity.org
+          - modelcontextprotocol.io
+          - k8s-schemas.home-operations.com
           - cloudnative-pg.io
           - nginx.org
-          - rook.github.io
+          - prowlarr.servarr.com
           - "*.kernel.org"
-          - rocm.github.io
           - doc.rust-lang.org
           - pypi.org
           # SQLite documentation, shadcn docs/assets, and Flathub metadata.

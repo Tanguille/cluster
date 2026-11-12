@@ -43,7 +43,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 128Mi
+                memory: 32Mi
               limits:
                 memory: 1Gi
             securityContext:
@@ -77,7 +77,7 @@ spec:
           - name: envoy-internal
             namespace: network
         # /mcp is guarded only by a sync token (fork docs/mcp.md), so it stays off the gateway;
-        # ToolHive reaches it through the Service. The longer prefix wins over "/".
+        # ToolHive vMCP reaches it through the Service (ai/toolhive/mcp/mesh-organiser.yaml). The longer prefix wins over "/".
         rules:
           - matches:
               - path:

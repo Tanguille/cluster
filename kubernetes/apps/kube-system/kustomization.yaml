@@ -20,3 +20,11 @@ resources:
   - ./reloader/ks.yaml
   - ./snapshot-controller/ks.yaml
   - ./spegel/ks.yaml
+configMapGenerator:
+  - name: amdgpu-undervolt-scripts
+    files:
+      - amdgpu-undervolt.sh
+    options:
+      annotations:
+        # Shell script, not a flux template: keep postBuild envsubst off it.
+        kustomize.toolkit.fluxcd.io/substitute: disabled

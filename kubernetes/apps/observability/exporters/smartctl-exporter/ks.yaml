@@ -8,11 +8,7 @@ metadata:
 spec:
   targetNamespace: *namespace
   dependsOn:
-    - name: victoria-metrics
+    - name: prometheus-operator-crds
   path: ./kubernetes/apps/observability/exporters/smartctl-exporter/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m

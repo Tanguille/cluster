@@ -16,7 +16,8 @@ spec:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
     minRunners: 1
-    maxRunners: 10
+    # 4 x 512Mi stays inside the evictable pool; bursts queue.
+    maxRunners: 4
     controllerServiceAccount:
       name: actions-runner-controller
       namespace: actions-runner-system
@@ -27,6 +28,9 @@ spec:
             image: ghcr.io/home-operations/actions-runner:2.338.2@sha256:2dd7caa094a425c041539447cb0e6ae63cda10b5242773764683b695b8fa5613
             command: ["/home/runner/run.sh"]
             env:
+              # Steps run on the runner inherit this: CLIs that honour the convention stay off telemetry.
+              - name: DO_NOT_TRACK
+                value: "1"
               - name: NODE
                 valueFrom:
                   fieldRef:
@@ -42,11 +46,6 @@ spec:
               - mountPath: /var/run/secrets/talos.dev
                 name: talos
                 readOnly: true
-              - mountPath: /tool-cache
-                name: tool-cache
-        # runner is uid/gid 1001; without fsGroup the CephFS mount lands root-owned
-        securityContext:
-          fsGroup: 1001
         # Best-effort spread so one node blip can't kill a whole batch.
         # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
         topologySpreadConstraints:
@@ -60,6 +59,3 @@ spec:
           - name: talos
             secret:
               secretName: *app
-          - name: tool-cache
-            persistentVolumeClaim:
-              claimName: runner-tool-cache

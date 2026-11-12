@@ -12,10 +12,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/kopiur-system/kopiur/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true
 ---
@@ -31,9 +27,5 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/kopiur-system/kopiur/repository
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true

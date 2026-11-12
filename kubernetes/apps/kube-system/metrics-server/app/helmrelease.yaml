@@ -18,6 +18,9 @@ spec:
       - maxSkew: 1
         topologyKey: kubernetes.io/hostname
         whenUnsatisfiable: DoNotSchedule
+        # Skew per ReplicaSet: old replicas on two nodes otherwise pin the surge pod to the third.
+        matchLabelKeys:
+          - pod-template-hash
         labelSelector:
           matchLabels:
             app.kubernetes.io/name: *name
@@ -28,7 +31,7 @@ spec:
     # 79Mi cgroup peak over 30d against the chart's 200Mi default.
     resources:
       requests:
-        memory: 128Mi
+        memory: 32Mi
     podDisruptionBudget:
       enabled: true
       minAvailable: 1

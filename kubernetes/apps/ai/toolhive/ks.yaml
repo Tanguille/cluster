@@ -9,10 +9,7 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/crds
   prune: false
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+  wait: true
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -27,10 +24,7 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+  wait: true
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -45,8 +39,4 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/mcp
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace

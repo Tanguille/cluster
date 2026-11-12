@@ -9,17 +9,26 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  # low-priority-chain pods may sit Pending on a full cluster; waiting on them fails the upgrade and
+  # its rollback alike.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
   values:
     controllers:
       p2pool:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
+        # Chart default Recreate: a surge pod at low-priority-chain cannot preempt its way onto a
+        # full cluster, so a surging rollout would hang.
         containers:
           app:
             image:
               repository: ghcr.io/sethforprivacy/p2pool
-              tag: v4.18.1@sha256:a78dfe82c52e43c2678af2a599ba593e010ee467ede33f17856abdf412d7333c
+              tag: v4.18.1@sha256:2dfc62b4572802f9cb98c755b16cf209d840b61669b233e4851b4b4750fe94d4
             args:
               - "--host"
               - "monerod.web3.svc.cluster.local"
@@ -56,7 +65,7 @@ spec:
             resources:
               requests:
                 cpu: 50m
-                memory: 1Gi
+                memory: 64Mi
               limits:
                 # Bursty share validation throttled ~33% at a 500m limit (kguardian) despite low average use.
                 cpu: 1000m
@@ -74,6 +83,7 @@ spec:
                   failureThreshold: 30
                   periodSeconds: 5
     defaultPodOptions:
+      priorityClassName: low-priority-chain
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

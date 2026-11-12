@@ -12,20 +12,6 @@ spec:
         tag: 0.13.12
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-logs-single
   interval: 1h
-  # The chart renders its vector dashboard even with vector disabled, and nothing here exports Vector
-  # metrics, so delete it. Drop once VictoriaMetrics/helm-charts#3332 is fixed.
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: GrafanaDashboard
-              name: .*-vector-k8s-monitoring
-            patch: |-
-              $patch: delete
-              apiVersion: grafana.integreatly.org/v1beta1
-              kind: GrafanaDashboard
-              metadata:
-                name: not-used
   values:
     global:
       image:
@@ -40,7 +26,7 @@ spec:
         requests:
           cpu: 50m
           # 14d peak 747Mi.
-          memory: 1Gi
+          memory: 320Mi
         limits:
           cpu: 1
           memory: 2Gi

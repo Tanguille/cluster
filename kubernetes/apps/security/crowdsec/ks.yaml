@@ -12,10 +12,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/security/crowdsec/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true
 ---
@@ -31,10 +27,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/security/crowdsec/bouncers/envoy
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -51,10 +43,6 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/security/crowdsec/web-ui
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true
   postBuild:
@@ -75,9 +63,5 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/security/crowdsec/blocklist-import
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true

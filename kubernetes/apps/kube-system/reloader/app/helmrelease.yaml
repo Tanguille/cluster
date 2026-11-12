@@ -10,7 +10,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 2.2.19
+        tag: 2.2.20
       url: oci://ghcr.io/stakater/charts/reloader
   values:
     fullnameOverride: reloader
@@ -19,6 +19,6 @@ spec:
       deployment:
         resources:
           requests:
-            memory: 256Mi
+            memory: 128Mi
       podMonitor:
         enabled: true

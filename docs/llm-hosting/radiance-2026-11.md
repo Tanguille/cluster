@@ -68,6 +68,47 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   int8 path. Compare with the 4-ceiling baseline from 11-05 09:53Z to 11-06 00:48Z: decode p10/p50/p90 31.8/70.8/94.2 tok/s on
   replies of 200+ tokens, production pool 537,840 tokens.
 
+## Long context (RULER)
+
+`bench/ruler.py` runs [RULER](https://github.com/NVIDIA/RULER) at `db43f92`: its 13 synthetic tasks at 4K-128K, 10 samples
+a cell, greedy, thinking off, RULER's answer prefix and string-match metric (no judge model). The prompt wrapper is the sharp
+template's no-thinking render, token-identical to the server's (26 tokens, same greedy output); each run checks that first.
+`runs/<name>/meta.json` pins a run to its per-cell sample hashes and the served `.rad`, checked before every prompt; a flag
+change needs a new run name. Each row records the production preemptions during its prompt. Sequential against the live pod
+with production alongside: 780 requests, 6.5 h (median 99 s a request at 128K, 39 s at 64K).
+
+Keep the samples: `~/.local/state/radiance-tune/ruler/data/10` (fingerprint `9c875ea2f4b4f25b`, also
+`ruler-data-10-2026-11-08.tar.gz`; 256K: `15b593cc2507426b`, `ruler-data-10-261888-2026-11-09.tar.gz`). RULER fetches the
+essays live, so a regenerated set does not compare.
+
+Baseline 2026-11-08, 1.17.0 at the manifest's flags (k6_v4, MTP ceiling 6, `--prefix-resume nearest`):
+
+| Task | 4K | 8K | 16K | 32K | 64K | 128K |
+| --- | --- | --- | --- | --- | --- | --- |
+| 8 NIAH tasks, vt, cwe | 100 | 100 | 100 | 100 | 100 | 100 |
+| fwe | 100 | 96.7 | 96.7 | 96.7 | 96.7 | 100 |
+| qa_1 | 70 | 70 | 70 | 80 | 80 | 70 |
+| qa_2 | 70 | 80 | 70 | 80 | 80 | 80 |
+| **Average** | **95.4** | **95.9** | **95.1** | **96.7** | **96.7** | **96.2** |
+
+- No falloff with length.
+- QA misses are the strict substring match and turns ended right after `Answer:` (qa_2 #1 at 4K: `<|im_end|>` at p 0.42).
+- Noise: a 32K rerun matched every cell; 121 of 130 outputs byte-identical, the other 9 only in formatting or list order.
+- Gate: any non-QA cell below baseline is a regression. A QA cell moves 10 per changed answer, so read QA from the averages
+  and rerun the cell before acting on one flip.
+
+Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (the 262,144 limit less room for the wrapper),
+10 samples, median 272 s a prompt (`--lengths 261888 --tasks niah_multikey_3,niah_multivalue,vt,cwe,qa_2`):
+
+| Task | 256K |
+| --- | --- |
+| niah_multikey_3, niah_multivalue, vt, cwe | 100 |
+| qa_2 | 70 (80 at 128K: one answer) |
+
+- A 256K prompt holds half the KV pool. Started beside agents, also under an at-most-2-running gate, these preempted 3
+  production sessions; `ruler.py` now holds any prompt over a third of the pool until the engine is idle on two scrapes 30 s
+  apart, and the last 11 ran with none.
+
 ## Cache
 
 - Pool: 514,144 tokens of k6_v4 KV in VRAM with MTP and 8 slots at headroom 2560 (fp8_v4 with 7 slots: 464,880). vLLM held
@@ -87,8 +128,8 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   1.24 GiB now if media peaks at the same absolute use (arithmetic, not measured), above `DgpuVramLow`'s 1 GiB and enough for a
   0.85 GB 4K DV transcode. 1536 would sit under the alert for about
   54 minutes per 36 h.
-- Tier 16384 with a 30Gi request (48Gi limit): about 27.4 GiB working set, estimated. control-1's requests were at 97% of allocatable,
-  leaving 1.6 GiB schedulable, now 3.6. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
+- Tier 16384 with a 26Gi request (48Gi limit, was 30Gi): working set settled at 26.8 GiB and grew at most 0.17 GiB under load (measured 2026-11-10). The request sits just
+  below that, 4 GiB under the old 30Gi. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
 - After a roll, check working set, pool size, whole-card free VRAM during media use, returning-chat TTFT and preemptions. Rollback:
   headroom 2560, tier 19456 and request 32Gi together.
 

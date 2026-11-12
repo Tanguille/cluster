@@ -14,9 +14,10 @@ spec:
         tag: 0.29.1
       url: oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg
   values:
+    priorityClassName: homelab-critical
     monitoring:
       grafanaDashboard:
         create: true
     resources:
       requests:
-        memory: 256Mi
+        memory: 64Mi

@@ -167,11 +167,11 @@ spec:
         reloader.stakater.com/auto: "true"
       podLabels:
         egress.home.arpa/postgres: allow
-      # chart default 500m cpu vs ~13m observed; 30d peak 189Mi vs 500Mi request
+      # chart default 500m cpu vs ~13m observed; 30d peak 189Mi vs 512Mi limit
       resources:
         requests:
           cpu: 100m
-          memory: 256Mi
+          memory: 32Mi
         limits:
           memory: 512Mi
       strategy:
@@ -194,6 +194,7 @@ spec:
         serviceMonitor:
           enabled: true
     agent:
+      priorityClassName: homelab-critical
       daemonsetAnnotations:
         reloader.stakater.com/auto: "true"
       startupProbe:
@@ -202,6 +203,7 @@ spec:
       resources:
         requests:
           cpu: 100m
+          memory: 128Mi
       acquisition:
         # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
         # bouncer, so their alerts would ban at the external gateway only.
@@ -222,6 +224,18 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+      # Chart default is busybox:1.28 (2018) as root; its nc -z needs no privileges.
+      wait_for_lapi: &wait-for-lapi
+        image:
+          repository: ghcr.io/home-operations/busybox
+          tag: 1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
+        securityContext:
+          capabilities:
+            drop:
+              - ALL
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
     appsec:
       enabled: true
       deployAnnotations:
@@ -249,3 +263,4 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+      wait_for_lapi: *wait-for-lapi

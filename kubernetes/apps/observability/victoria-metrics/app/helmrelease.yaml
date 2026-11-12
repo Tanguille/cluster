@@ -27,7 +27,7 @@ spec:
       resources:
         requests:
           cpu: 10m
-          memory: 256Mi
+          memory: 64Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -259,18 +259,17 @@ spec:
             target_matchers:
               - alertname = "KubeHpaMaxedOut"
               - horizontalpodautoscaler =~ "keda-hpa-.*"
-          # Structural: priority -1000 plus a hard node pin leaves xmrig Pending on a full node.
+          # Structural: negative priority leaves xmrig (also node-pinned), the monerod/p2pool chain and the
+          # homelab-optional apps Pending on a full cluster.
           - source_matchers: *alwaysFiring
             target_matchers:
               - alertname = "KubePodNotReady"
-              - namespace = "web3"
-              - pod =~ "xmrig-.*"
-          # Same cause, Deployment side: KEDA scales to 1 while the pod stays Pending.
+              - pod =~ "(xmrig|monerod|p2pool|opencode|karakeep-chrome)-.*"
+          # Same cause, Deployment side: a replica is wanted while its pod stays Pending.
           - source_matchers: *alwaysFiring
             target_matchers:
               - alertname = "KubeDeploymentReplicasMismatch"
-              - namespace = "web3"
-              - deployment =~ "xmrig-.*"
+              - deployment =~ "xmrig-.*|monerod|p2pool|opencode|karakeep-chrome"
           # Structural: the printer is off between prints, and the exporter cannot tell that from broken.
           - source_matchers: *alwaysFiring
             target_matchers:
@@ -436,8 +435,8 @@ spec:
         resources:
           requests:
             cpu: 250m
-            # Live pod p99 2.90Gi over 7d, max 3.10Gi; limit covers the 14d 4015Mi peak.
-            memory: 3Gi
+            # 7d average 1.7Gi, p99 2.90Gi, max 3.10Gi; limit covers the 14d 4015Mi peak.
+            memory: 1664Mi
           limits:
             cpu: 2
             memory: 6Gi
@@ -480,6 +479,43 @@ spec:
                   time() - max by (namespace, cronjob) (kube_cronjob_next_schedule_time) > 1800
                   and max by (namespace, cronjob) (kube_cronjob_status_active) == 0
                 for: 5m
+                labels:
+                  severity: warning
+      scheduling-rules:
+        groups:
+          - name: scheduling
+            rules:
+              # Fires after manual cordons and failed upgrade jobs alike; nothing uncordons those.
+              - alert: NodeCordonedTooLong
+                annotations:
+                  summary: Node {{ $labels.node }} is still cordoned; its evicted pods stay Pending until it is uncordoned.
+                expr: kube_node_spec_unschedulable == 1
+                for: 45m
+                labels:
+                  severity: warning
+              # The requests join skips pods with no memory request, which preemption never picks.
+              - alert: DaemonSetPodWithoutPriorityClass
+                annotations:
+                  summary: DaemonSet {{ $labels.namespace }}/{{ $labels.created_by_name }} has no priority class; its pods lose to preemption on full nodes and cannot move.
+                expr: |-
+                  count by (namespace, created_by_name) (
+                    kube_pod_info{created_by_kind="DaemonSet", priority_class=""}
+                    and on (namespace, pod) (kube_pod_container_resource_requests{resource="memory"} > 0)
+                  )
+                for: 1h
+                labels:
+                  severity: warning
+              # Backs the NotReady mutes for these apps. Pending pods have no Ready series, hence `unless`. Keyed on
+              # the owning ReplicaSet so a preempted-and-replaced pod does not restart the 2h timer.
+              - alert: HomelabOptionalPodNotReady
+                annotations:
+                  summary: "{{ $labels.namespace }}/{{ $labels.created_by_name }} (homelab-optional) has had a pod not Ready for 2h."
+                expr: |-
+                  count by (namespace, created_by_name) (
+                    kube_pod_info{priority_class="homelab-optional"}
+                    unless on (namespace, pod) (kube_pod_status_ready{condition="true"} == 1)
+                  )
+                for: 2h
                 labels:
                   severity: warning
       node-hardware-rules:

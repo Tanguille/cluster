@@ -9,16 +9,18 @@ spec:
     # Bumped by the two regex managers in .renovaterc.json5, one per half.
     # No other literal -k<digits> in this file: the kernel manager is unanchored, so each one
     # becomes its own dep.
-    version: v1.14.5-k7.3.3
+    version: v1.14.6-k7.3.4
   talosctl:
     image:
       # Plain tag: no -k<kernel> talosctl image is published, so that tag hits ImagePullBackOff.
       # renovate: datasource=github-releases depName=siderolabs/talos
-      tag: v1.14.5
+      tag: v1.14.6
   # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
   # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:
     rebootMode: powercycle
+    # tuppr owns the drain and uncordons when it fails; a failed talosctl drain leaves the node cordoned.
+    waitForVolumeDetach: true
   # Jellyfin's quietest hours; gates upgrade starts only, a running upgrade finishes.
   maintenance:
     windows:
@@ -46,3 +48,14 @@ spec:
       kind: Restore
       expr: |-
         !(status.phase in ['Resolving', 'Restoring'])
+    # Rook holds its mon/mgr/mds/osd PDBs at 0 until Ceph is clean again, which is exactly what the
+    # drain would block on; HEALTH_ERR covers damage those PDBs don't track.
+    - apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      namespace: rook-ceph
+      expr: |-
+        status.disruptionsAllowed > 0
+    - apiVersion: ceph.rook.io/v1
+      kind: CephCluster
+      expr: |-
+        has(status.ceph) && status.ceph.health != 'HEALTH_ERR'

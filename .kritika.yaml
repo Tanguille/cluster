@@ -12,8 +12,12 @@ context:
 # Install flate from the aqua registry to check effective Helm values.
 tools:
   # renovate: datasource=github-releases depName=home-operations/flate
-  "aqua:home-operations/flate": "v0.7.1"
+  "aqua:home-operations/flate": "v0.7.3"
 rules:
+  - id: render-helm
+    paths: ["kubernetes/**/helmrelease.yaml"]
+    rule: >-
+      Render a HelmRelease with `flate build hr <name> -n <namespace> -p kubernetes` (`flate diff hr` with the same arguments plus `--base origin/main` to compare) and quote the rendered field: chart defaults and the cluster-apps patches supply what the file omits.
   - id: ceph-csi-lockstep
     paths: ["kubernetes/apps/rook-ceph/**"]
     rule: >-

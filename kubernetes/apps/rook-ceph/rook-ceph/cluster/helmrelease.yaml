@@ -22,6 +22,9 @@ spec:
           disabled: true
     toolbox:
       enabled: true
+      resources:
+        requests:
+          memory: 32Mi
     route:
       dashboard:
         annotations:
@@ -41,6 +44,9 @@ spec:
       repository: quay.io/ceph/ceph
       tag: v21.2.0@sha256:c9e6ed4ac3fcf67b28f38358bb9619dee4d1dfb96ddd4b9b583eee316a15f04d
     cephClusterSpec:
+      priorityClassNames:
+        crashcollector: homelab-critical
+        exporter: homelab-critical
       # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
       # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
@@ -82,14 +88,12 @@ spec:
       logCollector:
         enabled: false
       csi:
-        # Off: the CephFS kernel client puts the replica-read flag on writes too (ceph_osdc_new_request), and
-        # Ceph v21 OSDs reject those with EINVAL (tracker 73997), which writeback drops silently, so files read
-        # back as zeros. ceph-csi applies it per cluster after any driver mount option, so RBD loses local reads
-        # as well (replicas served 23% of reads). Turn it back on once the kernel in docker/talos-kernel carries libceph
-        # d6c7a5fcd088 "only set read_from_replica on read requests" (v7.4-rc1, Cc stable; not in 7.3.1), then
-        # scale every CephFS user to 0 and back so the volumes remount.
+        # Needs libceph d6c7a5fcd088 on every node (Linux 7.3.4+): older kernels
+        # send the replica-read flag on CephFS writes, Ceph v21 rejects them (tracker 73997) and files read back as
+        # zeros. A mount only picks this up once every pod using the volume has left the node.
+        # No CI check enforces the floor: re-verify it before any kernel or Talos rollback or hold-back.
         readAffinity:
-          enabled: false
+          enabled: true
       dashboard:
         urlPrefix: /
         ssl: false
@@ -112,6 +116,7 @@ spec:
         osd:
           requests:
             cpu: "500m"
+            # Not sized to the average: Ceph takes osd_memory_target from this request.
             memory: "2Gi"
           limits:
             memory: "6Gi"

@@ -24,9 +24,6 @@ spec:
       mode: console
     news:
       news_feed_enabled: "false"
-    # initContainer seeds bundled plugins into a writable emptyDir: readOnlyRootFilesystem plus working plugin auto-updates.
-    paths:
-      bundled_plugins: /var/lib/grafana/plugins-bundled
     plugins:
       plugin_admin_enabled: "false"
       preinstall_auto_update: "false"
@@ -43,39 +40,13 @@ spec:
           labels:
             egress.home.arpa/postgres: allow
         spec:
-          initContainers:
-            - name: seed-bundled-plugins
-              image: grafana/grafana:13.3.0
-              command:
-                [
-                  "sh",
-                  "-c",
-                  "cp -a /usr/share/grafana/data/plugins-bundled/. /bundled-plugins/"
-                ]
-              volumeMounts:
-                - name: bundled-plugins
-                  mountPath: /bundled-plugins
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities: { drop: ["ALL"] }
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 64Mi
-                limits:
-                  cpu: 200m
-                  memory: 256Mi
-          volumes:
-            - name: bundled-plugins
-              emptyDir: {}
           containers:
             - name: grafana
-              image: grafana/grafana:13.3.0
+              image: grafana/grafana:13.3.1
               resources:
                 requests:
                   cpu: 10m
-                  memory: 1Gi
+                  memory: 256Mi
                 limits:
                   # Throttled 13% of CFS periods at 100m despite a 34m p95.
                   cpu: "1"
@@ -93,9 +64,6 @@ spec:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
                 capabilities: { drop: ["ALL"] }
-              volumeMounts:
-                - name: bundled-plugins
-                  mountPath: /var/lib/grafana/plugins-bundled
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000

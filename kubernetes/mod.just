@@ -5,8 +5,10 @@ set script-interpreter := ['bash', '-euo', 'pipefail']
 
 [doc('Encrypt all Kubernetes SOPS secrets')]
 encrypt:
+    # Assigned, not tested in an `if`: a failing sops or a missing jq aborts instead of skipping.
     find "{{ source_directory() }}" -type f -name '*.sops.*' | while read -r file; do
-        if sops filestatus "$file" | jq --exit-status '.encrypted == false' &>/dev/null; then
+        encrypted="$(sops filestatus "$file" | jq -r '.encrypted')"
+        if [[ "${encrypted}" == "false" ]]; then
             sops --encrypt --in-place "$file"
         fi
     done

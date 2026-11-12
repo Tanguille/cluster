@@ -27,7 +27,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:15fd15e1f1d2ab2daf4b0b88f5849d95764c155237f36e8f5d36b32a4cec1be9
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:4bce66a7831e1d396f49d433eb738b9ef1edc20002f5a0d5099b15282d01d13f
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
@@ -40,19 +40,14 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # One iGPU model per node; both sides carry the rule because anti-affinity is
-  # only checked for the moving pod.
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels:
-              app: embeddinggemma-2
-          topologyKey: kubernetes.io/hostname
+  # One iGPU model per node: embeddinggemma-2's required anti-affinity keeps this pod off its
+  # node too (the scheduler checks existing pods' rules against the incoming pod).
 
+  # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
@@ -61,6 +56,7 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); the 2.4 GiB Q8_0 lives mostly in amdgpu GTT (uncharged by memcg,
-    # counted by the scheduler).
-    memory: 2Gi
+    # memcg does not charge amdgpu GTT, so the request counts it: 0.2Gi cgroup plus its share of
+    # control-2's GTT (7d average 1.05Gi, p95 1.86Gi, shared with the reranker).
+    memory: 896Mi
+    memoryLimit: 2Gi

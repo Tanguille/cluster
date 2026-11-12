@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/scheduling.k8s.io/priorityclass_v1.json
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority-chain
+# Above low-priority-mining (-1000), so the chain can displace miners that are useless without it;
+# below 0, so any regular pod preempts the chain when the cluster is full.
+value: -500
+description: "monero chain (monerod, p2pool)"

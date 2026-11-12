@@ -13,6 +13,8 @@ spec:
   values:
     defaultPodOptions:
       priorityClassName: homelab-important
+      # Covers the preStop drain below.
+      terminationGracePeriodSeconds: 1560
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -29,7 +31,7 @@ spec:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
               # slim: the compressors selected below need neither code-aware parsing nor ML extras.
-              tag: 0.43.1-slim-nonroot@sha256:ba108bc0c269464de93efb6ae20990b3ab0e153c888bcb217407766dbb8eaea4
+              tag: 0.44.0-slim-nonroot@sha256:d7fbf2765e84db50b33f55830268535357bce6407309d4622f4c93e81135053d
             # Appended to the image's `headroom proxy` entrypoint, which runs a semantic response
             # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
             # owns rate limits. --no-ccr: HEADROOM_STATELESS leaves no store to retrieve from, and
@@ -51,11 +53,11 @@ spec:
               # Allow-only mode for x-headroom-base-url: an override to any other host is ignored
               # or rejected, so it cannot carry the forwarded internal key off-cluster.
               HEADROOM_ALLOWED_BASE_URLS: agentgateway.ai.svc.cluster.local
-              # Just past Kritika's 5-minute request limit: Headroom doesn't notice a non-streaming chat
+              # Just past Kritika's 25m fallback timeout (providers.local): Headroom doesn't notice a non-streaming chat
               # client leaving, so this ends the abandoned decode. Longer non-streaming chat calls fail
               # too. It's a read timeout, so a stream only hits it after this long without a byte.
               # Non-streaming /v1/messages has its own 600s bound, and no client sends those here.
-              HEADROOM_REQUEST_TIMEOUT: "330"
+              HEADROOM_REQUEST_TIMEOUT: "1530"
               # agentgateway retries and fails over; Headroom retrying too would multiply both.
               HEADROOM_RETRY_MAX_ATTEMPTS: "1"
               # The proxy default (cache) never rewrites prior turns, so older tool results, the
@@ -79,13 +81,19 @@ spec:
               # Not implied by the compressor list: without these the startup banner shows
               # Code-Aware: LAZY and dedupe=True.
               HEADROOM_CODE_AWARE_ENABLED: "0"
-              # Off since Headroom ran as a guardrail that withheld assistant rows, so dedup pointers and
-              # tool-name guards could not resolve; the proxy sees whole turns, so it can be re-tested.
+              # Swept in #6651: no gain, kept off.
               HEADROOM_DEDUPE: "0"
               HEADROOM_COMPRESS_USER_MESSAGES: "0"
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
               # No Kompress model to fetch, and the only thing keeping the upload beacon off (BEACON_DEFAULT_ON is true upstream).
               HEADROOM_OFFLINE: "1"
+            # Headroom gives in-flight calls only 10s after SIGTERM (hard-coded), so a rollout cut
+            # longer calls into 500s. Hold SIGTERM for HEADROOM_REQUEST_TIMEOUT while the pod,
+            # already out of the endpoints, drains.
+            lifecycle:
+              preStop:
+                sleep:
+                  seconds: 1530
             envFrom:
               - secretRef:
                   name: headroom-secret
@@ -95,7 +103,7 @@ spec:
             resources:
               requests:
                 cpu: 250m
-                memory: 512Mi
+                memory: 384Mi
               limits:
                 cpu: "2"
                 memory: 1Gi

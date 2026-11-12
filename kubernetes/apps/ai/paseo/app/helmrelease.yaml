@@ -31,7 +31,7 @@ spec:
           app:
             image:
               repository: ghcr.io/joryirving/paseo
-              tag: 0.15.2@sha256:f7892289f719e731aac9e901050aa614bf208471fa72d34459d335d46fd16262
+              tag: 0.15.4@sha256:9f76e982ae1319569bb48049b4d7a199618b346eb1c7b1fcb0e27cfb2c3fa2f1
             # Skips the image's paseo-start CMD, which requires LiteLLM and overwrites config.json on every start.
             command:
               - /usr/bin/tini
@@ -59,7 +59,7 @@ spec:
             resources:
               requests:
                 cpu: 250m
-                memory: 1Gi
+                memory: 256Mi
               limits:
                 cpu: 2
                 memory: 4Gi

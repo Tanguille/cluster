@@ -9,6 +9,13 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  # homelab-optional pods may sit Pending; don't wait on them.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
 
   values:
     defaultPodOptions:
@@ -90,12 +97,13 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 512Mi
+                memory: 192Mi
               limits:
                 memory: 1Gi
 
       chrome:
         pod:
+          priorityClassName: homelab-optional
           # Renders untrusted pages; already --no-sandbox, so gVisor is its only sandbox.
           runtimeClassName: gvisor
         containers:
@@ -121,7 +129,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 128Mi
+                memory: 64Mi
               limits:
                 cpu: 1
                 memory: 1Gi
@@ -135,7 +143,7 @@ spec:
           app:
             image:
               repository: getmeili/meilisearch
-              tag: v1.56.1@sha256:b7ba431bf6f9b26cc86132798f3640964147a699cf23f026b74c6c05dbb1d60d
+              tag: v1.56.2@sha256:9600db22be3fcbf3d506176d3a73dd70a65c5719d9aa1d2837355b75afb8f4fb
             args:
               - /bin/meilisearch
               # Renamed from --experimental-dumpless-upgrade in v1.51; without it a prior-version database won't open.
@@ -162,8 +170,8 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                # 127Mi cgroup peak over 30d; recheck after a meilisearch version bump
-                memory: 128Mi
+                # 7d peak 26Mi; recheck after a meilisearch version bump
+                memory: 32Mi
               limits:
                 cpu: 1
                 memory: 4Gi

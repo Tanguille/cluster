@@ -23,7 +23,7 @@ spec:
           app:
             image:
               repository: mirror.gcr.io/cloudflare/cloudflared
-              tag: 2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+              tag: 2026.11.0@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
             envFrom:
               - secretRef:
                   name: "{{ .Release.Name }}-secret"
@@ -51,10 +51,14 @@ spec:
                 cpu: 500m
                 memory: 256Mi
     defaultPodOptions:
+      priorityClassName: homelab-critical
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: DoNotSchedule
+          # Skew per ReplicaSet: old replicas on two nodes otherwise pin the surge pod to the third.
+          matchLabelKeys:
+            - pod-template-hash
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: cloudflared

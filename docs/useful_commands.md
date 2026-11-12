@@ -46,6 +46,20 @@ psql -h <cluster-name>-rw.database.svc.cluster.local -U <app-username> -d <app-d
 
 The superuser (`postgres`) password is in the `cloudnative-pg-secret` secret in the database namespace (`spec.superuserSecret`).
 
+**Roll a change CNPG's pod diff ignores** (e.g. `priorityClassName`): Flux strips a kubectl-set annotation within minutes, so suspend around it.
+
+```bash
+flux suspend ks cloudnative-pg-cluster -n database
+kubectl -n database annotate cluster postgres16 --overwrite kubectl.kubernetes.io/restartedAt="$(date -u +%FT%TZ)"
+kubectl -n database get cluster postgres16 -w   # wait for the phase to leave, then return to "Cluster in healthy state"
+flux resume ks cloudnative-pg-cluster -n database
+```
+
+- The phase reads healthy until the operator starts the roll, so wait for it to change first.
+- While suspended, any commit merged in the window is held back, and `cloudnative-pg-databases` and its dependents report a stale dependency until the resume. Keep the window short.
+- If the phase does not return to healthy within minutes, check `.status.instancesReportedState`, resume anyway and fix the instance.
+- Bumping the annotation in `kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml` needs no suspend. Once it lives there, always restart through Git, or resuming Flux restores the older value and rolls again.
+
 ---
 
 ## Nextcloud: database restore
@@ -91,7 +105,7 @@ The superuser (`postgres`) password is in the `cloudnative-pg-secret` secret in 
 talosctl --nodes <node-ip> get links -o yaml | grep -E "id:|speedMbit:|operationalState: up"
 
 # All nodes (script)
-for node_ip in 192.168.0.11 192.168.0.12 192.168.0.13; do
+for node_ip in $(just talos node-ips); do
   echo "=== Node: $node_ip ==="
   talosctl --nodes "$node_ip" get links -o yaml 2>/dev/null | \
     awk '

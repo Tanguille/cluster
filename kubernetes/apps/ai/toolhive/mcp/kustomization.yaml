@@ -22,6 +22,8 @@ resources:
   - mcpgroups.yaml
   - mealie.yaml
   - memini.yaml
+  - mesh-organiser.yaml
+  - opnsense
   - podmonitor.yaml
   - searxng.yaml
   - talos-mcp.yaml
@@ -32,6 +34,7 @@ resources:
 
 patches:
   # Every MCPServer pod runs third-party tool code; MCPServerEntry has no pod. Opt a server out by narrowing the target.
+  # No server needs its service account token: flux-operator authenticates with its own kubeconfig.
   - target:
       kind: MCPServer
     patch: |-
@@ -42,4 +45,5 @@ patches:
       spec:
         podTemplateSpec:
           spec:
+            automountServiceAccountToken: false
             runtimeClassName: gvisor
