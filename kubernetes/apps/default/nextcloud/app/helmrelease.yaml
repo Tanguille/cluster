@@ -109,6 +109,9 @@ spec:
         # libpq: covers the replica connections too, which pgsql_ssl does not reach.
         - name: PGSSLMODE
           value: require
+        # No client certs: libpq fails fatally when $HOME is unreadable (/root under `su -p`, e.g. occ upgrade); the fpm HOME pin below covers workers only.
+        - name: PGSSLCERTMODE
+          value: disable
 
       existingSecret:
         enabled: true
