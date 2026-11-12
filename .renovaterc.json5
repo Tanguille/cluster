@@ -15,7 +15,9 @@
     managerFilePatterns: ["/(^|/)resourceset\\.ya?ml$/"]
   },
   // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
-  dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
+  dependencyDashboard: {
+    footer: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository"
+  },
   // The Main ruleset does not require up-to-date branches, and `auto` would
   // still rebase every automerge PR each time main moves
   rebaseWhen: "conflicted",
@@ -294,7 +296,7 @@
       // Chart and its CRDs chart are published together: one PR per release.
       description: "Agentgateway chart and CRDs",
       groupName: "agentgateway",
-      matchPackageNames: ["/cr\.agentgateway\.dev/"]
+      matchPackageNames: ["/cr.agentgateway.dev/"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",
