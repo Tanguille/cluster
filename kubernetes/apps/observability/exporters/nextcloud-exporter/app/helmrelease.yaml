@@ -55,5 +55,5 @@ spec:
       app:
         endpoints:
           - port: http
-            # each scrape triggers Nextcloud's DB-heavy serverinfo API; upstream examples use 5m
+            # each scrape queries Nextcloud's serverinfo API; the exporter README says to raise the interval to cut that load
             interval: 5m

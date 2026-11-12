@@ -121,6 +121,10 @@ spec:
 
       host: nextcloud.${SECRET_DOMAIN}
 
+      # Nothing scrapes the native /metrics; the chart default admits the pod CIDRs (incl. Envoy), so LAN clients could read it.
+      openmetrics:
+        allowedClients: []
+
       mail:
         enabled: true
         domain: gmail.com
@@ -146,7 +150,6 @@ spec:
         - name: scripts
           configMap:
             name: nextcloud-scripts
-            defaultMode: 0755
         - name: replica-config
           secret:
             secretName: nextcloud-secret
@@ -365,7 +368,9 @@ spec:
         securityContext:
           # cron.sh runs as www-data, not via the root entrypoint.
           allowPrivilegeEscalation: false
-          capabilities: { drop: [ALL] }
+          capabilities:
+            drop:
+              - ALL
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
@@ -376,7 +381,7 @@ spec:
             memory: 256Mi
           limits:
             cpu: "2"
-            # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
+            # 2Gi was hit (cron OOMKilled); 30d max 2.71GiB
             memory: 4Gi
 
     # nginx's probes hit /status.php via fpm, so a saturated pool restarted nginx; readiness still gates traffic.
@@ -396,5 +401,5 @@ spec:
         memory: 192Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        # 30d max WSS 1.22GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi
