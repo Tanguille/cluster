@@ -193,14 +193,13 @@ spec:
           php_admin_value[fatal_error_backtraces] = 0
 
       configs:
+        # Only the pod network is a proxy (cloudflared and Envoy). Trusting LAN ranges made Nextcloud drop LAN clients from X-Forwarded-For, so logs and brute-force throttling saw Envoy instead.
         proxy.config.php: |-
           <?php
           $CONFIG = array (
             'trusted_proxies' => array(
               0 => '127.0.0.1',
-              1 => '10.0.0.0/8',
-              2 => '172.16.0.0/12',
-              3 => '192.168.0.0/16',
+              1 => '${POD_CIDR}',
             ),
             'trusted_domains' => array(
               0 => 'nextcloud.${SECRET_DOMAIN}',
