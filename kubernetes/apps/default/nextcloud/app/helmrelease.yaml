@@ -121,7 +121,7 @@ spec:
 
       host: nextcloud.${SECRET_DOMAIN}
 
-      # Nothing scrapes the native /metrics; the chart default admits the pod CIDRs (incl. Envoy), so LAN clients could read it.
+      # Nothing scrapes the native /metrics; empty falls back to Nextcloud's loopback-only default instead of the chart's pod CIDRs.
       openmetrics:
         allowedClients: []
 
@@ -193,7 +193,7 @@ spec:
           php_admin_value[fatal_error_backtraces] = 0
 
       configs:
-        # Only the pod network is a proxy (cloudflared and Envoy). Trusting LAN ranges made Nextcloud drop LAN clients from X-Forwarded-For, so logs and brute-force throttling saw Envoy instead.
+        # Pod network only (cloudflared, Envoy); trusting LAN ranges made Nextcloud see Envoy, not the LAN client, in logs and brute-force throttling.
         proxy.config.php: |-
           <?php
           $CONFIG = array (

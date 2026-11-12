@@ -3,7 +3,6 @@ set -euo pipefail
 
 cd /var/www/html
 
-# Skip while not ready; a plain call so a failing occ actually trips the guard
 if ! php occ status >/dev/null 2>&1; then
     echo "WARNING: Nextcloud not ready, skipping cron job" >&2
     exit 0
