@@ -1,474 +1,351 @@
 {
-  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
-    'abandonments:recommended',
-    'github>home-operations/renovate-presets#11.0.0',
-    'github>home-operations/renovate-presets//apps/cnpg.json5#11.0.0',
-    'github>home-operations/renovate-presets//apps/grafanaDashboards.json5#11.0.0',
-    'github>home-operations/renovate-presets//apps/searxng.json5#11.0.0',
+    "abandonments:recommended",
+    "github>home-operations/renovate-presets#11.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#11.0.0",
+    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#11.0.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#11.0.0"
   ],
-  ignorePaths: [
-    '**/*.sops.*',
-    '**/resources/**',
-  ],
-  'helm-values': {
-    managerFilePatterns: [
-      '/(^|/)resourceset\\.ya?ml$/',
-    ],
+  ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  "helm-values": {
+    managerFilePatterns: ["/(^|/)resourceset\\.ya?ml$/"]
   },
   dependencyDashboard: {
-    footer: '- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository',
+    footer: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository"
   },
-  rebaseWhen: 'conflicted',
-  automergeType: 'pr',
+  rebaseWhen: "conflicted",
+  automergeType: "pr",
   platformAutomerge: false,
-  minimumReleaseAgeBehaviour: 'timestamp-optional',
-  internalChecksFilter: 'flexible',
+  minimumReleaseAgeBehaviour: "timestamp-optional",
+  internalChecksFilter: "flexible",
   logLevelRemap: [
     {
       matchMessage: "/Some .+ did not have a releaseTimestamp, but as we're running with minimumReleaseAgeBehaviour=timestamp-optional, proceeding/",
-      newLogLevel: 'info',
-    },
+      newLogLevel: "info"
+    }
   ],
   customDatasources: {
-    'linux-kernel': {
-      defaultRegistryUrlTemplate: 'https://www.kernel.org/releases.json',
-      format: 'json',
+    "linux-kernel": {
+      defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
+      format: "json",
       transformTemplates: [
-        '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}',
-      ],
-    },
+        '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
+      ]
+    }
   },
   customManagers: [
     {
-      description: 'tuppr target v<talos>-k<kernel>: Talos half',
-      customType: 'regex',
-      managerFilePatterns: [
-        '/tuppr/upgrades/talosupgrade\\.yaml$/',
-      ],
+      description: "tuppr target v<talos>-k<kernel>: Talos half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
       matchStrings: [
-        'version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k',
+        "version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k"
       ],
-      depNameTemplate: 'siderolabs/talos',
-      datasourceTemplate: 'github-releases',
+      depNameTemplate: "siderolabs/talos",
+      datasourceTemplate: "github-releases"
     },
     {
-      description: 'tuppr target v<talos>-k<kernel>: kernel half',
-      customType: 'regex',
-      managerFilePatterns: [
-        '/tuppr/upgrades/talosupgrade\\.yaml$/',
-      ],
-      matchStrings: [
-        '-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)',
-      ],
-      depNameTemplate: 'linux',
-      datasourceTemplate: 'custom.linux-kernel',
+      description: "tuppr target v<talos>-k<kernel>: kernel half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: ["-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      depNameTemplate: "linux",
+      datasourceTemplate: "custom.linux-kernel"
     },
     {
-      description: 'GrafanaDashboard spec.url pinned to GitHub release tags',
-      customType: 'regex',
-      managerFilePatterns: [
-        '/grafanadashboard\\.ya?ml(?:\\.j2)?$/',
-      ],
+      description: "GrafanaDashboard spec.url pinned to GitHub release tags",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
       matchStrings: [
-        'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/',
+        'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
-      datasourceTemplate: 'github-releases',
+      datasourceTemplate: "github-releases"
     },
     {
       description: "radiance's GrafanaDashboard spec.url, at the engine image's version",
-      customType: 'regex',
-      managerFilePatterns: [
-        '/grafanadashboard\\.ya?ml(?:\\.j2)?$/',
-      ],
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
       matchStrings: [
-        'url:\\s+"?https://codeberg\\.org/StillDeadcode/radiance/raw/tag/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/',
+        'url:\\s+"?https://codeberg\\.org/StillDeadcode/radiance/raw/tag/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/'
       ],
-      depNameTemplate: 'docker.io/stilldeadcode/radiance',
-      datasourceTemplate: 'docker',
+      depNameTemplate: "docker.io/stilldeadcode/radiance",
+      datasourceTemplate: "docker"
     },
     {
-      description: 'HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)',
-      customType: 'regex',
-      managerFilePatterns: [
-        '/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/',
-      ],
+      description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
+      customType: "regex",
+      managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
       matchStrings: [
-        'source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/',
-        'source:\\s+hf://(?<depName>[^/\\s]+/[^/\\s]+)@(?<currentDigest>[a-f0-9]{7,40})',
+        "source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/",
+        "source:\\s+hf://(?<depName>[^/\\s]+/[^/\\s]+)@(?<currentDigest>[a-f0-9]{7,40})"
       ],
-      packageNameTemplate: 'https://huggingface.co/{{depName}}',
-      currentValueTemplate: 'main',
-      datasourceTemplate: 'git-refs',
+      packageNameTemplate: "https://huggingface.co/{{depName}}",
+      currentValueTemplate: "main",
+      datasourceTemplate: "git-refs"
     },
     {
-      description: 'Rook CSI sidecar images: split repository/tag fields',
-      customType: 'regex',
+      description: "Rook CSI sidecar images: split repository/tag fields",
+      customType: "regex",
       managerFilePatterns: [
-        '/kubernetes/apps/rook-ceph/rook-ceph/app/helmrelease\\.yaml$/',
+        "/kubernetes/apps/rook-ceph/rook-ceph/app/helmrelease\\.yaml$/"
       ],
       matchStrings: [
-        'repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})',
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
-      datasourceTemplate: 'docker',
+      datasourceTemplate: "docker"
     },
     {
-      description: 'opencode npm plugins (executed in-process in an agent pod, so they stay pinned)',
-      customType: 'regex',
+      description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
+      customType: "regex",
       managerFilePatterns: [
-        '/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/',
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"
       ],
       matchStrings: [
-        '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"',
+        '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
-      datasourceTemplate: 'npm',
+      datasourceTemplate: "npm"
     },
     {
-      description: 'opencode git plugins (pinned to the commit, since a tag can move)',
-      customType: 'regex',
+      description: "opencode git plugins (pinned to the commit, since a tag can move)",
+      customType: "regex",
       managerFilePatterns: [
-        '/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/',
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"
       ],
       matchStrings: [
-        '@git\\+https://github\\.com/(?<depName>[\\w.-]+/[\\w.-]+)\\.git#(?<currentDigest>[0-9a-f]{40})",?\\s*//\\s*(?<currentValue>\\S+)',
+        '@git\\+https://github\\.com/(?<depName>[\\w.-]+/[\\w.-]+)\\.git#(?<currentDigest>[0-9a-f]{40})",?\\s*//\\s*(?<currentValue>\\S+)'
       ],
-      datasourceTemplate: 'github-tags',
+      datasourceTemplate: "github-tags"
     },
     {
-      description: 'Digest-pinned oci:// references',
-      customType: 'regex',
-      managerFilePatterns: [
-        '/\\.ya?ml(?:\\.j2)?$/',
-      ],
+      description: "Digest-pinned oci:// references",
+      customType: "regex",
+      managerFilePatterns: ["/\\.ya?ml(?:\\.j2)?$/"],
       matchStrings: [
-        'oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})',
+        "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
-      datasourceTemplate: 'docker',
+      datasourceTemplate: "docker"
     },
     {
-      description: 'Inline OCI chart sources in HelmReleases',
-      customType: 'regex',
-      managerFilePatterns: [
-        '/helmrelease\\.yaml$/',
-      ],
+      description: "Inline OCI chart sources in HelmReleases",
+      customType: "regex",
+      managerFilePatterns: ["/helmrelease\\.yaml$/"],
       matchStrings: [
-        '\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)',
+        "\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)"
       ],
-      depTypeTemplate: 'HelmChart',
-      datasourceTemplate: 'docker',
-    },
+      depTypeTemplate: "HelmChart",
+      datasourceTemplate: "docker"
+    }
   ],
   packageRules: [
     {
-      description: 'Title OCI chart updates as charts instead of images',
-      matchDatasources: [
-        'docker',
-      ],
-      matchFileNames: [
-        '**/ocirepository.yaml',
-      ],
-      semanticCommitScope: 'helm',
-      commitMessageTopic: 'chart {{depName}}',
+      description: "Title OCI chart updates as charts instead of images",
+      matchDatasources: ["docker"],
+      matchFileNames: ["**/ocirepository.yaml"],
+      semanticCommitScope: "helm",
+      commitMessageTopic: "chart {{depName}}"
     },
     {
-      description: 'Auto-merge patch and digest bumps once they have aged 3 days',
-      matchUpdateTypes: [
-        'patch',
-        'digest',
-      ],
-      minimumReleaseAge: '3 days',
-      automerge: true,
+      description: "Auto-merge patch and digest bumps once they have aged 3 days",
+      matchUpdateTypes: ["patch", "digest"],
+      minimumReleaseAge: "3 days",
+      automerge: true
     },
     {
-      description: 'Auto-merge GitHub Actions on minor too',
-      matchManagers: [
-        'github-actions',
-      ],
-      matchUpdateTypes: [
-        'minor',
-      ],
-      matchCurrentVersion: '!/^v?0\\./',
-      minimumReleaseAge: '3 days',
-      automerge: true,
+      description: "Auto-merge GitHub Actions on minor too",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor"],
+      matchCurrentVersion: "!/^v?0\\./",
+      minimumReleaseAge: "3 days",
+      automerge: true
     },
     {
       description: "Auto-merge Renovate's own image on minor",
+      matchPackageNames: ["ghcr.io/renovatebot/renovate"],
+      matchUpdateTypes: ["minor"],
+      minimumReleaseAge: "3 days",
+      automerge: true
+    },
+    {
+      description: "Auto-merge searxng",
+      matchPackageNames: ["ghcr.io/searxng/searxng"],
+      automerge: true
+    },
+    {
+      description: "Never auto-merge kritika: pre-1.0, its chart values change between patches",
+      matchPackageNames: ["/kritika/"],
+      automerge: false
+    },
+    {
+      description: "Never auto-merge storage, network, control plane, databases or GPU serving",
       matchPackageNames: [
-        'ghcr.io/renovatebot/renovate',
+        "/talos/",
+        "/installer/",
+        "/siderolabs/",
+        "/tuppr/",
+        "/cilium/",
+        "/coredns/",
+        "/envoy/",
+        "/k8s-gateway/",
+        "/external-dns/",
+        "/cert-manager/",
+        "/spegel/",
+        "/rook/",
+        "/ceph/",
+        "/openebs/",
+        "/kopiur/",
+        "/snapshot-controller/",
+        "/sig-storage/",
+        "/cloudnative-pg/",
+        "/postgres/",
+        "/vchord/",
+        "/dragonfly/",
+        "/flux/",
+        "/radiance/",
+        "/llama/",
+        "/obico/"
       ],
-      matchUpdateTypes: [
-        'minor',
-      ],
-      minimumReleaseAge: '3 days',
-      automerge: true,
+      automerge: false
     },
     {
-      description: 'Auto-merge searxng',
+      matchPackageNames: ["docker.io/stilldeadcode/radiance"],
+      groupName: "radiance"
+    },
+    {
+      matchPackageNames: ["ghcr.io/joryirving/opencode"],
+      automerge: false
+    },
+    {
+      description: "Actions Runner Controller Group",
+      groupName: "actions-runner-controller",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/gha-runner-scale-set/"],
+      minimumGroupSize: 2
+    },
+    {
+      description: "Flux Operator Group",
+      groupName: "flux-operator",
+      matchPackageNames: ["/flux-operator/", "/flux-instance/"],
+      minimumGroupSize: 2
+    },
+    {
+      description: "Talos Group",
+      groupName: "talos",
+      matchPackageNames: ["/siderolabs/"],
+      minimumGroupSize: 2
+    },
+    {
+      description: "Rook-Ceph Group",
+      groupName: "rook-ceph",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/rook-ceph/"],
+      minimumGroupSize: 2
+    },
+    {
+      description: "ToolHive operator, CRDs and Grafana dashboard URL",
+      groupName: "toolhive",
       matchPackageNames: [
-        'ghcr.io/searxng/searxng',
+        "/stacklok\\/toolhive\\/toolhive-operator/",
+        "stacklok/toolhive"
       ],
-      automerge: true,
+      minimumGroupSize: 2
     },
     {
-      description: 'Never auto-merge kritika: pre-1.0, its chart values change between patches',
-      matchPackageNames: [
-        '/kritika/',
-      ],
-      automerge: false,
+      description: "ToolHive MCP server images group",
+      groupName: "toolhive-mcp",
+      matchDatasources: ["docker"],
+      matchFileNames: ["kubernetes/apps/ai/toolhive/mcp/**"]
     },
     {
-      description: 'Never auto-merge storage, network, control plane, databases or GPU serving',
-      matchPackageNames: [
-        '/talos/',
-        '/installer/',
-        '/siderolabs/',
-        '/tuppr/',
-        '/cilium/',
-        '/coredns/',
-        '/envoy/',
-        '/k8s-gateway/',
-        '/external-dns/',
-        '/cert-manager/',
-        '/spegel/',
-        '/rook/',
-        '/ceph/',
-        '/openebs/',
-        '/kopiur/',
-        '/snapshot-controller/',
-        '/sig-storage/',
-        '/cloudnative-pg/',
-        '/postgres/',
-        '/vchord/',
-        '/dragonfly/',
-        '/flux/',
-        '/radiance/',
-        '/llama/',
-        '/obico/',
-      ],
-      automerge: false,
+      description: "Agentgateway chart and CRDs",
+      groupName: "agentgateway",
+      matchPackageNames: ["/cr.agentgateway.dev/"]
     },
     {
-      matchPackageNames: [
-        'docker.io/stilldeadcode/radiance',
-      ],
-      groupName: 'radiance',
+      description: "VectorChord CNPG images and Memini database version",
+      groupName: "vectorchord",
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
     },
     {
-      matchPackageNames: [
-        'ghcr.io/joryirving/opencode',
-      ],
-      automerge: false,
+      description: "obico web and ml-api images move together",
+      groupName: "obico",
+      matchPackageNames: ["/gabe565\\/obico/"],
+      minimumGroupSize: 2
     },
     {
-      description: 'Actions Runner Controller Group',
-      groupName: 'actions-runner-controller',
-      matchDatasources: [
-        'docker',
-      ],
-      matchPackageNames: [
-        '/gha-runner-scale-set/',
-      ],
-      minimumGroupSize: 2,
+      description: "Group klipper-exporter image and Grafana dashboard URL",
+      groupName: "klipper-exporter",
+      matchPackageNames: ["/prometheus-klipper-exporter/"]
     },
     {
-      description: 'Flux Operator Group',
-      groupName: 'flux-operator',
-      matchPackageNames: [
-        '/flux-operator/',
-        '/flux-instance/',
-      ],
-      minimumGroupSize: 2,
+      description: "nginx sidecar images group",
+      groupName: "nginx",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["nginx"],
+      minimumGroupSize: 2
     },
     {
-      description: 'Talos Group',
-      groupName: 'talos',
-      matchPackageNames: [
-        '/siderolabs/',
-      ],
-      minimumGroupSize: 2,
+      description: "shellcheck releases rarely; not abandoned",
+      matchPackageNames: ["koalaman/shellcheck"],
+      abandonmentThreshold: null
     },
     {
-      description: 'Rook-Ceph Group',
-      groupName: 'rook-ceph',
-      matchDatasources: [
-        'docker',
-      ],
-      matchPackageNames: [
-        '/rook-ceph/',
-      ],
-      minimumGroupSize: 2,
+      matchPackageNames: ["quay.io/ceph/ceph"],
+      sourceUrl: "https://github.com/ceph/ceph",
+      allowedVersions: "/^v\\d+\\.2\\.\\d+$/"
     },
     {
-      description: 'ToolHive operator, CRDs and Grafana dashboard URL',
-      groupName: 'toolhive',
-      matchPackageNames: [
-        '/stacklok\\/toolhive\\/toolhive-operator/',
-        'stacklok/toolhive',
-      ],
-      minimumGroupSize: 2,
+      description: "Mixed-segment tags (p2pool v4.15/v4.15.1); docker versioning skips patch bumps",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/sethforprivacy/p2pool"],
+      versioning: "loose"
     },
     {
-      description: 'ToolHive MCP server images group',
-      groupName: 'toolhive-mcp',
-      matchDatasources: [
-        'docker',
-      ],
-      matchFileNames: [
-        'kubernetes/apps/ai/toolhive/mcp/**',
-      ],
+      matchManagers: ["mise"],
+      matchDepNames: ["/^aqua:/"],
+      overrideDatasource: "github-releases"
     },
     {
-      description: 'Agentgateway chart and CRDs',
-      groupName: 'agentgateway',
-      matchPackageNames: [
-        '/cr.agentgateway.dev/',
-      ],
+      matchManagers: ["mise"],
+      matchDepNames: ["aqua:kubernetes/kubectl"],
+      overridePackageName: "kubernetes/kubernetes"
     },
     {
-      description: 'VectorChord CNPG images and Memini database version',
-      groupName: 'vectorchord',
-      matchPackageNames: [
-        'ghcr.io/tensorchord/vchord-scratch',
-      ],
+      matchManagers: ["mise"],
+      matchDepNames: ["aqua:jqlang/jq", "aqua:kubernetes-sigs/kustomize"],
+      extractVersion: "^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$"
     },
     {
-      description: 'obico web and ml-api images move together',
-      groupName: 'obico',
-      matchPackageNames: [
-        '/gabe565\\/obico/',
-      ],
-      minimumGroupSize: 2,
+      matchUpdateTypes: ["major", "minor", "patch", "digest"],
+      addLabels: ["type/{{updateType}}"]
     },
     {
-      description: 'Group klipper-exporter image and Grafana dashboard URL',
-      groupName: 'klipper-exporter',
-      matchPackageNames: [
-        '/prometheus-klipper-exporter/',
-      ],
+      matchDatasources: ["docker"],
+      addLabels: ["renovate/container"]
     },
     {
-      description: 'nginx sidecar images group',
-      groupName: 'nginx',
-      matchDatasources: [
-        'docker',
-      ],
-      matchPackageNames: [
-        'nginx',
-      ],
-      minimumGroupSize: 2,
+      matchDatasources: ["custom.grafana-dashboards"],
+      addLabels: ["renovate/grafana-dashboard"]
     },
     {
-      description: 'shellcheck releases rarely; not abandoned',
-      matchPackageNames: [
-        'koalaman/shellcheck',
-      ],
-      abandonmentThreshold: null,
+      matchDatasources: ["custom.linux-kernel"],
+      versioning: "loose",
+      semanticCommitScope: "kernel",
+      addLabels: ["renovate/kernel"],
+      automerge: false
     },
     {
-      matchPackageNames: [
-        'quay.io/ceph/ceph',
-      ],
-      sourceUrl: 'https://github.com/ceph/ceph',
-      allowedVersions: '/^v\\d+\\.2\\.\\d+$/',
+      description: "deadvalues action SHA and its pinned binary version move together",
+      matchPackageNames: ["guarnz/deadvalues"],
+      groupName: "deadvalues"
     },
     {
-      description: 'Mixed-segment tags (p2pool v4.15/v4.15.1); docker versioning skips patch bumps',
-      matchDatasources: [
-        'docker',
-      ],
-      matchPackageNames: [
-        'ghcr.io/sethforprivacy/p2pool',
-      ],
-      versioning: 'loose',
+      matchManagers: ["github-actions"],
+      addLabels: ["renovate/github-action"]
     },
     {
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        '/^aqua:/',
-      ],
-      overrideDatasource: 'github-releases',
-    },
-    {
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        'aqua:kubernetes/kubectl',
-      ],
-      overridePackageName: 'kubernetes/kubernetes',
-    },
-    {
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        'aqua:jqlang/jq',
-        'aqua:kubernetes-sigs/kustomize',
-      ],
-      extractVersion: '^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$',
-    },
-    {
-      matchUpdateTypes: [
-        'major',
-        'minor',
-        'patch',
-        'digest',
-      ],
-      addLabels: [
-        'type/{{updateType}}',
-      ],
-    },
-    {
-      matchDatasources: [
-        'docker',
-      ],
-      addLabels: [
-        'renovate/container',
-      ],
-    },
-    {
-      matchDatasources: [
-        'custom.grafana-dashboards',
-      ],
-      addLabels: [
-        'renovate/grafana-dashboard',
-      ],
-    },
-    {
-      matchDatasources: [
-        'custom.linux-kernel',
-      ],
-      versioning: 'loose',
-      semanticCommitScope: 'kernel',
-      addLabels: [
-        'renovate/kernel',
-      ],
-      automerge: false,
-    },
-    {
-      description: 'deadvalues action SHA and its pinned binary version move together',
-      matchPackageNames: [
-        'guarnz/deadvalues',
-      ],
-      groupName: 'deadvalues',
-    },
-    {
-      matchManagers: [
-        'github-actions',
-      ],
-      addLabels: [
-        'renovate/github-action',
-      ],
-    },
-    {
-      matchDatasources: [
-        'github-releases',
-      ],
-      addLabels: [
-        'renovate/github-release',
-      ],
-    },
-  ],
+      matchDatasources: ["github-releases"],
+      addLabels: ["renovate/github-release"]
+    }
+  ]
 }
