@@ -21,8 +21,10 @@ extend-select = ["S"]
 # Nextcloud lifecycle hooks mounted into the pod: no file header comment.
 "kubernetes/apps/default/nextcloud/app/scripts/cron.sh" = ["S081"]
 "kubernetes/apps/default/nextcloud/app/scripts/post-start.sh" = ["S081"]
-# Satisfactory init container script: no file header comment.
-"kubernetes/apps/default/satisfactory/app/scripts/mods.sh" = ["S081"]
+# Satisfactory init container script: no file header comment (S081), and `rm -rf "$HOME"` (K006) is
+# safe because helmrelease.yaml sets HOME=/tmp/ficsit. An inline directive would change the
+# ConfigMap and restart the pod, so both are ignored here.
+"kubernetes/apps/default/satisfactory/app/scripts/mods.sh" = ["S081", "K006"]
 # Dev and CI tooling: restructuring into `main` or splitting for length is not worth the risk.
 "scripts/talos-kernel-build.sh" = ["S080", "S085"]
 ".agents/skills/pr-review/scripts/validate-pr.sh" = ["S085"]
