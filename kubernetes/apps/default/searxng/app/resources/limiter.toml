@@ -1,17 +1,9 @@
 # See: https://docs.searxng.org/admin/searx.limiter.html
 
 [botdetection]
-# Envoy uses private Pod/Service ranges. Trust these proxies so public requests
-# are limited by the real X-Forwarded-For client IP instead of the gateway pod IP.
-trusted_proxies = [
-  "127.0.0.0/8",
-  "::1",
-  "10.0.0.0/8",
-  "172.16.0.0/12",
-  "192.168.0.0/16",
-  "100.64.0.0/10",
-  "fd00::/8"
-]
+# Same trust as Envoy's xForwardedFor.trustedCIDRs (the pod network). Trusting LAN
+# ranges lets a LAN client forge X-Forwarded-For: the forged hop becomes its client IP.
+trusted_proxies = ["127.0.0.0/8", "::1", "${POD_CIDR}"]
 
 [botdetection.ip_lists]
 # Allow trusted private clients to bypass header/link-token bot checks while the
