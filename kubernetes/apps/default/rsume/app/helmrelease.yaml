@@ -17,7 +17,7 @@ spec:
           app:
             image:
               repository: ghcr.io/tanguille/rsume
-              tag: 0.1.534@sha256:62355c93f2c01c9b37035c6e37702c970581bc8b8b5d58fcbe2e79bf959a9f07
+              tag: 0.1.540@sha256:2bcde7d1593278a5871e41a58c4e6038e5f61a3453674747debc21af4508bb22
             env:
               SITE_URL: https://${SECRET_DOMAIN}
               CONTACT_EMAIL: ${SECRET_CONTACT_EMAIL}
@@ -56,6 +56,15 @@ spec:
             port: 3000
     route:
       app:
+        annotations:
+          # The apex resolves publicly by design (cloudflared tunnel owns it), so envoy-internal's
+          # inherited `guarded: true` DNS canary can never pass. Probe the route as HTTP instead,
+          # against the internal gateway's own hostname, keeping the route's Host so it still matches.
+          gatus.home-operations.com/endpoint: |-
+            guarded: false
+            url: https://internal.${SECRET_DOMAIN}/
+            headers:
+              Host: ${SECRET_DOMAIN}
         hostnames:
           - "${SECRET_DOMAIN}"
         parentRefs:
