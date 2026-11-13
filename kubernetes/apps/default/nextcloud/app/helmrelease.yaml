@@ -111,7 +111,7 @@ spec:
         # libpq: covers the replica connections too, which pgsql_ssl does not reach.
         - name: PGSSLMODE
           value: require
-        # No client certs: libpq fails fatally when $HOME is unreadable (/root under `su -p`, e.g. occ upgrade); the fpm HOME pin below covers workers only.
+        # No client certs: with PGSSLMODE, libpq stats $HOME/.postgresql/postgresql.crt and fails fatally when HOME=/root is unreadable to www-data (fpm workers, occ via `su -p`; 503s after the 2026-11-04 image re-release).
         - name: PGSSLCERTMODE
           value: disable
 
@@ -177,13 +177,6 @@ spec:
           user = www-data
           group = www-data
           listen = 127.0.0.1:9000
-          ; The container runtime gives the fpm master - and thus the www-data workers -
-          ; HOME=/root. With PGSSLMODE=require, libpq's default client-cert lookup
-          ; ($HOME/.postgresql/postgresql.crt) then fails fatally (EACCES on the 0700 /root)
-          ; and every DB connection errors, 503-ing all web requests (seen after the
-          ; 35.0.2-fpm image re-release of 2026-11-04). Pin the workers' HOME to a
-          ; directory they can stat; verified connect OK from www-data with HOME=/var/www.
-          env[HOME] = /var/www
           pm = dynamic
           ; php-fpm ini: only ';' comments are valid here, '#' fails the parser
           ; 4 workers starved /status.php past the 5s probe under a thumbnail burst; ~175MB RSS/worker measured
