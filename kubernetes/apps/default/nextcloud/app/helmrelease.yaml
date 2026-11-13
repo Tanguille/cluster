@@ -94,6 +94,8 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
+          # Nothing scrapes the native /metrics, and any pod can spoof X-Forwarded-For into its loopback allowlist, so PHP never sees it.
+          location ~ ^/(?:index\.php/)?metrics(?:/|$) { return 404; }
       resources:
         requests:
           cpu: 5m
@@ -124,7 +126,7 @@ spec:
 
       host: nextcloud.${SECRET_DOMAIN}
 
-      # Nothing scrapes the native /metrics; empty falls back to Nextcloud's loopback-only default instead of the chart's pod CIDRs.
+      # Nothing scrapes the native /metrics; an empty list makes the chart omit OPENMETRICS_ALLOWED_CLIENTS, so Nextcloud's loopback-only default (127.0.0.0/16, ::1/128) applies.
       openmetrics:
         allowedClients: []
 
