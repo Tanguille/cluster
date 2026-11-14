@@ -128,6 +128,9 @@ jobs:
           # talosctl pulls anonymously, so the private rsume image (imagePullSecrets) is skipped;
           # move to Talos registry auth if a second private image appears.
           images=$(grep -v '^ghcr\.io/tanguille/rsume[:@]' <<< "$images" || true)
+          # Bare names (no registry, tag or digest) are CRD fields like the GPU operator ClusterPolicy
+          # `image:`, whose registry and version are sibling fields. They would resolve to docker.io/library.
+          images=$(grep -vE '^[^/:@]+$' <<< "$images" || true)
           rc=0
           while IFS= read -r image; do
             [ -n "$image" ] || continue # an rsume-only diff leaves nothing to pull

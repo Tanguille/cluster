@@ -94,20 +94,24 @@ fileflows or any inference workload onto `nvidia.com/gpu` is **out of scope** (f
 ## User Stories
 
 ### US-1: The 2070 is schedulable
+
 **As the** cluster owner **I want** `nvidia.com/gpu` allocatable on control-1 **so that** media and
 small inference can share the 2070 by time-slicing.
 
 #### Acceptance Criteria
+
 - [ ] After the owner-run upgrade, `kubectl get node control-1 -o jsonpath='{.status.allocatable}'` shows `nvidia.com/gpu` equal to the configured replicas
 - [ ] A throwaway pod requesting `nvidia.com/gpu: 1` with `runtimeClassName: nvidia` runs `nvidia-smi` and sees the TU106
 - [ ] `amd.com/gpu` allocation and R9700 workloads are unaffected
 - [ ] control-2 and control-3 render `No changes.` in `just talos diff-node`
 
 ### US-2: The modules survive kernel bumps
+
 **As the** owner **I want** the NVIDIA modules rebuilt by the same pipeline as amdgpu **so that** a
 Renovate kernel bump does not strand control-1.
 
 #### Acceptance Criteria
+
 - [ ] `scripts/talos-kernel-build.sh` publishes the NVIDIA extension signed by the same kernel build
 - [ ] README documents the new artifact and per-bump check
 
@@ -116,6 +120,7 @@ Renovate kernel bump does not strand control-1.
 ## Technical Analysis
 
 ### New Files
+
 | File | Purpose |
 |------|---------|
 | `kubernetes/apps/gpu-operator/kustomization.yaml` | Namespace-level Kustomization (components/common), as before #3167 |
@@ -124,6 +129,7 @@ Renovate kernel bump does not strand control-1.
 | `docs/llm-hosting/` or `docs/` NVIDIA runbook (path decided in Chunk 5) | Rollout and rollback |
 
 ### Modified Files
+
 | File | Changes |
 |------|---------|
 | `docker/talos-kernel/Dockerfile` | Route C: compile the NVIDIA modules in the existing `builder` stage into `/rootfs/usr/lib/modules/<rel>/extra/` |
@@ -135,6 +141,7 @@ Renovate kernel bump does not strand control-1.
 | `talos/README.md:75`, `talos/AGENTS.md:16`, root `README.md:81,94,98` | Stale "only dGPU" and hardware-table statements (now two GPUs) |
 
 ### Conventions Checklist
+
 - [ ] `.yaml` extension only, block-style YAML, terse comments, no em dashes
 - [ ] Round resource values; requests just below measured average, no guesses
 - [ ] Versions, digests and field names from upstream (chart values, extensions repo), never memory
@@ -148,15 +155,18 @@ Renovate kernel bump does not strand control-1.
 ## Decisions & Trade-offs
 
 ### Decision 1: Module build route (Route C chosen by the plan review)
+
 1. Route A (struck): build pkgs' `-pkg` image against a `kernel-build` derived from our kernel. Needs pkgs patched and would publish the signing key.
 2. Route C: compile in our Dockerfile `builder` stage (`make LD=ld.lld OBJDUMP=llvm-objdump SYSSRC=/src`, the ThinLTO flags pkgs uses), install to `/rootfs/usr/lib/modules/<rel>/extra/` (not in `modules-amd64.txt`, so installer-base ignores it), derive `${PREFIX}/nvidia-open-gpu-kernel-modules-production-pkg:${VERSION}` from the kernel image holding only `extra/*.ko`, then `make -C extensions nvidia-open-gpu-kernel-modules-production PKGS_PREFIX=... PKGS=${VERSION}` exactly like amdgpu. Same build graph and key, upstream validator and manifest for free. Never a second `docker buildx build --target`: a builder cache miss regenerates the key and the modules silently fail to load.
 
 **Chosen:** Route C. Chunk 1 confirms it compiles.
 
 ### Decision 2: Operator vs DRA
+
 **Chosen:** GPU Operator + device plugin (owner). Rationale: cross-namespace sharing by time-slicing.
 
 ### Decision 3: Driver version
+
 **Chosen:** production, version read from `extensions/nvidia-gpu/vars.yaml` at the Talos tag. If it does not compile on 7.3.4, stop (R1); LTS is not a fallback.
 
 ---
@@ -164,11 +174,13 @@ Renovate kernel bump does not strand control-1.
 ## Dependencies
 
 ### Prerequisites
+
 - [x] 2070 passed to the TALOS VM (PCI functions 2e:00.0-.3), done 2026-11-14 on the TrueNAS host
 - [ ] Host reboot test on `.27` finished and Ceph `HEALTH_OK` (control-1 is rebooted by the final rollout)
 - [ ] `ghcr.io/tanguille/*` packages remain public where nodes pull them
 
 ### External Dependencies
+
 - NVIDIA open-gpu-kernel-modules release, siderolabs/pkgs and siderolabs/extensions at the pinned Talos tag, NVIDIA gpu-operator chart (mirror: `ghcr.io/home-operations/charts-mirror/nvidia-gpu-operator`, verify the mirror carries the chosen tag)
 
 ---
@@ -178,17 +190,21 @@ Renovate kernel bump does not strand control-1.
 ### Progress Tracker
 
 #### Wave 1 (sequential) - Spike and decision gate
+
 - [x] Chunk 1: Upstream spike, route and tag decision, compile check on 7.3.4
 
 #### Wave 2 (parallel) - Build pipeline, manifests, node config
+
 - [x] Chunk 2: Kernel pipeline builds and publishes the NVIDIA extension (depends on Chunk 1)
 - [x] Chunk 3: Flux manifests for the GPU Operator (depends on Chunk 1 only for driver/toolkit facts)
 - [x] Chunk 4: control-1 schematic and machine config (depends on Chunk 1 for names; the script maps the schematic entry by name, no file overlap with Chunk 2)
 
 #### Wave 3 (sequential) - Build dispatch, runbook and validation
+
 - [x] Chunk 5: Runbook, docs pass, full validation (depends on Chunks 2, 3, 4); the CI dispatch (step 1) is held for the owner and lives in the runbook
 
 ### Wave Conflict Matrix
+
 | Chunk | Write Set | Dependencies | Wave |
 |-------|-----------|--------------|------|
 | 1 | `docs/plans/nvidia-gpu-operator-control-1.md` (decision records only) | None | 1 |
@@ -202,15 +218,18 @@ Wave 2 chunks have disjoint write sets (`docker`+`scripts`+workflow, `kubernetes
 ---
 
 ### Chunk 1: Upstream spike and decision gate
+
 **Status:** Complete
 **Wave:** 1
 **Estimated Context:** ~60k tokens
 **Complexity:** High
 
 #### Scope
+
 Read-only research plus a local compile test. Writes only decision records into this plan.
 
 #### Prerequisites
+
 None (Wave 1). Create the worktree and run `git pull --ff-only && git status` first.
 
 #### Detailed Steps
@@ -228,17 +247,21 @@ None (Wave 1). Create the worktree and run `git pull --ff-only && git status` fi
 5. **Record** everything above in a "Spike results" section of this plan.
 
 #### Verification
+
 - [x] The modules compiled against the 7.3.4 tree (log kept), or the plan is halted with the error recorded
 - [x] Driver version in the module build equals the version the toolkit extension carries (R4)
 - [x] Spike results section lists route, driver version, extension layout, tag rule, required modules and sysctls
 
 #### Files Changed Summary
-```
+
+```text
 docs/plans/nvidia-gpu-operator-control-1.md  (spike results only)
 ```
 
 #### Continuation Prompt
+>
 > Continue the NVIDIA GPU plan from `docs/plans/nvidia-gpu-operator-control-1.md`.
+>
 > 1. Verify branch `feat/nvidia-gpu-operator` and worktree `.claude/worktrees/nvidia-gpu-operator`, then `git pull --ff-only && git status`
 > 2. Read "Spike results" and confirm the compile check passed
 > 3. Mark Chunk 1 complete and proceed with Chunks 2 and 3 (parallel)
@@ -246,15 +269,18 @@ docs/plans/nvidia-gpu-operator-control-1.md  (spike results only)
 ---
 
 ### Chunk 2: Kernel pipeline builds the NVIDIA extension
+
 **Status:** Complete
 **Wave:** 2
 **Estimated Context:** ~80k tokens
 **Complexity:** High
 
 #### Scope
+
 - `docker/talos-kernel/Dockerfile`, `scripts/talos-kernel-build.sh`, `docker/talos-kernel/README.md`, `.github/workflows/talos-kernel.yaml` (only if needed)
 
 #### Prerequisites
+
 Chunk 1 complete and its compile check passed.
 
 #### Detailed Steps
@@ -267,13 +293,15 @@ Chunk 1 complete and its compile check passed.
 6. **Shell hygiene**: `set -euo pipefail`; statuses in command substitutions checked explicitly (see `.agents/common-operations.md` section on statuses `set -e` does not see).
 
 #### Verification
+
 - [ ] `mise exec -- shellcheck scripts/talos-kernel-build.sh` clean
 - [ ] `bash .agents/skills/pr-review/scripts/validate-pr.sh` passes
 - [ ] Local `docker buildx build` of the kernel stage including the module compile succeeds and `extra/*.ko` carry the module signature trailer (CI dispatch is in Chunk 5, after Chunk 4)
 - [ ] A simulated forced rebuild of control-1 does not re-push `installer/shared` or the control-2/3 refs
 
 #### Files Changed Summary
-```
+
+```text
 docker/talos-kernel/Dockerfile      NVIDIA module build/stage
 docker/talos-kernel/README.md       pipeline + gotchas
 scripts/talos-kernel-build.sh       build, publish, control-1 imager input, tag rule
@@ -281,20 +309,24 @@ scripts/talos-kernel-build.sh       build, publish, control-1 imager input, tag 
 ```
 
 #### Continuation Prompt
+>
 > Continue the NVIDIA GPU plan from `docs/plans/nvidia-gpu-operator-control-1.md`. Verify branch and worktree, `git pull --ff-only && git status`, mark Chunk 2 complete, proceed with Chunk 4 once Chunk 3 is also complete.
 
 ---
 
 ### Chunk 3: Flux manifests for the GPU Operator
+
 **Status:** Complete
 **Wave:** 2
 **Estimated Context:** ~50k tokens
 **Complexity:** Medium
 
 #### Scope
+
 - `kubernetes/apps/gpu-operator/**` (adding `kubernetes/apps/gpu-operator/kustomization.yaml` is enough; there is no root apps kustomization)
 
 #### Prerequisites
+
 Chunk 1 complete (driver/toolkit facts). Pattern to follow: `kubernetes/apps/kube-system/generic-device-plugin/` and the pre-#3167 files (`git show 5e797a51b^:kubernetes/apps/gpu-operator/...`).
 
 #### Detailed Steps
@@ -310,31 +342,37 @@ Chunk 1 complete (driver/toolkit facts). Pattern to follow: `kubernetes/apps/kub
 9. **PrometheusRule**: the old app had `prometheusrule.yaml` (HighGpuUsage); restore it on the DCGM metrics or skip it explicitly and say so in the PR body.
 
 #### Verification
+
 - [ ] `mise exec -- flate`/`kustomize build` of the new path renders; `bash .agents/skills/pr-review/scripts/validate-pr.sh` passes (it renders the Helm chart)
 - [ ] The operands (device-plugin, dcgm, gfd, validator) select `nvidia.com/gpu.present`; nfd-worker runs everywhere by design
 - [ ] Renovate would pick up the new OCIRepository tag (dry check against `.renovaterc*` rules)
 - [ ] Flux dry run: nothing is applied to the live cluster by this chunk
 
 #### Files Changed Summary
-```
+
+```text
 kubernetes/apps/gpu-operator/**   operator, namespace, ks (no runtimeclass)
 ```
 
 #### Continuation Prompt
+>
 > Continue the NVIDIA GPU plan from `docs/plans/nvidia-gpu-operator-control-1.md`. Verify branch and worktree, `git pull --ff-only && git status`, mark Chunk 3 complete, proceed with Chunk 4 (needs Chunks 1, 2).
 
 ---
 
 ### Chunk 4: control-1 schematic and machine config
+
 **Status:** Complete
 **Wave:** 2
 **Estimated Context:** ~40k tokens
 **Complexity:** Medium
 
 #### Scope
+
 - `talos/nodes/controlplane/control-1.schematic.yaml`, `talos/nodes/controlplane/control-1.yaml.j2`, `talos/README.md`, `talos/AGENTS.md`, root `README.md`
 
 #### Prerequisites
+
 Chunk 1 complete (extension names, module list). Does not need Chunk 2: the script maps the schematic entry by name.
 
 #### Detailed Steps
@@ -345,31 +383,37 @@ Chunk 1 complete (extension names, module list). Does not need Chunk 2: the scri
 4. **Render**: `just talos render-config` for all nodes; `just talos diff-node` only as a read-only dry run, and only after the owner OKs touching live nodes. Ask first.
 
 #### Verification
+
 - [ ] Rendered control-2/control-3 configs are byte-identical to `main`
 - [ ] Rendered control-1 diff is limited to the NVIDIA additions
 - [ ] `bash .agents/skills/pr-review/scripts/validate-pr.sh` passes
 
 #### Files Changed Summary
-```
+
+```text
 talos/nodes/controlplane/control-1.schematic.yaml  nvidia toolkit extension
 talos/nodes/controlplane/control-1.yaml.j2         modules, label, comments
 ```
 
 #### Continuation Prompt
+>
 > Continue the NVIDIA GPU plan from `docs/plans/nvidia-gpu-operator-control-1.md`. Verify branch and worktree, `git pull --ff-only && git status`, mark Chunk 4 complete, proceed with Chunk 5.
 
 ---
 
 ### Chunk 5: Runbook, docs and full validation
+
 **Status:** Complete (live steps held: CI dispatch, diff/upgrade/apply are owner-run per `docs/nvidia-gpu-control-1.md`)
 **Wave:** 3
 **Estimated Context:** ~40k tokens
 **Complexity:** Medium
 
 #### Scope
+
 - A runbook under `docs/`, plus consolidating this plan into existing docs; `.agents/learned-workspace.md` only with the owner's OK
 
 #### Prerequisites
+
 Chunks 2, 3, 4 complete.
 
 #### Detailed Steps
@@ -386,16 +430,19 @@ Chunks 2, 3, 4 complete.
 5. **Final validation**: `bash .agents/skills/pr-review/scripts/validate-pr.sh`, `git diff --check`, shellcheck on touched `*.sh`.
 
 #### Verification
+
 - [ ] Every local reference in changed docs exists
 - [ ] `validate-pr.sh` passes on the whole branch
 - [ ] Commits are Conventional Commit titles, no attribution lines, nothing pushed
 
 #### Files Changed Summary
-```
+
+```text
 docs/<runbook>.md   rollout and rollback
 ```
 
 #### Continuation Prompt
+>
 > Finish the NVIDIA GPU plan from `docs/plans/nvidia-gpu-operator-control-1.md`. Verify branch and worktree, `git pull --ff-only && git status`, run the final validation, then ask the owner before any push or PR.
 
 ---
@@ -530,9 +577,11 @@ Kept on this machine: podman image `localhost/nvidia-spike-builder` (21.3 GB, ke
 ## Testing Strategy
 
 ### Unit Tests
+
 - Shell: shellcheck on `scripts/talos-kernel-build.sh`; extend the existing Python/bash tests only where the build script already has them (`scripts/test_*.py` pattern)
 
 ### E2E Verification
+
 - [ ] CI build on the branch (dispatched in Chunk 5, after Chunk 4) publishes a pullable control-1 installer (README `curl` check returns 200)
 - [ ] After the owner-run upgrade: node allocatable shows `nvidia.com/gpu`, an `nvidia-smi` pod sees the TU106, R9700 workloads unaffected
 
@@ -541,6 +590,7 @@ Kept on this machine: podman image `localhost/nvidia-spike-builder` (21.3 GB, ke
 ## Rollback Plan
 
 If issues are discovered:
+
 1. Before merge: abandon the branch; nothing is applied to the cluster by the PR itself.
 2. After merge, before the node upgrade: remove the `gpu-operator` Flux Kustomization (operator pods only); revert the `talos/` changes (renders only).
 3. After the node upgrade: `talosctl -n 192.168.0.11 rollback` (A/B); upgrading back is not possible under R3 (c); nodes control-2/3 were never touched.
