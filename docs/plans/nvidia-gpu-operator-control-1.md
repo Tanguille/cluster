@@ -181,7 +181,7 @@ Renovate kernel bump does not strand control-1.
 
 ### External Dependencies
 
-- NVIDIA open-gpu-kernel-modules release, siderolabs/pkgs and siderolabs/extensions at the pinned Talos tag, NVIDIA gpu-operator chart (mirror: `ghcr.io/home-operations/charts-mirror/nvidia-gpu-operator`, verify the mirror carries the chosen tag)
+- NVIDIA open-gpu-kernel-modules release, siderolabs/pkgs and siderolabs/extensions at the pinned Talos tag, NVIDIA gpu-operator chart (upstream OCI: `nvcr.io/nvidia/cloud-native-charts/gpu-operator`, tags `v*`)
 
 ---
 
@@ -332,7 +332,7 @@ Chunk 1 complete (driver/toolkit facts). Pattern to follow: `kubernetes/apps/kub
 #### Detailed Steps
 
 1. **Namespace**: `gpu-operator`, `pod-security.kubernetes.io/enforce: privileged`, same prune/volsync annotations as the old file.
-2. **OCIRepository**: chart `nvidia-gpu-operator` from `ghcr.io/home-operations/charts-mirror`; pick the newest tag the mirror carries (`crane ls ... | grep -E '^[0-9]+\.'`), compare with upstream v26.7.2, and keep Renovate coverage.
+2. **OCIRepository**: chart `gpu-operator` from upstream `oci://nvcr.io/nvidia/cloud-native-charts` (tags `v*`, e.g. `v26.7.2`), declared inline in the HelmRelease like the sibling apps, and keep Renovate coverage.
 3. **HelmRelease**: values taken from the chart's own `values.yaml` at the chosen tag, never from the old file. Keep `driver.enabled: false`, `toolkit.enabled: false`, `hostPaths.driverInstallDir: /usr/local`. Time-slicing: `nvidia.com/gpu` replicas 8, `renameByDefault: false`. Set `cdi.enabled` explicitly and record why (the old repo flip-flopped between `nvidia` and `nvidia-cdi`). With CDI enabled the operator also creates `nvidia-cdi` and `nvidia-legacy` RuntimeClasses whose handlers do not exist on Talos (`10-nvidia-container-runtime.part` registers only `nvidia`); workloads and operands use runtimeClass `nvidia` only. Verify the device-plugin `DEVICE_LIST_STRATEGY` matches `/run/cdi/nvidia.yaml` from `nvidia-cdi-gen`. Keep dcgm-exporter with the `prometheus: victoria-metrics` ServiceMonitor label; round resource values.
 4. **NFD**: the repo has no Node Feature Discovery, so keep the bundled NFD enabled and confirm it does not need PSA exceptions beyond the namespace's privileged label.
 5. **Scheduling**: the device-plugin, dcgm, gfd and validator operands must select `nvidia.com/gpu.present`. The bundled `nfd-worker` DaemonSet runs on every node by design; accept that. No tolerations (there is no control-plane taint).
