@@ -181,9 +181,9 @@ Renovate kernel bump does not strand control-1.
 - [x] Chunk 1: Upstream spike, route and tag decision, compile check on 7.3.4
 
 #### Wave 2 (parallel) - Build pipeline, manifests, node config
-- [ ] Chunk 2: Kernel pipeline builds and publishes the NVIDIA extension (depends on Chunk 1)
-- [ ] Chunk 3: Flux manifests for the GPU Operator (depends on Chunk 1 only for driver/toolkit facts)
-- [ ] Chunk 4: control-1 schematic and machine config (depends on Chunk 1 for names; the script maps the schematic entry by name, no file overlap with Chunk 2)
+- [x] Chunk 2: Kernel pipeline builds and publishes the NVIDIA extension (depends on Chunk 1)
+- [x] Chunk 3: Flux manifests for the GPU Operator (depends on Chunk 1 only for driver/toolkit facts)
+- [x] Chunk 4: control-1 schematic and machine config (depends on Chunk 1 for names; the script maps the schematic entry by name, no file overlap with Chunk 2)
 
 #### Wave 3 (sequential) - Build dispatch, runbook and validation
 - [ ] Chunk 5: CI dispatch, runbook, docs pass, full validation (depends on Chunks 2, 3, 4)
@@ -246,7 +246,7 @@ docs/plans/nvidia-gpu-operator-control-1.md  (spike results only)
 ---
 
 ### Chunk 2: Kernel pipeline builds the NVIDIA extension
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 2
 **Estimated Context:** ~80k tokens
 **Complexity:** High
@@ -286,7 +286,7 @@ scripts/talos-kernel-build.sh       build, publish, control-1 imager input, tag 
 ---
 
 ### Chunk 3: Flux manifests for the GPU Operator
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 2
 **Estimated Context:** ~50k tokens
 **Complexity:** Medium
@@ -326,7 +326,7 @@ kubernetes/apps/gpu-operator/**   operator, namespace, ks (no runtimeclass)
 ---
 
 ### Chunk 4: control-1 schematic and machine config
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 2
 **Estimated Context:** ~40k tokens
 **Complexity:** Medium
