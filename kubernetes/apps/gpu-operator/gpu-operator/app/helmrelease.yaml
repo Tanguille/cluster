@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gpu-operator
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: 26.7.2
+      url: oci://ghcr.io/home-operations/charts-mirror/nvidia-gpu-operator
+  values:
+    # Talos ships the driver (our signed modules) and toolkit as extensions on control-1.
+    driver:
+      enabled: false
+    toolkit:
+      enabled: false
+    hostPaths:
+      driverInstallDir: /usr/local
+    cdi:
+      # Off: the extension registers only the `nvidia` containerd handler. On, the operator also makes
+      # the nvidia-cdi and nvidia-legacy RuntimeClasses (no handler on Talos) and the device plugin
+      # allocates through its own CDI kind instead of the extension's /run/cdi/nvidia.yaml.
+      enabled: false
+    operator:
+      # Owned by the operator (ownerRef, rewritten every pass), so no RuntimeClass manifest here.
+      runtimeClass: nvidia
+    dcgmExporter:
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: all
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 1Gi
+      serviceMonitor:
+        enabled: true
+        # Keep the exporter's pod/namespace labels of the workload using the GPU.
+        honorLabels: true
+        additionalLabels:
+          prometheus: victoria-metrics
+    devicePlugin:
+      config:
+        create: true
+        name: device-plugin-config
+        default: default
+        data:
+          default: |-
+            version: v1
+            sharing:
+              timeSlicing:
+                renameByDefault: false
+                resources:
+                  - name: nvidia.com/gpu
+                    replicas: 8
