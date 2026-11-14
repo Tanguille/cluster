@@ -1,6 +1,6 @@
 ---
 # control-1 diverges from the fleet: TrueNAS VM (qemu-guest-agent) and the only
-# dGPU host, so it carries the amdgpu tuning args the Chuwi boxes do not need.
+# GPU host (R9700 plus RTX 2070), so it carries the amdgpu tuning args the Chuwi boxes do not need.
 # Overrides are complete files, not deltas.
 customization:
   extraKernelArgs:
@@ -28,3 +28,8 @@ customization:
       - siderolabs/qemu-guest-agent
       - siderolabs/nfsrahead
       - siderolabs/gvisor
+      # The stock modules cannot load under sig_enforce (fresh kernel key per build), so
+      # scripts/talos-kernel-build.sh swaps in our own build, like siderolabs/amdgpu. The
+      # toolkit carries the userspace and firmware for the same driver version.
+      - siderolabs/nvidia-open-gpu-kernel-modules-production
+      - siderolabs/nvidia-container-toolkit-production
