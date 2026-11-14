@@ -16,15 +16,6 @@ tuppr-version kind:
     yq -e '.spec.{{ kind }}.version' \
         "{{ justfile_directory() }}/kubernetes/apps/system-upgrade/tuppr/upgrades/{{ kind }}upgrade.yaml"
 
-# Renovate maintains the kernel version in one place, the Dockerfile ARG. Read here rather than
-# re-parsed per caller, so a node cannot advertise a version whose image was never built.
-# Guarded because sed exits 0 with empty output, which neither --strict nor `set -e` catches.
-[private]
-kernel-version:
-    version="$(sed -nE 's/^ARG KERNEL_VERSION=(.+)$/\1/p' "{{ justfile_directory() }}/docker/talos-kernel/Dockerfile")"
-    [[ -n "${version}" ]] || { echo "no 'ARG KERNEL_VERSION=' in docker/talos-kernel/Dockerfile" >&2; exit 1; }
-    echo "${version}"
-
 # Decrypts on stdout only; callers pipe it so the plaintext lives no longer than the command
 # and never reaches disk or a shell variable.
 [private]
@@ -43,11 +34,10 @@ template file *args:
     }
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    # pinned is the CR value verbatim, so the installed tag cannot disagree with the requested one.
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --format=yaml \
         -D "kubernetesVersion=${kubernetes_version}" \
-        -D "pinned=${talos_version}" \
+        -D "talosVersion=${talos_version}" \
         {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]
