@@ -55,7 +55,7 @@ fileflows or any inference workload onto `nvidia.com/gpu` is **out of scope** (f
 
 ### Known risks (read before executing)
 
-- **R1 (blocking, Chunk 1 decides):** NVIDIA open modules may not compile against kernel **7.3.4**.
+- **R1 (CLEARED by Chunk 1, see Spike results; 595.112.07 compiles on 7.3.4):** NVIDIA open modules may not compile against kernel **7.3.4**.
   UNVERIFIED for production 595.112.07 (upstream issues #1507 and #1512 describe 7.3 breakage on
   615.x). If it does not build, stop and return to the owner. LTS 580 is **not** a fallback (older, so
   less likely to build) and a newer branch would mismatch the toolkit's 595 libraries and GSP
@@ -178,7 +178,7 @@ Renovate kernel bump does not strand control-1.
 ### Progress Tracker
 
 #### Wave 1 (sequential) - Spike and decision gate
-- [ ] Chunk 1: Upstream spike, route and tag decision, compile check on 7.3.4
+- [x] Chunk 1: Upstream spike, route and tag decision, compile check on 7.3.4
 
 #### Wave 2 (parallel) - Build pipeline, manifests, node config
 - [ ] Chunk 2: Kernel pipeline builds and publishes the NVIDIA extension (depends on Chunk 1)
@@ -202,7 +202,7 @@ Wave 2 chunks have disjoint write sets (`docker`+`scripts`+workflow, `kubernetes
 ---
 
 ### Chunk 1: Upstream spike and decision gate
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 1
 **Estimated Context:** ~60k tokens
 **Complexity:** High
@@ -228,9 +228,9 @@ None (Wave 1). Create the worktree and run `git pull --ff-only && git status` fi
 5. **Record** everything above in a "Spike results" section of this plan.
 
 #### Verification
-- [ ] The modules compiled against the 7.3.4 tree (log kept), or the plan is halted with the error recorded
-- [ ] Driver version in the module build equals the version the toolkit extension carries (R4)
-- [ ] Spike results section lists route, driver version, extension layout, tag rule, required modules and sysctls
+- [x] The modules compiled against the 7.3.4 tree (log kept), or the plan is halted with the error recorded
+- [x] Driver version in the module build equals the version the toolkit extension carries (R4)
+- [x] Spike results section lists route, driver version, extension layout, tag rule, required modules and sysctls
 
 #### Files Changed Summary
 ```
@@ -397,6 +397,133 @@ docs/<runbook>.md   rollout and rollback
 
 #### Continuation Prompt
 > Finish the NVIDIA GPU plan from `docs/plans/nvidia-gpu-operator-control-1.md`. Verify branch and worktree, `git pull --ff-only && git status`, run the final validation, then ask the owner before any push or PR.
+
+---
+
+## Spike results (Chunk 1, 2026-11-14)
+
+**Verdict: R1 cleared. NVIDIA open modules 595.112.07 compile against kernel 7.3.4 (Talos v1.14.6 toolchain). Route C works.**
+
+### Pins (all read from upstream, nothing from memory)
+
+| Item | Value | Source |
+|------|-------|--------|
+| Talos | `v1.14.6` | `.justfile` / tuppr CR |
+| `TOOLS` | `v1.14.0-12-g5959f76` | `siderolabs/talos@v1.14.6` Makefile |
+| `PKGS` | `v1.14.0-59-ge6ad19d` (`PKGS_SHA=e6ad19d`) | same Makefile (also `siderolabs/extensions@v1.14.6` Makefile) |
+| Driver (production) | `595.112.07` | `extensions/nvidia-gpu/vars.yaml@v1.14.6`, `NVIDIA_DRIVER_PRODUCTION_VERSION` |
+| amd64 tarball sha256 | `3ea206a1f7536703bec86fa83708dcbe153aada74f63c83ebeb5bc3995508f49` | same file, `NVIDIA_PKGS_PRODUCTION_AMD64_SHA256` (sha512 `d5c63603...fd90` in the same file) |
+| Tarball URL | `https://developer.download.nvidia.com/compute/nvidia-driver/redist/nvidia_driver/linux-x86_64/nvidia_driver-linux-x86_64-595.112.07-archive.tar.xz` | `siderolabs/pkgs@e6ad19d` `nvidia-open-gpu-kernel-modules/production/pkg.yaml` |
+| Toolkit extension (stock, by digest) | `ghcr.io/siderolabs/nvidia-container-toolkit-production:595.112.07-v1.19.1@sha256:44b192dd...bec8e` | `crane export ghcr.io/siderolabs/extensions:v1.14.6 - \| tar -xO image-digests` |
+| Stock module extension (to be replaced) | `ghcr.io/siderolabs/nvidia-open-gpu-kernel-modules-production:595.112.07-v1.14.6@sha256:9c8e48eb...5785f` | same file |
+| Newest upstream driver | 620.70.06 (2026-11-05); production branch at this Talos tag stays 595.112.07 | `gh api repos/NVIDIA/open-gpu-kernel-modules/releases` |
+
+R4 holds by construction: the toolkit extension (`nvidia-pkgs-production`) and the module package both consume `NVIDIA_DRIVER_PRODUCTION_VERSION` from the same `vars.yaml`; the toolkit tag `595.112.07-v1.19.1` and the module tag `595.112.07-v1.14.6` carry the same driver. The tarball sha256 and sha512 both verified locally (`sha256sum -c`, `sha512sum -c`: OK).
+
+### Compile check (R1)
+
+Machine had podman 6.1.3, no docker/buildx. Everything below ran locally, no cluster or host access.
+
+```sh
+# kernel builder stage, same build-args as scripts/talos-kernel-build.sh (KERNEL_VERSION default 7.3.4)
+cd docker/talos-kernel
+podman build --target builder \
+  --build-arg KERNEL_VERSION=7.3.4 --build-arg TOOLS_REV=v1.14.0-12-g5959f76 --build-arg PKGS_SHA=e6ad19d \
+  -t nvidia-spike-builder .
+# ~25 min on 24 cores, exit 0. config delta: +306 -198. Image 21.3 GB. Kernel release 7.3.4-talos,
+# clang/ld.lld 22.1.8. podman only warns that SHELL is not persisted in OCI format (irrelevant: the
+# stage is only used with an explicit `bash -c`).
+
+# modules, flags copied from pkgs nvidia-open-gpu-kernel-modules/production/pkg.yaml
+# (env LLVM=1, ARCH=x86_64; make LD=ld.lld OBJDUMP=llvm-objdump -j $(nproc) SYSSRC=/src)
+podman run --rm -v <driver-tree>:/nvidia-driver -e LLVM=1 -e ARCH=x86_64 localhost/nvidia-spike-builder \
+  bash -c 'cd /nvidia-driver/kernel-open && make LD=ld.lld OBJDUMP=llvm-objdump -j $(nproc) SYSSRC=/src modules'
+```
+
+Result: exit 0 in 41 s, zero compiler errors. Success lines:
+
+```text
+7.3.4-talos
+  MODPOST Module.symvers
+  CC [M]  nvidia.mod.o ... nvidia-uvm.mod.o nvidia-modeset.mod.o nvidia-drm.mod.o nvidia-peermem.mod.o
+  LD [M]  nvidia-modeset.ko / nvidia-peermem.ko / nvidia-uvm.ko / nvidia-drm.ko / nvidia.ko
+  BTF [M] nvidia-peermem.ko / nvidia-modeset.ko / nvidia-drm.ko / nvidia-uvm.ko / nvidia.ko
+```
+
+Only warnings: about 13.9k `objtool: ... 'naked' return found in MITIGATION_RETHUNK build` from the closed `nv-kernel.o_binary` and `nv-modeset-kernel.o_binary` blobs (upstream, build still succeeds; `mitigations=off` is in the cmdline anyway), plus a handful of `-Wformat-security` and `-Wexpansion-to-defined`.
+
+Upstream 7.3 issues are runtime-only and do not block the build: NVIDIA/open-gpu-kernel-modules #1507 (RTD3 reports "Not supported" because the `nv-probe` kthread runs in nullfs on 7.3; reported on 615.78.08) and PR #1512 (open, fixes it). Affects runtime power management only; irrelevant for a passthrough VM that never suspends the card. Not a blocker; recheck on a driver bump.
+
+### Signing (Route C, local proof)
+
+The kernel's `.config` has `CONFIG_MODULE_SIG=y`, `MODULE_SIG_ALL=y`, `MODULE_SIG_SHA512=y`, `MODULE_SIG_KEY="certs/signing_key.pem"`. NVIDIA's own `modules_install` signs with the builder's key, no extra step:
+
+```sh
+make LD=ld.lld OBJDUMP=llvm-objdump -j $(nproc) modules_install SYSSRC=/src \
+  INSTALL_MOD_PATH=/nvroot/usr INSTALL_MOD_DIR=extra INSTALL_MOD_STRIP=1
+# SIGN /nvroot/usr/lib/modules/7.3.4-talos/extra/nvidia{,-uvm,-modeset,-drm,-peermem}.ko
+```
+
+- All 5 `.ko` carry `~Module signature appended~` (the `grep -FL` check pkgs runs printed nothing).
+- `modinfo`: `signer: Build time throw-away kernel key`, `sig_key: 09:AD:C3:76:...`, `sig_hashalgo: sha512`, `vermagic: 7.3.4-talos SMP preempt mod_unload modversions`, `version: 595.112.07`.
+- **Plan correction:** NVIDIA's `kernel-open/Makefile` sets `INSTALL_MOD_DIR ?= kernel/drivers/video`. Without `INSTALL_MOD_DIR=extra` the modules land in `kernel/drivers/video/`, next to in-tree files. `?=` means passing `INSTALL_MOD_DIR=extra` works (verified). Route C must pass it, as above.
+- `modules_install` also runs its own `depmod` and writes `modules.*` files into the prefix. Ignore them: the imager reruns `depmod` over the merged tree (`internal/pkg/extensions/kernel_modules.go`, `GenerateKernelModuleDependencyTreeExtension`), so the extension only needs the `.ko` files under `usr/lib/modules/<rel>/`.
+- Dependencies resolve against the real kernel: with `depmod -b /rootfs/usr -F /rootfs/boot/System.map --errsyms -w 7.3.4-talos` (the exact gate Talos uses) on the kernel tree plus `extra/`, no nvidia warning (only the pre-existing in-tree `duplicate module alias` lines). Result: `nvidia-modeset -> nvidia, video, wmi`; `nvidia-drm -> nvidia-modeset, nvidia, video, wmi, drm_ttm_helper, ttm`; `nvidia-uvm -> nvidia`. `video.ko` and `drm_ttm_helper.ko`/`ttm.ko` are in Talos' `hack/modules-amd64.txt`; `wmi.ko` moved to `kernel/drivers/platform/wmi/wmi.ko` in 7.3, which the script's reconcile pass already rewrites. Standalone `depmod` (no System.map) prints `needs unknown symbol acpi_video_register_backlight / drm_fbdev_ttm_driver_fbdev_probe`; that is expected, do not mistake it for a failure.
+- Not verified locally (needs the real CI build and a node): that the signed modules actually load under `module.sig_enforce=1`. The signature trailer, the key and the vermagic are all consistent with the kernel they were built in.
+
+### TU106 support
+
+`supported-gpus/supported-gpus.json` in the 595.112.07 tarball lists `NVIDIA GeForce RTX 2070` for devids `0x1F02, 0x1F07, 0x1F10, 0x1F14, 0x1F50, 0x1F54` (and the 2070 Super `0x1E91`), all with feature `kernelopen`, so the open modules support it. GSP firmware `firmware/gsp_tu10x.bin` ships in the same tarball (the toolkit extension installs it to `/usr/lib/firmware/nvidia/595.112.07`). The exact devid the VM sees is UNVERIFIED (no host access); every desktop 2070 devid is covered.
+
+### Route C: exact mechanics
+
+1. **Source stage** (new, like `source`): download the tarball, `sha256sum -c`, extract `*/kernel-open` only. Driver version and sha come in as build-args from `extensions/nvidia-gpu/vars.yaml@${TALOS_VERSION}` (`yq -r .NVIDIA_DRIVER_PRODUCTION_VERSION`, `.NVIDIA_PKGS_PRODUCTION_AMD64_SHA256`); the script already clones `extensions`, so clone it before the kernel build. No hardcoded value, no Renovate pin.
+2. **In the `builder` stage, after the kernel `make` and before/independent of the `/rootfs` layout step:** the commands above, with `INSTALL_MOD_PATH=/nv-rootfs/usr`. Same stage, same `signing_key.pem`. Then copy only `/nv-rootfs/usr/lib/modules/<rel>/extra` into `/rootfs/usr/lib/modules/<rel>/` **after** the existing `depmod ... -F System.map` step, so the kernel's own `modules.dep` is untouched. `installer-base` ignores it: the Talos Dockerfile installs `hack/modules-amd64.txt` entries by exact path (`xargs -a modules-amd64.txt install -D`, Talos `Dockerfile` ~L704-722) and runs `depmod --errsyms` on that subset only.
+3. **`-pkg` image**: derive it from the pushed kernel image, never from a second `--target` build (builder cache miss means a new signing key and modules that silently fail to load). Needs `${PREFIX}/nvidia-open-gpu-kernel-modules-production-pkg:${VERSION}` holding `/usr/lib/modules/<rel>/extra/*.ko` (extension `pkg.yaml` does `cp -R /usr/lib/modules/* /rootfs/usr/lib/modules`). Two options for Chunk 2, pick the simpler one that works under `docker buildx` on the runner: (a) `crane export "${KIMG}" - | tar -x --wildcards 'usr/lib/modules/*/extra/*'` then `crane append` a single layer onto an empty base and set platform linux/amd64; (b) a 3-line Dockerfile `FROM scratch` + `COPY --from=${KIMG} /usr/lib/modules/<rel>/extra/ /usr/lib/modules/<rel>/extra/` built with `buildx --push` (`<rel>` = `${KERNEL_VERSION}-talos`). Neither was run (no registry write access by design); the `.ko` content they would carry was produced and validated above.
+4. **Extension**: `make -C extensions nvidia-open-gpu-kernel-modules-production PUSH=true PLATFORM=linux/amd64 REGISTRY=... USERNAME=... PKGS_PREFIX="${PREFIX}" PKGS="${VERSION}"`. The Makefile tags the image with `bldr eval --target ... '{{.VERSION}}'`, and `vars.yaml` sets `VERSION: "<driver>-<ABBREV_TAG>"`, so it publishes `${PREFIX}/nvidia-open-gpu-kernel-modules-production:595.112.07-v1.14.6`. The script's existing discovery (`git describe` into `EXT_TAG`, `crane ls ... | grep -F -- "-${EXT_TAG}"`) matches that (`-v1.14.6`). Not runnable locally (`make` needs `docker buildx` and bldr).
+5. **Imager input**: in the `while read ext` loop add `siderolabs/nvidia-open-gpu-kernel-modules-production` -> `--system-extension-image "${NVIDIA_MODULES_REF}"`; `siderolabs/nvidia-container-toolkit-production` already falls through to the `image-digests` lookup (`ghcr.io/siderolabs/nvidia-container-toolkit-production:595.112.07-v1.19.1@sha256:...` is present there).
+
+### Extension rootfs layout (validator contract)
+
+```text
+usr/lib/modules/<rel>/extra/nvidia.ko nvidia-uvm.ko nvidia-modeset.ko nvidia-drm.ko nvidia-peermem.ko
+usr/local/lib/modprobe.d/nvidia.conf        # blacklist nvidia, nvidia_uvm, nvidia_drm, nvidia_modeset
+manifest.yaml                                # name nvidia-open-gpu-kernel-modules-production, version 595.112.07-v1.14.6, talos >= v1.2.0
+```
+
+Proved with the real validator image (`ghcr.io/siderolabs/extensions-validator:c0c37e7`, the one `extensions/internal/base/pkg.yaml` pins): a hand-assembled rootfs from the signed modules above plus the real `nvidia.conf` and a manifest copied from the template passes `extensions-validator validate --rootfs=... --pkg-name=nvidia-open-gpu-kernel-modules-production` (rc 0). Rules it enforces (`talos pkg/machinery/extensions/validate.go`): no world-writable or special files, regular files only under `AllowedPaths`. `<rel>` must equal the installed kernel release (`7.3.4-talos`) because the imager copies by kernel version dir.
+
+### Toolkit and sysctl facts (from `siderolabs/extensions@v1.14.6`)
+
+- Machine config needs: `KernelModuleConfig` per module (`nvidia`, `nvidia_uvm`, `nvidia_modeset`, `nvidia_drm`; the extension's `nvidia.conf` blacklists them so they must be loaded explicitly), `SysctlConfig` `net.core.bpf_jit_harden: "1"`, and the CRI runtime `nvidia` handler is registered by the toolkit (`/etc/cri/conf.d/10-nvidia-container-runtime.part`, `BinaryName=/usr/local/bin/nvidia-container-runtime`), so the RuntimeClass handler is `nvidia` only.
+- The toolkit expects the driver userspace at `/usr/local` (libs, `nvidia-smi`, `nvidia-modprobe`), firmware at `/usr/lib/firmware/nvidia/595.112.07`, udev rule `15-nvidia-device.rules`. Services: `ext-nvidia-persistenced` (waits for `udevd` and `/sys/bus/pci/drivers/nvidia`), then `ext-nvidia-cdi-gen` writes `/run/cdi/nvidia.yaml`. This matches the plan's `hostPaths.driverInstallDir=/usr/local`, `driver.enabled=false`, `toolkit.enabled=false`.
+- `KernelModuleConfig` takes parameters (`KernelModuleSpec.Parameters`, `kernel_module_spec.go`), so `nvidia_drm` can be loaded as `modeset=0`. NVIDIA's default is `modeset=1` in 595.112.07 (`nvidia-drm-os-interface.c:41 nv_drm_modeset_module_param = true`), which creates a second DRM card (R6). With `modeset=0` the module returns early (`nvidia-drm-drv.c:1947`) and registers no DRM device. Nothing in the toolkit extension needs `nvidia_drm`; CUDA, NVENC and NVDEC need `nvidia` and `nvidia_uvm`. Recommendation for Chunk 4: load `nvidia`, `nvidia_uvm`, `nvidia_modeset`, and `nvidia_drm` with `modeset=0` only if the operator validator wants it; default to skipping `nvidia_drm`. Runtime need is UNVERIFIED until the node runs.
+- UNVERIFIED item "applying the `KernelModuleConfig` before the image has the modules breaks boot": source says no. `KernelModuleSpecController.Run` collects load errors and returns them, which only makes the controller retry with backoff; it is not a boot sequence phase. Keep the runbook order anyway (upgrade first, then apply).
+
+### R3 option (c): tag overwrite mechanics
+
+- **What `talosctl upgrade` does** (Talos v1.14.6 source): the API server (`v1alpha1_server.go` `Upgrade`) first calls `install.PullAndValidateInstallerImage`, which pulls into the **system** containerd namespace with `WithSkipIfAlreadyPulled`, so it runs `/bin/installer --help` from whatever image already sits under that name. Then `install.RunInstallerContainer` pulls again **without** skip (`PullWithRetriesAndTimeout`, the `Pull` option is deprecated and defaults to true) and removes the image after a successful install. The system containerd lives on tmpfs, so every reboot also empties it. Net effect: for a tag ref a stale cache can only serve the `--help` validation, and only when the same tag was pulled since the last boot (a failed earlier attempt keeps the image on purpose, "so that a retry doesn't have to pull it again"). The actual installer is resolved against ghcr.
+- **Spegel is not in this path.** Spegel (`kubernetes/apps/kube-system/spegel`, `containerdRegistryConfigPath: /etc/cri/conf.d/hosts`) mirrors the CRI namespace for kubelet pulls. The Talos installer pull uses Talos' own resolver built from machine registry config (`crires.RegistryBuilder`); there is no `RegistryMirrorConfig` for ghcr in `talos/`. The installer is never a pod image.
+- **Digest pinning works and is canonical.** `imageref.Parse` uses `reference.ParseDockerRef` and documents "dropping the tag from a reference carrying both a tag and a digest". So `...installer/control-1:v1.14.6-k7.3.4@sha256:<new>` is handled as `...installer/control-1@sha256:<new>`: a name that cannot hit a stale tag cache. The node log prints that ref (`performing upgrade via "<ref>"`, `pulling "<ref>"`), so `talosctl -n 192.168.0.11 dmesg | grep -E 'performing upgrade|pulling'` proves which digest was requested. After boot, `talosctl -n 192.168.0.11 get extensions` must list `nvidia-open-gpu-kernel-modules-production` (`595.112.07-v1.14.6`) and `talosctl read /proc/version` shows a kernel build timestamp that differs from control-2/3.
+- **Recorded before any overwrite** (`crane digest`, 2026-11-14): `installer/control-1:v1.14.6-k7.3.4` = `sha256:0548cb8a4c7f6887f14db7b7f66b7e67a50433974cc1776c366aae67bf4b9bd7` (docker manifest v2, 2 layers); `installer/shared:v1.14.6-k7.3.4` = `sha256:a5649e02f452bfdc844f9927500f841f89c8fea78d8279619240bd3f0bd92ad5` (must stay unchanged after the forced build; a cheap post-check). GHCR keeps an overwritten tag's old manifest as an untagged version until someone deletes it, so `talosctl upgrade --image ghcr.io/tanguille/installer/control-1@sha256:0548cb8a...` stays possible as a second rollback path if that version is not pruned. A/B `talosctl rollback` is still primary. Worth saying in the Chunk 5 runbook. Tag history also shows a precedent for revision tags (`v1.14.2-k7.2.9-r1`), which tuppr would see as a different version string; option (c) deliberately avoids that.
+- **Forced rebuild design for `scripts/talos-kernel-build.sh`** (Chunk 2):
+  1. `FORCE_NODE="${FORCE_NODE:-}"` (env, set from a `workflow_dispatch` input `force_node`). Validate it is one of `"$@"` and that `installer_ref "${FORCE_NODE}"` is not `.../installer/shared:*` (refuse, exit 1).
+  2. Pre-check loop fills `declare -A PUBLISH=()`: a node is added when its ref is missing **or** it is `FORCE_NODE` (log `forced: <ref> (old digest <crane digest>)`). Exit 0 as today when `PUBLISH` is empty. Default behaviour with no flag is unchanged: a merge-triggered run still no-ops because the tag exists, so the overwritten control-1 image survives the merge.
+  3. Publish loop: `[[ -n "${PUBLISH[${node}]:-}" ]] || { log "skip ${node}: ${dst} exists"; continue; }` before the imager call. `BUILT[schematic]` dedupe stays. This is what keeps `installer/shared` (control-2/3) and any other existing ref from being re-pushed with the new kernel and key (CRIT-2).
+  4. After `crane push`, record `crane digest "${dst}"` in `PUBLISHED` and print it in the step summary, so the owner copies the digest for `talosctl upgrade ...@sha256:`.
+  5. Side effect to document in the README: a forced run also overwrites the intermediates tagged `${VERSION}` (`kernel`, `linux-firmware`, `amdgpu`, `nvidia-open-gpu-kernel-modules-production(-pkg)`, `installer-base`, `imager`). Nothing at runtime references them; control-2/3 installers stay on the original build. If a registry `kernel:buildcache` hit reproduces the old builder layers the signing key may even be unchanged (the Dockerfile edit invalidates every layer after the first changed instruction, so expect a new key); either way the control-1 installer is internally consistent.
+- Signing divergence: control-1 ends up with a different kernel build and key than control-2/3. Fine under `sig_enforce` (modules and kernel match per node), record it in the README.
+
+### Still UNVERIFIED after the spike
+
+- The signed modules loading on a booted node under `module.sig_enforce=1`, and `nvidia-smi` seeing the TU106 (rollout only).
+- `docker buildx` / `bldr` paths (`make -C extensions nvidia-open-gpu-kernel-modules-production`, the `-pkg` derivation, the imager run): not runnable on this machine; Chunk 2 verifies locally with whatever builder it has, CI dispatch is Chunk 5.
+- Whether the gpu-operator validator or dcgm need `nvidia_modeset`/`nvidia_drm` (Chunk 3/4/5 runtime check).
+- The exact devid the passthrough VM exposes (any desktop RTX 2070 devid is in the supported list).
+
+### Local artifacts (for Chunk 2 reuse)
+
+Kept on this machine: podman image `localhost/nvidia-spike-builder` (21.3 GB, kernel builder stage; the `signing_key` inside is a throw-away from this spike build, not related to any node), driver tarball and extracted tree under the session scratchpad. If Chunk 2 only appends NVIDIA instructions after the kernel `make`, podman's layer cache reuses the 25 min kernel compile. Remove with `podman rmi localhost/nvidia-spike-builder` and `podman image prune` when done.
 
 ---
 
