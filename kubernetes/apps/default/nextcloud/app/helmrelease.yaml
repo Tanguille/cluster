@@ -94,13 +94,15 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
-      # 7d scraped peak 32Mi; upload spikes fall between scrapes, and a 256Mi limit OOMKilled the nightly HA backup (08-23, 09-04, 09-05).
+          # Nothing scrapes the native /metrics, and any pod can spoof X-Forwarded-For into its loopback allowlist, so PHP never sees it.
+          location ~ ^/(?:index\.php/)?metrics(?:/|$) { return 404; }
       resources:
         requests:
-          cpu: 50m
-          memory: 64Mi
+          cpu: 5m
+          memory: 8Mi
         limits:
           cpu: 2
+          # 7d scraped peak 32Mi; upload spikes fall between scrapes, and a 256Mi limit OOMKilled the nightly HA backup (08-23, 09-04, 09-05).
           memory: 512Mi
 
     nextcloud:
@@ -109,6 +111,9 @@ spec:
         # libpq: covers the replica connections too, which pgsql_ssl does not reach.
         - name: PGSSLMODE
           value: require
+        # No client certs: with PGSSLMODE, libpq stats $HOME/.postgresql/postgresql.crt and fails fatally when HOME=/root is unreadable to www-data (fpm workers, occ via `su -p`; 503s after the 2026-11-04 image re-release).
+        - name: PGSSLCERTMODE
+          value: disable
 
       existingSecret:
         enabled: true
@@ -120,6 +125,10 @@ spec:
         smtpHostKey: SMTP_HOST
 
       host: nextcloud.${SECRET_DOMAIN}
+
+      # Nothing scrapes the native /metrics; an empty list makes the chart omit OPENMETRICS_ALLOWED_CLIENTS, so Nextcloud's loopback-only default (127.0.0.0/16, ::1/128) applies.
+      openmetrics:
+        allowedClients: []
 
       mail:
         enabled: true
@@ -146,7 +155,6 @@ spec:
         - name: scripts
           configMap:
             name: nextcloud-scripts
-            defaultMode: 0755
         - name: replica-config
           secret:
             secretName: nextcloud-secret
@@ -169,13 +177,6 @@ spec:
           user = www-data
           group = www-data
           listen = 127.0.0.1:9000
-          ; The container runtime gives the fpm master - and thus the www-data workers -
-          ; HOME=/root. With PGSSLMODE=require, libpq's default client-cert lookup
-          ; ($HOME/.postgresql/postgresql.crt) then fails fatally (EACCES on the 0700 /root)
-          ; and every DB connection errors, 503-ing all web requests (seen after the
-          ; 35.0.2-fpm image re-release of 2026-11-04). Pin the workers' HOME to a
-          ; directory they can stat; verified connect OK from www-data with HOME=/var/www.
-          env[HOME] = /var/www
           pm = dynamic
           ; php-fpm ini: only ';' comments are valid here, '#' fails the parser
           ; 4 workers starved /status.php past the 5s probe under a thumbnail burst; ~175MB RSS/worker measured
@@ -190,14 +191,13 @@ spec:
           php_admin_value[fatal_error_backtraces] = 0
 
       configs:
+        # Pod network only (cloudflared, Envoy); trusting LAN ranges made Nextcloud see Envoy, not the LAN client, in logs and brute-force throttling.
         proxy.config.php: |-
           <?php
           $CONFIG = array (
             'trusted_proxies' => array(
               0 => '127.0.0.1',
-              1 => '10.0.0.0/8',
-              2 => '172.16.0.0/12',
-              3 => '192.168.0.0/16',
+              1 => '${POD_CIDR}',
             ),
             'trusted_domains' => array(
               0 => 'nextcloud.${SECRET_DOMAIN}',
@@ -365,7 +365,9 @@ spec:
         securityContext:
           # cron.sh runs as www-data, not via the root entrypoint.
           allowPrivilegeEscalation: false
-          capabilities: { drop: [ALL] }
+          capabilities:
+            drop:
+              - ALL
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
@@ -376,7 +378,7 @@ spec:
             memory: 256Mi
           limits:
             cpu: "2"
-            # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
+            # 2Gi was hit (cron OOMKilled); 30d max 2.71GiB
             memory: 4Gi
 
     # nginx's probes hit /status.php via fpm, so a saturated pool restarted nginx; readiness still gates traffic.
@@ -392,9 +394,9 @@ spec:
 
     resources:
       requests:
-        cpu: 100m
+        cpu: 10m
         memory: 192Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        # 30d max WSS 1.22GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi
