@@ -57,9 +57,9 @@ name = "checks"
 parallel = true
 
 [[pre-commit.jobs.group.jobs]]
-name = "shellcheck"
+name = "shuck"
 glob = ["*.sh"]
-run = "shellcheck {staged_files}"
+run = "shuck check {staged_files}"
 
 [[pre-commit.jobs.group.jobs]]
 name = "zizmor"

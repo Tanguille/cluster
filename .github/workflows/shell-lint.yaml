@@ -33,10 +33,10 @@ jobs:
         with:
           # Save from main only; PR-scoped copies crowd the Actions cache quota.
           cache_save: ${{ github.event_name == 'push' }}
-          install_args: aqua:koalaman/shellcheck
+          install_args: aqua:ewhauser/shuck
 
       - name: Lint
         run: |
           set -euo pipefail
           mapfile -t scripts < <(git ls-files '*.sh')
-          shellcheck "${scripts[@]}"
+          shuck check "${scripts[@]}"
