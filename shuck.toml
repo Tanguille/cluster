@@ -1,0 +1,30 @@
+# ALL style rules (S*) are on, on top of shuck's defaults. That is more than the quoting checks
+# (S001 and friends): S078-S085 also police the shebang, file and function comments, a `main`
+# call and script length.
+[lint]
+extend-select = ["S"]
+
+# Scripts that a live workload mounts or runs are not edited for style rules: a content change
+# rolls the workload. They are ignored here instead.
+[lint.per-file-ignores]
+# DaemonSet script (busybox sh, 177 lines): `set -o pipefail` is fine on busybox (X021), the shebang
+# policy wants bash, and the script has no `main` and undocumented functions.
+"kubernetes/apps/kube-system/amdgpu-undervolt.sh" = [
+  "X021",
+  "S078",
+  "S079",
+  "S080",
+  "S083",
+  "S084",
+  "S085"
+]
+# Nextcloud lifecycle hooks mounted into the pod: no file header comment.
+"kubernetes/apps/default/nextcloud/app/scripts/cron.sh" = ["S081"]
+"kubernetes/apps/default/nextcloud/app/scripts/post-start.sh" = ["S081"]
+# Satisfactory init container script: no file header comment (S081), and `rm -rf "$HOME"` (K006) is
+# safe because helmrelease.yaml sets HOME=/tmp/ficsit. An inline directive would change the
+# ConfigMap and restart the pod, so both are ignored here.
+"kubernetes/apps/default/satisfactory/app/scripts/mods.sh" = ["S081", "K006"]
+# Dev and CI tooling: restructuring into `main` or splitting for length is not worth the risk.
+"scripts/talos-kernel-build.sh" = ["S080", "S085"]
+".agents/skills/pr-review/scripts/validate-pr.sh" = ["S085"]

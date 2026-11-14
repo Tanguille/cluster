@@ -37,6 +37,10 @@ log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 # One image per SCHEMATIC, not per node: `shared` for talos/schematic.yaml, else the node name.
 # Shared by the pre-check and the publish loop -- if they disagreed, the build would republish a
 # tag it had just decided existed.
+# Globals: PREFIX, REPO_ROOT, VERSION
+# Arguments: $1 is the node name
+# Outputs: the installer image reference on stdout
+# Returns: 1 when the node has no schematic
 installer_ref() {
     local schematic
     schematic="$(just talos schematic-file "$1")"

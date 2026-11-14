@@ -425,13 +425,28 @@ spec:
         securityContext: *vm-security-context
         # TSDB the other three write to/query; scheduling them without this buys nothing.
         priorityClassName: homelab-critical
-        # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage
-        retentionPeriod: 180d
+        # Enterprise image for downsampling + retention filters (community has neither).
+        # Tag is the chart 0.98.1 appVersion (v1.156.0) with the verified -enterprise suffix;
+        # keep it in lockstep with the chart bump. -eula accepts the ESA for non-production use.
+        image:
+          repository: quay.io/victoriametrics/victoria-metrics
+          tag: v1.156.0-enterprise
+        # 365d fits the 200Gi PVC only because downsampling shrinks the long tail:
+        # ~23GB raw (0-30d) + ~10GB at 5m (30-180d) + ~2GB at 1h (180-365d) from the
+        # current ~140GB/180d, before IndexDB overhead.
+        retentionPeriod: 365d
         extraArgs:
           # Queries wait on Ceph I/O, not CPU, so the CPU-derived 4 slots fill on an OSD stall and queued
           # rule queries fail with 429. The auto per-query series limit shrinks per slot: ~1.6M at 8. The
           # rollup memory budget (memory.Allowed()/4, ~15% of the limit) does not, so 8 slots share what 4 had.
           "search.maxConcurrentRequests": "8"
+          # Accept the Enterprise Software Agreement (v1.156.0+ replaced license keys with -eula).
+          eula: "true"
+          # Leave the last sample per 5m after 30d and per 1h after 180d; bursts stay queryable raw.
+          "downsampling.period": "30d:5m,180d:1h"
+          # Keep only 30d of the two highest-cardinality scrape jobs; everything else gets the full 365d.
+          # Filter syntax is filter:duration, and duration must be <= retentionPeriod.
+          "retentionFilter": '{job=~"kubelet|apiserver"}:30d'
         resources:
           requests:
             cpu: 250m
