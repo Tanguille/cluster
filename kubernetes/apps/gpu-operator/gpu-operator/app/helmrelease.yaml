@@ -24,10 +24,8 @@ spec:
       # Off: the extension registers only the `nvidia` containerd handler. On, the operator also makes
       # the nvidia-cdi and nvidia-legacy RuntimeClasses (no handler on Talos) and the device plugin
       # allocates through its own CDI kind instead of the extension's /run/cdi/nvidia.yaml.
+      # The `nvidia` RuntimeClass is the chart default and owned by the operator, so none is shipped.
       enabled: false
-    operator:
-      # Owned by the operator (ownerRef, rewritten every pass), so no RuntimeClass manifest here.
-      runtimeClass: nvidia
     dcgmExporter:
       env:
         - name: NVIDIA_DRIVER_CAPABILITIES
@@ -40,7 +38,6 @@ spec:
         limits:
           memory: 1Gi
       serviceMonitor:
-        enabled: true
         # Keep the exporter's pod/namespace labels of the workload using the GPU.
         honorLabels: true
         additionalLabels:
@@ -55,7 +52,6 @@ spec:
             version: v1
             sharing:
               timeSlicing:
-                renameByDefault: false
                 resources:
                   - name: nvidia.com/gpu
                     replicas: 8
