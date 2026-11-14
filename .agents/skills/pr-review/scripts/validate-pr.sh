@@ -40,7 +40,7 @@ else
 fi
 echo ""
 
-# Phase 2: Shellcheck
+# Phase 2: Shuck
 echo "[2/3] Shell Script Validation..."
 # Include tracked and new non-ignored scripts, never ignored clones or nested worktrees.
 # Git paths are relative to REPO_ROOT, so its own path may safely contain /worktrees/.
@@ -51,7 +51,7 @@ SHELL_SCRIPTS=()
 if git -C "${REPO_ROOT}" ls-files --cached --others --exclude-standard -z -- '*.sh' \
     ':(exclude).slim/**' ':(exclude)*worktrees/*' >"${SHELL_LIST}"; then
     while IFS= read -r -d '' script; do
-        # Deleted worktree files and symlinks are not shellcheck inputs.
+        # Deleted worktree files and symlinks are not shuck inputs.
         if [[ -f "${REPO_ROOT}/${script}" && ! -L "${REPO_ROOT}/${script}" ]]; then
             SHELL_SCRIPTS+=("${REPO_ROOT}/${script}")
         fi
@@ -59,12 +59,12 @@ if git -C "${REPO_ROOT}" ls-files --cached --others --exclude-standard -z -- '*.
 else
     fail "Unable to discover repository shell scripts"
 fi
-if ! command -v shellcheck &>/dev/null; then
-    fail "shellcheck not installed (run via mise exec)"
-elif shellcheck "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
-    pass "shellcheck passed"
+if ! command -v shuck &>/dev/null; then
+    fail "shuck not installed (run via mise exec)"
+elif shuck check "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
+    pass "shuck passed"
 else
-    fail "shellcheck found issues"
+    fail "shuck found issues"
 fi
 echo ""
 
