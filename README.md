@@ -275,6 +275,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | radiance runbook, vLLM-era tuning constraints + benchmark history |
+| [NVIDIA RTX 2070](docs/nvidia-gpu-control-1.md) | control-1 rollout and rollback runbook |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |

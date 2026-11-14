@@ -1,7 +1,7 @@
 # NVIDIA GPU support on control-1 Implementation Plan
 
 **Created:** 2026-11-14
-**Status:** Approved
+**Status:** In progress. Chunks 1-5 done on the branch; live rollout (CI dispatch, upgrade, apply) is pending the owner, see `docs/nvidia-gpu-control-1.md`. Keep this file until the rollout is done.
 **Complexity:** Very High
 **Estimated Chunks:** 5
 **Branch:** `feat/nvidia-gpu-operator`
@@ -186,7 +186,7 @@ Renovate kernel bump does not strand control-1.
 - [x] Chunk 4: control-1 schematic and machine config (depends on Chunk 1 for names; the script maps the schematic entry by name, no file overlap with Chunk 2)
 
 #### Wave 3 (sequential) - Build dispatch, runbook and validation
-- [ ] Chunk 5: CI dispatch, runbook, docs pass, full validation (depends on Chunks 2, 3, 4)
+- [x] Chunk 5: Runbook, docs pass, full validation (depends on Chunks 2, 3, 4); the CI dispatch (step 1) is held for the owner and lives in the runbook
 
 ### Wave Conflict Matrix
 | Chunk | Write Set | Dependencies | Wave |
@@ -361,7 +361,7 @@ talos/nodes/controlplane/control-1.yaml.j2         modules, label, comments
 ---
 
 ### Chunk 5: Runbook, docs and full validation
-**Status:** Not Started
+**Status:** Complete (live steps held: CI dispatch, diff/upgrade/apply are owner-run per `docs/nvidia-gpu-control-1.md`)
 **Wave:** 3
 **Estimated Context:** ~40k tokens
 **Complexity:** Medium
