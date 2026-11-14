@@ -18,6 +18,16 @@ on:
   # No version input: the ref already selects both versions, from that branch's Dockerfile ARG
   # and its tuppr CR, so an input could only disagree with the tree being built.
   workflow_dispatch:
+    inputs:
+      # Re-pushes that one node's installer under its existing tag; every other existing ref is
+      # still skipped. Needed because tuppr compares the tag as a plain string, so a node whose
+      # image changed without a version bump (control-1, NVIDIA modules) cannot get a new tag.
+      # Refused for a node on the shared schematic.
+      force_node:
+        description: Node whose existing installer tag is rebuilt and overwritten (e.g. control-1)
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -91,4 +101,6 @@ jobs:
       # and the node list from talos/nodes/. The script writes its own job summary naming every
       # ref it published. Same entrypoint as a workstation build, so the two cannot drift.
       - name: Build and publish installers
+        env:
+          FORCE_NODE: ${{ inputs.force_node }}
         run: just talos kernel-build

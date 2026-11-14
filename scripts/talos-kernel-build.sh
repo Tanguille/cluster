@@ -55,20 +55,43 @@ installer_ref() {
     fi
 }
 
+# One node whose installer is re-pushed under its existing tag. Only for a node with its own
+# schematic: control-1 gets the NVIDIA modules, and tuppr compares the tag as a plain string, so
+# a new tag would be rolled back to the old one. Everything else keeps the never-reuse rule
+# below, so `installer/shared` (control-2/3) is never re-pushed with a fresh kernel and key.
+FORCE_NODE="${FORCE_NODE:-}"
+if [[ -n "${FORCE_NODE}" ]]; then
+    [[ " $* " == *" ${FORCE_NODE} "* ]] || {
+        echo "FORCE_NODE=${FORCE_NODE} is not one of: $*" >&2
+        exit 1
+    }
+    force_ref="$(installer_ref "${FORCE_NODE}")" || exit 1
+    [[ "${force_ref}" != */installer/shared:* ]] || {
+        echo "refusing to force ${force_ref}: it is shared by several nodes" >&2
+        exit 1
+    }
+fi
+
 # Tags in installer/* are never reused: one tag is one build, and amdgpu is signed with a key
 # the kernel regenerates each time. Without this, any merge touching a trigger path re-pushes
-# the same tags with different bytes. Exit 0 -- a no-op rerun is success.
-missing=0
+# the same tags with different bytes. Exit 0 -- a no-op rerun is success. PUBLISH holds the only
+# refs the publish loop may push: the missing ones plus FORCE_NODE's. An existing ref is skipped
+# even when another one is missing, so a partial rebuild cannot swap a published installer's
+# kernel and signing key under the nodes running it.
+declare -A PUBLISH=()
 for node in "$@"; do
     ref="$(installer_ref "${node}")" || exit 1
-    if crane manifest "${ref}" >/dev/null 2>&1; then
+    if [[ "${node}" == "${FORCE_NODE}" ]]; then
+        echo "    forced: ${ref} (old digest $(crane digest "${ref}" 2>/dev/null || echo none))"
+        PUBLISH["${ref}"]=1
+    elif crane manifest "${ref}" >/dev/null 2>&1; then
         echo "    exists: ${ref}"
     else
         echo "    missing: ${ref}"
-        missing=1
+        PUBLISH["${ref}"]=1
     fi
 done
-if ((missing == 0)); then
+if ((${#PUBLISH[@]} == 0)); then
     log "every installer for ${VERSION} is already published, nothing to build"
     exit 0
 fi
@@ -88,6 +111,22 @@ PKGS_SHA="${PKGS_REV##*-g}"
 }
 echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
+# Cloned before the kernel build: the NVIDIA driver pin lives here, and the extensions are built
+# from it further down. Version and sha come from the same file the stock extension is built
+# from, so the modules cannot drift from the toolkit extension's userspace libraries and GSP
+# firmware (which must match the driver exactly). Plain assignments so a failed yq aborts;
+# the patterns catch the "null" yq prints for a renamed key.
+git clone -q --depth 1 --branch "${TALOS_VERSION}" \
+    https://github.com/siderolabs/extensions.git "${WORK}/extensions"
+NVIDIA_VARS="${WORK}/extensions/nvidia-gpu/vars.yaml"
+NVIDIA_DRIVER_VERSION="$(yq -er '.NVIDIA_DRIVER_PRODUCTION_VERSION' "${NVIDIA_VARS}")"
+NVIDIA_DRIVER_SHA256="$(yq -er '.NVIDIA_PKGS_PRODUCTION_AMD64_SHA256' "${NVIDIA_VARS}")"
+[[ "${NVIDIA_DRIVER_VERSION}" =~ ^[0-9]+(\.[0-9]+)+$ && "${NVIDIA_DRIVER_SHA256}" =~ ^[0-9a-f]{64}$ ]] || {
+    echo "bad NVIDIA pins in ${NVIDIA_VARS}: '${NVIDIA_DRIVER_VERSION}' '${NVIDIA_DRIVER_SHA256}'" >&2
+    exit 1
+}
+echo "    derived NVIDIA driver ${NVIDIA_DRIVER_VERSION}"
+
 log "kernel package"
 # The default docker driver can't export a registry cache. CI sets a docker-container builder
 # up itself (docker/setup-buildx-action), but `just talos kernel-build` also runs this directly on a
@@ -105,6 +144,8 @@ docker buildx build \
     --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
     --build-arg "TOOLS_REV=${TOOLS_REV}" \
     --build-arg "PKGS_SHA=${PKGS_SHA}" \
+    --build-arg "NVIDIA_DRIVER_VERSION=${NVIDIA_DRIVER_VERSION}" \
+    --build-arg "NVIDIA_DRIVER_SHA256=${NVIDIA_DRIVER_SHA256}" \
     --cache-from "type=registry,ref=${PREFIX}/kernel:buildcache" \
     --cache-to "type=registry,ref=${PREFIX}/kernel:buildcache,mode=min" \
     -t "${PREFIX}/kernel:${VERSION}" --push "${REPO_ROOT}/docker/talos-kernel"
@@ -119,8 +160,6 @@ crane copy "ghcr.io/siderolabs/linux-firmware:${PKGS_REV}" "${PREFIX}/linux-firm
 # Must be rebuilt against THIS kernel build: the modules come out of the kernel package, the
 # kernel generates a fresh signing key per build, and module.sig_enforce=1 rejects any other.
 log "amdgpu extension"
-git clone -q --depth 1 --branch "${TALOS_VERSION}" \
-    https://github.com/siderolabs/extensions.git "${WORK}/extensions"
 make -C "${WORK}/extensions" amdgpu PUSH=true PLATFORM=linux/amd64 \
     REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
     PKGS_PREFIX="${PREFIX}" PKGS="${VERSION}"
@@ -135,13 +174,44 @@ AMDGPU_TAG="$(crane ls "${PREFIX}/amdgpu" | grep -F -- "-${EXT_TAG}" | tail -1)"
 AMDGPU_REF="${PREFIX}/amdgpu:${AMDGPU_TAG}"
 echo "    extension published as ${AMDGPU_REF}"
 
+# The NVIDIA modules were compiled and signed inside the kernel build above (Dockerfile, builder
+# stage). Upstream's nvidia-open-gpu-kernel-modules-production extension only copies
+# /usr/lib/modules/* out of ${PKGS_PREFIX}/<name>-pkg:${PKGS}, so give it that image: the
+# kernel image's extra/ and nothing else. Derived from the pushed kernel image, never from a
+# second build of the builder stage (a cache miss there means a new signing key). Nothing but
+# .ko files go in, so the signing key never reaches an image. The <rel> directory fails the
+# COPY loudly if the kernel release is not <version>-talos.
+log "nvidia modules package + extension"
+KIMG="${PREFIX}/kernel:${VERSION}"
+mkdir "${WORK}/nvidia-pkg-ctx"
+docker buildx build --platform linux/amd64 \
+    --build-arg "KIMG=${KIMG}" --build-arg "REL=${KERNEL_VERSION}-talos" \
+    -t "${PREFIX}/nvidia-open-gpu-kernel-modules-production-pkg:${VERSION}" --push \
+    -f - "${WORK}/nvidia-pkg-ctx" <<'EOF'
+ARG KIMG
+FROM ${KIMG} AS kernel
+FROM scratch
+ARG REL
+COPY --from=kernel /usr/lib/modules/${REL}/extra/ /usr/lib/modules/${REL}/extra/
+EOF
+make -C "${WORK}/extensions" nvidia-open-gpu-kernel-modules-production \
+    PUSH=true PLATFORM=linux/amd64 \
+    REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
+    PKGS_PREFIX="${PREFIX}" PKGS="${VERSION}"
+
+# Tag is <driver>-<extensions-tag>, discovered like amdgpu's rather than assumed.
+NVIDIA_TAG="$(crane ls "${PREFIX}/nvidia-open-gpu-kernel-modules-production" |
+    grep -F -- "${NVIDIA_DRIVER_VERSION}-${EXT_TAG}" | tail -1 || true)"
+: "${NVIDIA_TAG:?nvidia modules extension was not published under ${NVIDIA_DRIVER_VERSION}-${EXT_TAG}}"
+NVIDIA_MODULES_REF="${PREFIX}/nvidia-open-gpu-kernel-modules-production:${NVIDIA_TAG}"
+echo "    extension published as ${NVIDIA_MODULES_REF}"
+
 # talos Dockerfile installs every module in hack/modules-amd64.txt by exact path and fails the
 # build on the first one missing, so a kernel bump that moves or drops one breaks the installer
 # with an opaque error. Rewrite moved paths, drop vanished modules. The printed list is the
 # per-bump review item. Only the member NAMES are needed, so list the tar rather than
 # extracting ~250 MiB of modules into tmpfs to run existence tests against.
 log "reconciling module allowlist"
-KIMG="${PREFIX}/kernel:${VERSION}"
 # Two streamed exports rather than one local copy: only names and modules.dep are needed, so
 # nothing is written to disk. modules.dep alone will not do — the list also carries non-.ko
 # entries (modules.builtin, modules.order) that exist only in the file listing. The kernel
@@ -223,6 +293,11 @@ PUBLISHED=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
     dst="$(installer_ref "${node}")"
+    # See PUBLISH above: an existing ref is never re-pushed, whatever its siblings need.
+    if [[ -z "${PUBLISH[${dst}]:-}" ]]; then
+        log "skip ${node}: ${dst} already published"
+        continue
+    fi
     # A schematic path fixes the repo (installer_ref), so nodes sharing one share the published
     # installer and need neither another imager run nor a copy.
     if [[ -n "${BUILT[${schematic}]:-}" ]]; then
@@ -245,6 +320,8 @@ for node in "$@"; do
     while read -r ext; do
         if [[ "${ext}" == "siderolabs/amdgpu" ]]; then
             args+=(--system-extension-image "${AMDGPU_REF}")
+        elif [[ "${ext}" == "siderolabs/nvidia-open-gpu-kernel-modules-production" ]]; then
+            args+=(--system-extension-image "${NVIDIA_MODULES_REF}")
         else
             # Also an assignment: in argument position a failed grep would expand to "" and
             # hand the imager --system-extension-image with an empty value.
@@ -257,8 +334,10 @@ for node in "$@"; do
         "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
     crane push "${WORK}/out/installer-amd64.tar" "${dst}"
+    # Assignment, not inline in the array: a failed substitution there is invisible to set -e.
+    pushed="$(crane digest "${dst}")"
     BUILT[${schematic}]="${dst}"
-    PUBLISHED+=("${dst}")
+    PUBLISHED+=("${dst}@${pushed}")
 done
 
 # Reported from here rather than rebuilt in CI: the mapping from schematic to repo lives in the
