@@ -34,9 +34,10 @@ resources:
 
 patches:
   # Every MCPServer pod runs third-party tool code; MCPServerEntry has no pod. Opt a server out by narrowing the target.
-  # No server needs its service account token: flux-operator authenticates with its own kubeconfig.
+  # Only servers labelled mount-sa-token keep their service account token (flux-operator authenticates with it).
   - target:
       kind: MCPServer
+      labelSelector: "!mount-sa-token"
     patch: |-
       apiVersion: toolhive.stacklok.dev/v1beta1
       kind: MCPServer
