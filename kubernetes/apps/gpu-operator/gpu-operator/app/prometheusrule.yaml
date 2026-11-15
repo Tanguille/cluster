@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gpu-rules
+spec:
+  groups:
+    - name: dcgm-exporter
+      rules:
+        - alert: HighGpuUsage
+          # DCGM_FI_DEV_GPU_UTIL is a 0-100 gauge, so average it (the old rate() > 0.85 never meant 85%).
+          expr: |-
+            avg_over_time(DCGM_FI_DEV_GPU_UTIL[15m]) > 85
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              High GPU usage on node {{ $labels.Hostname }} for 15 minutes
+            description: >-
+              GPU usage on node {{ $labels.Hostname }} for gpu: {{ $labels.modelName }}
+              has passed 85% for over 15 minutes

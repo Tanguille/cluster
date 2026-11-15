@@ -72,7 +72,7 @@ content-addressed ID, which `download-image` uses to fetch the ISO. Installers a
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
 `schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
-overrides, because it is the TrueNAS VM and the only dGPU host.
+overrides, because it is the TrueNAS VM and the only GPU host (R9700 and RTX 2070).
 
 Schematics are plain YAML, deliberately not templates. Routing them through `template` would
 decrypt the secrets bundle to render a file that references no secrets. If a schematic ever needs a
