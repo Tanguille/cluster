@@ -12,24 +12,12 @@ spec:
     - serve
     - --transport=http
     - --port=8080
-  env:
-    - name: KUBECONFIG
-      value: /kubeconfig/kubeconfig
+  # In-cluster auth: the old static admin kubeconfig carried a client cert that expired after 1 year.
+  serviceAccount: flux-operator-mcp
   podTemplateSpec:
     spec:
-      volumes:
-        - name: kubeconfig
-          secret:
-            secretName: toolhive-secrets
-            items:
-              - key: KUBECONFIG
-                path: kubeconfig
       containers:
         - name: mcp
-          volumeMounts:
-            - name: kubeconfig
-              mountPath: /kubeconfig
-              readOnly: true
           ports:
             - name: mcp
               containerPort: 8080
@@ -53,6 +41,38 @@ spec:
     limits:
       cpu: 500m
       memory: 200Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flux-operator-mcp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flux-operator-mcp-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: flux-operator-mcp
+    namespace: ai
+---
+# Flux CRD write access for reconcile/suspend/resume.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flux-operator-mcp-edit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: flux-operator-edit
+subjects:
+  - kind: ServiceAccount
+    name: flux-operator-mcp
+    namespace: ai
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
