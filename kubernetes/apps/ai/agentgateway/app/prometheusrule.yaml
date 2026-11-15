@@ -55,7 +55,7 @@ spec:
           labels:
             severity: warning
 
-        # Structural rule, needs no traffic to fire; the deployment name is hardcoded, so it moves with the omniroute backend's fallback group or goes blind.
+        # Structural rule, needs no traffic to fire; the deployment name is hardcoded, so it moves with the qwen-3.8 deployment or goes blind.
         - alert: AgentgatewayFallbackBackendDown
           expr: |-
             (
@@ -70,7 +70,7 @@ spec:
           for: 10m
           annotations:
             summary: >-
-              qwen38-27b-vllm has no available replica — agentgateway's only fallback
-              target is gone and hermes has no local model
+              qwen38-27b-vllm has no available replica — kritika's fallback target is gone
+              and hermes has no local model
           labels:
             severity: critical

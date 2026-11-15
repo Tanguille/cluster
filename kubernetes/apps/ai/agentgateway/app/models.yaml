@@ -16,7 +16,7 @@ spec:
     routing: Model
     sectionName: models
   backends:
-    # Also served by qwen-3.8-fast and omniroute's fallback group. The engine (radiance) serves Anthropic Messages
+    # Also served by qwen-3.8-fast. The engine (radiance) serves Anthropic Messages
     # and Responses itself, so nothing is translated. No reasoning_effort default: the sharp chat
     # template already defaults to medium, the better quality/latency point for most turns.
     - name: qwen38
@@ -70,8 +70,8 @@ spec:
 # Retry dropped connections (each costs a Hermes cron run). A refused or reset connection
 # surfaces as 503. A call that hits the timeout below is re-sent too (agentgateway retries that
 # error whatever `codes` says); Headroom's request timeout and the http listener's cut the replay
-# short. Every model gets it; agentgateway-retry-omniroute (models/omniroute.yaml) replaces it on omniroute (a
-# route-level policy wins over a listener-level one). The timeout covers the longest call, a
+# short. Every model gets it, omniroute too (see the 64 KiB note in controller/helmrelease.yaml; kritika retries
+# itself). The timeout covers the longest call, a
 # 100K+ token prefill on qwen-3.8 under GPU contention.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -93,5 +93,5 @@ spec:
         - 503
   backend:
     http:
-      # Also omniroute's qwen-3.8 fallback ceiling; omniroute's own provider-level 150s wins.
+      # omniroute's own provider-level 240s wins on its route.
       requestTimeout: 1800s
