@@ -39,6 +39,7 @@ spec:
   extraVolumeMounts:
     - name: cuda-cache
       mountPath: /cuda-cache
+      subPath: cuda-cache/embeddinggemma-2-cuda
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch from queueing behind memini (0.9 s on the 2070, 7.4 s on the iGPU).
   parallelSlots: 4

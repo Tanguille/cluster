@@ -373,7 +373,9 @@ Throwaway pod `ai/bench-2070` on the card (deleted), `server-cuda@sha256:22bd49f
 
 - CUDA context ~110 MiB per process; buffers allocated at load, flat under load.
 - Cold start with an empty JIT cache: 59 s to load plus 27 s for the first request (embedder); warm 1.3 s and
-  0.08 s. Fix applied: `CUDA_CACHE_PATH` on the RWX model-cache PVC (all three share it, 149 MB for six models).
+  0.08 s. Fix applied: `CUDA_CACHE_PATH` in a per-service subPath (`cuda-cache/<service>`) of the RWX model-cache
+  PVC, so only that directory is writable (149 MB for six models in one shared cache during the bench). A test pod
+  as uid 101 / fsGroup 102 confirmed the kubelet-created subPath is group-writable.
 - Parity vs the live iGPU services: embeddings cosine >= 0.9998 (194 x 400 chars, a 5041-token input, 40 mixed),
   bge scores within 0.11 logit, d3-nano identical on 8-ball (27 wrong of 1119) and the effort prompts.
 - Real request sizes (VictoriaLogs, 7 d, `n_tokens`): embedder p99 1228, max 4071; reranker max 552; d3 max 885.
@@ -402,7 +404,7 @@ Decisions:
   Vulkan manifest. Final Service name `embeddinggemma-2-cuda` instead of a switch back: one follow-up less, and
   consumers use the model name, which stays `embeddinggemma-2`.
 - `maxPodLifetimeSeconds` dropped on the moved services (Vulkan GTT mitigation); `NvidiaVramLow` (< 512 MiB
-  free) added; chart `gpuHealth` alerts enabled. Memory 512Mi request / 2Gi limit (RSS ~1 GiB, 0.3-0.4 GiB
+  free) added; chart `gpuHealth` (DCGM Xid) alerts enabled by dropping the `false` override (chart default). Memory 512Mi request / 2Gi limit (RSS ~1 GiB, 0.3-0.4 GiB
   anonymous).
 
 Open: 24 h checks from US-1 after merge, the embedder follow-up, the R9700 5-minute full-power thermal recheck

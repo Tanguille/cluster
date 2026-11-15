@@ -286,8 +286,9 @@ the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM 
 
 Turing is built only as PTX, so the driver JIT-compiles the kernels: with an empty cache the
 embedder took 59 s to load and 27 s for its first request; with a warm cache 1.3 s and 0.08 s.
-`CUDA_CACHE_PATH` points into the RWX model-cache PVC (`/cuda-cache/.nv-compute-cache`, ~0.15 GiB),
-shared by all three, so a restart or a node move stays warm. A driver bump rebuilds it once.
+`CUDA_CACHE_PATH` points into a per-service subPath of the RWX model-cache PVC
+(`cuda-cache/<service>`, under 0.15 GiB each), so a restart or a node move stays warm and the
+server cannot write the model files. A driver bump rebuilds it once.
 
 Against the iGPU services (same inputs): embeddings cosine >= 0.9998, bge scores within 0.11
 logit, d3-nano identical on the 8-ball bench (27 wrong of 1119) and the effort prompts. Latency:
