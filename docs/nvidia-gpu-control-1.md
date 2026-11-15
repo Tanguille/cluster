@@ -2,8 +2,9 @@
 
 The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: signed
 NVIDIA open modules built into the custom kernel pipeline, the toolkit extension, and the GPU
-Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Wiring workloads
-onto it is out of scope. Plan and spike record: [the plan](plans/nvidia-gpu-operator-control-1.md).
+Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Plan and spike
+record: [the plan](plans/nvidia-gpu-operator-control-1.md). Workloads on it:
+[llama.cpp services](#llamacpp-services-on-the-2070).
 
 Every step below is owner-run. **[ASK]** marks steps that touch a live system, push, or delete;
 nothing here runs from an agent session without an explicit OK. Node IPs: control-1
@@ -261,3 +262,59 @@ Control-2/3 are never touched, so every path below only concerns control-1.
 The plan stays until the rollout has happened. Then fold what is still true into
 [docker/talos-kernel/README.md](../docker/talos-kernel/README.md) and this file, delete the plan,
 and (with the owner's OK) add the facts worth keeping to `.agents/learned-workspace.md`.
+
+## llama.cpp services on the 2070
+
+d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
+llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
+`server-cuda13` (CUDA 13.4). Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
+image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
+([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run v1.19.1 and all
+three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
+below for comparison; rolling back means pinning that image again.
+
+Measured 2026-11-15 in throwaway pods on the card, production flags, `nvidia-smi --query-compute-apps`
+per process:
+
+| Service | Flags | VRAM MiB, CUDA 13 | CUDA 12.8 |
+| --- | --- | --- | --- |
+| embeddinggemma-2 Q8_0 | 8 slots, ubatch 8192, `-fa on` | 2064 | 1388 (weights 144, compute 1088) |
+| bge-reranker-v2-m3 Q8_0 | 4 slots x 2048, `-fa on` | 500 | 510 |
+| d3-nano Q8_0 | 2 x 4096, ubatch 2048 | 2848 | 2390 (weights 1908, KV 96, recurrent 39, compute 224) |
+| All three loaded | | 5412 of 7786, 2374 MiB (2.3 GiB) spare | peak 4292, 3494 spare |
+
+The CUDA 13 build holds about 1.1 GiB more. The concurrent-load peak was not re-measured on it.
+CUDA 13 latency, serial, after the first request: rerank of 15 documents p50 0.12 s, p95 0.13 s
+(0.39 s p95 on 12.8); 20 embeddings 0.12 s median; d3 effort decisions p50 0.048 s, p95 0.061 s.
+Slots (CUDA 13, same VRAM either way): the reranker at 4 slots (context 8192) takes 0.06 s p50 for 15
+documents instead of 0.12 s, and p95 0.20 s instead of 0.50 s under 4 concurrent callers; the embedder
+at 8 slots (context 65536) takes 0.87 s for the 194-item batch instead of 1.13 s, and a single query
+sent during that batch p95 0.72 s instead of 0.90 s. d3-nano never used its second slot, so it stays at 2.
+Outputs match the live iGPU services: embeddings cosine >= 0.9997, rerank scores within 0.03 with
+the same order, d3 picks the same effort with probabilities within 0.011.
+
+Each process also holds ~110 MiB of CUDA context and ~1 GiB of host RSS (0.3-0.4 GiB anonymous,
+the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM is flat under load.
+`NvidiaVramLow` fires below 512 MiB free: time-slicing gives no VRAM isolation between pods.
+
+Turing is built only as PTX, so the driver JIT-compiles the kernels: with an empty cache the
+embedder took 59 s to load and 27 s for its first request; with a warm cache 1.3 s and 0.08 s.
+`CUDA_CACHE_PATH` points into a per-service subPath of the RWX model-cache PVC
+(`cuda-cache/<service>`, under 0.15 GiB each), so a restart or a node move stays warm and the
+server cannot write the model files. A driver bump rebuilds it once.
+
+Against the iGPU services (same inputs): embeddings cosine >= 0.9998, bge scores within 0.11
+logit, d3-nano identical on the 8-ball bench (27 wrong of 1119) and the effort prompts. Latency:
+194 x 400-char embeddings 0.9 s (7.4 s on the iGPU), rerank of 15 x 1024-char docs p95 0.39 s
+idle and 0.97 s beside embedder load, d3 effort decisions p50 0.05 s idle, 0.12 s under load.
+Board power reached 165 W under the combined load; the UPS shed query does not see the 2070.
+
+The embedder switched in place: `embeddinggemma-2` is now the CUDA service, with the same name,
+Service and GGUF, so the stored vectors and every consumer stay as they are. Its JIT cache starts
+empty, so the first start after the merge takes about 90 s (59 s load, 27 s first request); memini
+recall falls back to keyword-only and the optimizer's embeds fail until it is Ready. Later restarts
+are warm.
+
+Rollback: revert the commit; the Vulkan manifests return to the iGPUs (images and GGUFs are still
+cached). When control-1 is down all three are down: memini recall falls back to keyword-only and
+backfills vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).

@@ -12,13 +12,11 @@ spec:
   # Only Q8_0 and BF16 are published.
   quantization: Q8_0
   hardware:
-    accelerator: vulkan
+    accelerator: cuda
     gpu:
       enabled: true
       count: 1
-      vendor: amd
-      runtime: vulkan
-      resourceName: squat.ai/dri
+      vendor: nvidia
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
@@ -27,36 +25,41 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8af21639d085883fe5147a25a2ee29ce38302d950faa7e42355556d9f9a5af6c
-  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
+  # CUDA 13.4 image: its PTX loads on Turing because toolkit >= 1.19.1 injects the image's compat libcuda
+  # (llama.cpp #31503); measured on the 2070 in docs/nvidia-gpu-control-1.md.
+  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:025d1b2744431ea5bedfc2c7c706af823136abf707fa0898f09b29cdc3baabf2
+  # Only control-1 advertises nvidia.com/gpu (RTX 2070, time-sliced, no VRAM isolation between pods).
+  runtimeClassName: nvidia
+  # Turing is PTX-only: a cold JIT cache costs ~60 s at start and ~25 s at the first request, a warm one 1-2 s.
+  # A per-service subPath of the model-cache PVC keeps it writable while the models stay read-only.
+  env:
+    - name: CUDA_CACHE_PATH
+      value: /cuda-cache/.nv-compute-cache
+  extraVolumes:
+    - name: cuda-cache
+      persistentVolumeClaim:
+        claimName: llmkube-model-cache
+  extraVolumeMounts:
+    - name: cuda-cache
+      mountPath: /cuda-cache
+      subPath: cuda-cache/d3-nano
+  parallelSlots: 2 # qwen-3.8-auto and eightball can ask at the same time
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
   # vllm-d3 evaluates the whole prompt in one ubatch (default 512; batch already defaults to 2048). A
   # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
   uBatchSize: 2048
 
-  # Both iGPU nodes advertise 2 squat.ai/dri slots; amd.com/igpu narrows it to
-  # those two nodes.
-  nodeSelector:
-    amd.com/igpu: "true"
-
-  # One iGPU model per node: embeddinggemma-2's required anti-affinity keeps this pod off its
-  # node too (the scheduler checks existing pods' rules against the incoming pod).
-
   # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
     runAsUser: 101
     fsGroup: 102
     fsGroupChangePolicy: OnRootMismatch
-    supplementalGroups:
-      - 44
-      - 226
 
   # GPU allocation comes from Model.hardware.gpu.count; resources.gpu/gpuMemory
   # are dead fields here.
   resources:
-    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # memcg does not charge amdgpu GTT, so the request counts it: 0.2Gi cgroup plus its share of
-    # control-2's GTT (7d average 1.05Gi, p95 1.86Gi, shared with the reranker).
-    memory: 896Mi
+    cpu: "500m" # inference is on the GPU; CPU only tokenises/schedules
+    # 0.3Gi anonymous plus the mmapped token embeddings (0.5Gi, page cache) on the 2070.
+    memory: 512Mi
     memoryLimit: 2Gi

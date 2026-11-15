@@ -17,7 +17,18 @@ spec:
             severity: warning
           annotations:
             summary: >-
-              High GPU usage on node {{ $labels.Hostname }} for 15 minutes
+              High GPU usage on node {{ $labels.hostname }} for 15 minutes
             description: >-
-              GPU usage on node {{ $labels.Hostname }} for gpu: {{ $labels.modelName }}
+              GPU usage on node {{ $labels.hostname }} for gpu: {{ $labels.modelName }}
               has passed 85% for over 15 minutes
+        - alert: NvidiaVramLow
+          # Time-slicing gives the 2070's pods no VRAM isolation: one that grows can OOM the others. The three llama.cpp
+          # services hold 5.4 GiB together (docs/nvidia-gpu-control-1.md), so this means something new or a leak.
+          expr: max by (hostname) (DCGM_FI_DEV_FB_FREE) < 512
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              The RTX 2070 on {{ $labels.hostname }} has {{ $value }} MiB of VRAM free; a new CUDA allocation on it
+              (a pod restart, a larger batch) can fail. Check nvidia-smi for the process that grew.

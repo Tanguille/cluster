@@ -37,3 +37,27 @@ simple tasks ("restart jellyfin", "check the ceph status") about 0.94, and probl
 "Kritika is not reviewing Renovate PRs in mesh-organiser") 0.64-0.86.
 
 If D3 misjudges on real traffic, try Kev-4B (4B, same API) behind the same callout.
+
+## D3-mini and other decision models, 2026-11-15
+
+On the RTX 2070 (llama.cpp b12407 `server-cuda` (CUDA 12.8; the shipped image is now `server-cuda13`)), d3-nano Q8_0 against vllm-d3-mini Q4_K_M
+(ggml-org GGUF), same `/v1/systemone` call as the callout. 24 labelled prompts (the 8 held-out and
+16 of the first set, recovered from the session log) plus 4 unlabelled live examples:
+
+| | Correct | Agreement | Sure `low` (>= 0.95) | p50 / p95 warm | VRAM |
+| --- | --- | --- | --- | --- | --- |
+| d3-nano | 24/24 | 28/28 | 9 | 0.05 / 0.14 s | 2390 MiB |
+| d3-mini Q4_K_M | 24/24 | 28/28 | 9 | 0.12 / 0.14 s | 3974 MiB |
+
+Mini is less sure of the live problem reports ("kritika seems stuck" low 0.55 vs 0.70) and of
+"restart jellyfin" (0.74 vs 0.94); neither reaches the 0.95 gate. 8-ball bench (`cargo run -p bench
+-- --endpoints d3,mini --cascade d3,mini --reference d3`, test split, 1119 cases): nano 88.4%
+correct of all (27 wrong), mini 87.5% (12 wrong, decides 89% vs 91%), difference -0.9 points
+(95% CI -2.4 to +0.6); mean 33 vs 64 ms. Nano stays: the switch needed +2 points.
+
+Not run: Cloudflare clef (27B) and clef-flash (9B; ggml-org GGUF Q4_K_M is 6.7 GB) do not fit
+the 2070 beside the other services. kakaocorp/kanana-2-v-decide-3b-2611 (3.67B, Kanana Open
+License, released 2026-11-06) scores by cosine similarity between question and answer embeddings;
+upstream llama.cpp does not serve that, the only GGUF (jaesang-lee) needs a fork branch that is not
+public, transformers in fp16 (Turing has no bf16) needs ~7.3 GB of weights alone, and its card
+benchmarks (Decision Index 0.4.1) do not compare with d3's typed-decisions numbers.
