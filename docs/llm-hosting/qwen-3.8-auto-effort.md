@@ -40,7 +40,7 @@ If D3 misjudges on real traffic, try Kev-4B (4B, same API) behind the same callo
 
 ## D3-mini and other decision models, 2026-11-15
 
-On the RTX 2070 (llama.cpp b12407 `server-cuda`), d3-nano Q8_0 against vllm-d3-mini Q4_K_M
+On the RTX 2070 (llama.cpp b12407 `server-cuda` (CUDA 12.8; the shipped image is now `server-cuda13`)), d3-nano Q8_0 against vllm-d3-mini Q4_K_M
 (ggml-org GGUF), same `/v1/systemone` call as the callout. 24 labelled prompts (the 8 held-out and
 16 of the first set, recovered from the session log) plus 4 unlabelled live examples:
 

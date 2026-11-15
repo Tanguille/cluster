@@ -267,21 +267,27 @@ and (with the owner's OK) add the facts worth keeping to `.agents/learned-worksp
 
 d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
 llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
-`server-cuda` (CUDA 12.8), the tested one. `server-cuda13` carries PTX built with CUDA 13.4 and
-only loads on Turing when the container runtime injects the image's forward-compat `libcuda`
-(toolkit 1.19.1 or newer does, an older one fails with "unsupported PTX toolchain",
-[llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run toolkit v1.19.1 but
-have not tried it, and Turing gains nothing from CUDA 13.
+`server-cuda13` (CUDA 13.4). Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
+image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
+([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run v1.19.1 and all
+three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
+below for comparison; rolling back means pinning that image again.
 
-Measured 2026-11-15 in a throwaway pod on the card, llama.cpp b12407, production flags,
-`nvidia-smi --query-compute-apps` per process:
+Measured 2026-11-15 in throwaway pods on the card, production flags, `nvidia-smi --query-compute-apps`
+per process:
 
-| Service | Flags | VRAM MiB | Breakdown (llama.cpp log) |
+| Service | Flags | VRAM MiB, CUDA 13 | CUDA 12.8 |
 | --- | --- | --- | --- |
-| embeddinggemma-2 Q8_0 | 4 slots, ubatch 8192, `-fa on` | 1388 | weights 144, compute 1088 |
-| bge-reranker-v2-m3 Q8_0 | ctx 2048, `-fa on` | 510 | `-fa off` 740, same latency and rankings |
-| d3-nano Q8_0 | 2 x 4096, ubatch 2048 | 2390 | weights 1908, KV 96, recurrent 39, compute 224 |
-| All three under concurrent load | | peak 4292 of 7786 | 3494 MiB (3.4 GiB) spare |
+| embeddinggemma-2 Q8_0 | 4 slots, ubatch 8192, `-fa on` | 2064 | 1388 (weights 144, compute 1088) |
+| bge-reranker-v2-m3 Q8_0 | ctx 2048, `-fa on` | 500 | 510 |
+| d3-nano Q8_0 | 2 x 4096, ubatch 2048 | 2848 | 2390 (weights 1908, KV 96, recurrent 39, compute 224) |
+| All three loaded | | 5412 of 7786, 2374 MiB (2.3 GiB) spare | peak 4292, 3494 spare |
+
+The CUDA 13 build holds about 1.1 GiB more. The concurrent-load peak was not re-measured on it.
+CUDA 13 latency, serial, after the first request: rerank of 15 documents p50 0.12 s, p95 0.13 s
+(0.39 s p95 on 12.8); 20 embeddings 0.12 s median; d3 effort decisions p50 0.048 s, p95 0.061 s.
+Outputs match the live iGPU services: embeddings cosine >= 0.9997, rerank scores within 0.03 with
+the same order, d3 picks the same effort with probabilities within 0.011.
 
 Each process also holds ~110 MiB of CUDA context and ~1 GiB of host RSS (0.3-0.4 GiB anonymous,
 the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM is flat under load.

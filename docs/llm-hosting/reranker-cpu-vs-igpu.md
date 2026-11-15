@@ -32,7 +32,7 @@ Resolved: scores are raw logits; the MIN_SCORE gate was dropped in 8429c1d8a.
 
 ## RTX 2070 and candidate rerankers, 2026-11-15
 
-Throwaway pod on the 2070, llama.cpp b12407 `server-cuda`, ctx 2048, `-fa on`, serial calls of
+Throwaway pod on the 2070, llama.cpp b12407 `server-cuda` (CUDA 12.8; the shipped image is now `server-cuda13`), ctx 2048, `-fa on`, serial calls of
 1024-char docs built from the codingagent_v1 items. Recall: memini `cmd/bench` at v0.7.39 on
 codingagent_v1 (166 questions), embeddinggemma-2 on the same card, `-rerank-max-doc-chars 1024`
 (`bench -suite file -data bench/data/codingagent_v1.json -k 3 -rerank-url ... -llm-rerank-pool N`).
