@@ -9,8 +9,9 @@ metadata:
 spec:
   interval: 1h
   # Bump the chart once the release includes PR #4140 (configurable retry body limit, v1.7.0
-  # never retries bodies over 64 KiB). Then re-read the retry policies and update the
-  # comments in app/models/omniroute.yaml. Keep this comment
+  # never retries bodies over 64 KiB). Then re-read the Gateway retry in app/models.yaml: it would start
+  # retrying kritika's calls on omniroute (2 x the 240s timeout in app/models/omniroute.yaml exceeds kritika's
+  # 300s step timeout), and kritika's `fallback` comment goes stale. Keep this comment
   # out of ref: the Renovate inline OCI regex needs tag: right after it.
   chart:
     kind: OCIRepository
