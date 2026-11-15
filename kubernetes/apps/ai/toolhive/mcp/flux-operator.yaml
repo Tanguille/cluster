@@ -62,28 +62,30 @@ subjects:
     name: flux-operator-mcp
     namespace: ai
 ---
-# Reconcile/suspend/resume are patches: flux-edit-flux-system covers the Flux controller kinds, flux-operator-edit the ResourceSets.
+# Reconcile/suspend/resume are patches (annotation / spec.suspend); no create or delete on Flux kinds.
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: ClusterRole
 metadata:
-  name: flux-operator-mcp-flux-edit
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: flux-edit-flux-system
-subjects:
-  - kind: ServiceAccount
-    name: flux-operator-mcp
-    namespace: ai
+  name: flux-operator-mcp
+rules:
+  - apiGroups:
+      - fluxcd.controlplane.io
+      - helm.toolkit.fluxcd.io
+      - image.toolkit.fluxcd.io
+      - kustomize.toolkit.fluxcd.io
+      - notification.toolkit.fluxcd.io
+      - source.toolkit.fluxcd.io
+    resources: ["*"]
+    verbs: [patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: flux-operator-mcp-resourceset-edit
+  name: flux-operator-mcp
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: flux-operator-edit
+  name: flux-operator-mcp
 subjects:
   - kind: ServiceAccount
     name: flux-operator-mcp
