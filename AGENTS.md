@@ -13,7 +13,7 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - When a change renames or alters a value, name, label or behavior, grep for the old one and update every comment, doc, alert and selector that still cites it.
 - Take versions, SHAs and config fields from upstream (release, registry, chart values, CRD schema), never from memory.
 - Validate the changed scope before declaring work complete or committing; follow the nearest scoped `AGENTS.md` and [common operations](.agents/common-operations.md).
-- Shell scripts use `set -euo pipefail` and must pass shellcheck on every touched `*.sh` (`bash .agents/skills/pr-review/scripts/validate-pr.sh` covers this).
+- Shell scripts use `set -euo pipefail` and must pass `shuck check` on every touched `*.sh` (`bash .agents/skills/pr-review/scripts/validate-pr.sh` covers this).
 - Use Conventional Commit titles, for example `feat(scope): description`.
 
 ## Load context on demand
