@@ -13,13 +13,11 @@ spec:
   quantization: Q8_0
   refreshPolicy: OnChange
   hardware:
-    accelerator: vulkan
+    accelerator: cuda
     gpu:
       enabled: true
       count: 1
-      vendor: amd
-      runtime: vulkan
-      resourceName: squat.ai/dri
+      vendor: nvidia
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
@@ -30,57 +28,41 @@ spec:
   modelRef: bge-reranker-v2-m3
   # mode: rerank auto-appends --reranking --embedding --pooling rank --cache-ram 0; no hand-wired flags.
   mode: rerank
-  # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
-  # model load before this Vulkan server is recycled.
-  maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8af21639d085883fe5147a25a2ee29ce38302d950faa7e42355556d9f9a5af6c
+  # Image, runtime class and JIT cache: see d3-nano.
+  image: ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:22bd49f4cf68236a63c5a187d7d1867ffb08472611ddfbf0392b6842a1b30d44
+  runtimeClassName: nvidia
+  env:
+    - name: CUDA_CACHE_PATH
+      value: /cuda-cache/.nv-compute-cache
+  extraVolumes:
+    - name: cuda-cache
+      persistentVolumeClaim:
+        claimName: llmkube-model-cache
+  extraVolumeMounts:
+    - name: cuda-cache
+      mountPath: /cuda-cache
   # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
   # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
   parallelSlots: 1
   # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
-  # ~5000 chars plus a 1024-char doc. 4096 held 4.4 GiB of GTT, 2048 holds
-  # ~0.65 GiB (fdinfo, at load) with identical scores.
+  # ~5000 chars plus a 1024-char doc.
   contextSize: 2048
   uBatchSize: 2048
   extraArgs:
-    # 12 x 1024-char pairs: 3.5s with flash attention auto (on), 3.15s off; rankings identical.
+    # On the 2070: 0.50 GiB of VRAM vs 0.74 off, same latency and rankings.
     - "-fa"
-    - "off"
-  # Pin to the iGPU node, as with the embedder; without this the scheduler
-  # could place it on the dGPU node (which also advertises squat.ai/dri) and
-  # steal a dGPU slot from the 27B serving pod.
-  nodeSelector:
-    amd.com/igpu: "true"
-
-  # SOFT, so it still schedules with one iGPU node down: pairs with d3-nano,
-  # whose request counts its GTT, rather than the embedder, whose request omits it.
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 100
-          podAffinityTerm:
-            labelSelector:
-              matchLabels:
-                app: embeddinggemma-2
-            topologyKey: kubernetes.io/hostname
-
-  # Render/video host groups for /dev/dri — the documented Vulkan-runtime
-  # path. Mirrored by embeddinggemma-2 / d3-nano.
+    - "on"
   # uid 101 is the model downloader's (llmkube --init-container-user); the root
   # model-cache-prep init hands /models to group 102, so the server needs no root.
   podSecurityContext:
     runAsUser: 101
     fsGroup: 102
     fsGroupChangePolicy: OnRootMismatch
-    supplementalGroups:
-      - 44
-      - 226
 
   resources:
-    cpu: "100m" # inference is on the iGPU; CPU only tokenises/schedules
-    # ~0.2Gi cgroup plus its share of amdgpu GTT (0.4Gi in fdinfo). memcg does
-    # not charge GTT, but the scheduler must count it.
+    cpu: "100m" # inference is on the GPU; CPU only tokenises/schedules
+    # 0.36Gi anonymous plus the mmapped model in page cache.
     memory: 512Mi
-    memoryLimit: 1Gi
+    memoryLimit: 2Gi
   endpoint:
     path: /v1/rerank

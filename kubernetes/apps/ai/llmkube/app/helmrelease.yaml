@@ -37,9 +37,9 @@ spec:
           # off.
           gpu:
             enabled: false
-          # NVIDIA DCGM alerts; llmkube does not use the RTX 2070 (DCGM comes from the gpu-operator app).
+          # NVIDIA DCGM health alerts (Xid, row remap) for the RTX 2070; DCGM comes from the gpu-operator app.
           gpuHealth:
-            enabled: false
+            enabled: true
 
     grafana:
       dashboards:
@@ -61,10 +61,11 @@ spec:
             - datasourceName: VictoriaMetrics
               inputName: DS_PROMETHEUS
 
-    # RWX on CephFS: controller and iGPU services land on different nodes; read
+    # RWX on CephFS: the controller and the GPU services land on different nodes; read
     # once at load. qwen38-27b-vllm has its own node-local cache.
     modelCache:
-      # embeddinggemma-2 0.31Gi + d3-nano 2.4Gi + bge-reranker-v2-m3; 16Gi after 91% at 8Gi: the operator never GCs old revisions.
+      # embeddinggemma-2 0.31Gi + d3-nano 2.4Gi + bge-reranker-v2-m3 + the CUDA JIT cache (~0.15Gi); 16Gi after 91% at 8Gi:
+      # the operator never GCs old revisions.
       size: 16Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany

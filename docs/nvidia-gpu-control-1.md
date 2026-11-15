@@ -2,8 +2,9 @@
 
 The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: signed
 NVIDIA open modules built into the custom kernel pipeline, the toolkit extension, and the GPU
-Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Wiring workloads
-onto it is out of scope. Plan and spike record: [the plan](plans/nvidia-gpu-operator-control-1.md).
+Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Plan and spike
+record: [the plan](plans/nvidia-gpu-operator-control-1.md). Workloads on it:
+[llama.cpp services](#llamacpp-services-on-the-2070).
 
 Every step below is owner-run. **[ASK]** marks steps that touch a live system, push, or delete;
 nothing here runs from an agent session without an explicit OK. Node IPs: control-1
@@ -261,3 +262,47 @@ Control-2/3 are never touched, so every path below only concerns control-1.
 The plan stays until the rollout has happened. Then fold what is still true into
 [docker/talos-kernel/README.md](../docker/talos-kernel/README.md) and this file, delete the plan,
 and (with the owner's OK) add the facts worth keeping to `.agents/learned-workspace.md`.
+
+## llama.cpp services on the 2070
+
+d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2-cuda`) run on the card through
+llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
+`server-cuda` (CUDA 12.8). Not `server-cuda13`: sm_75 crashes there
+([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)).
+
+Measured 2026-11-15 in a throwaway pod on the card, llama.cpp b12407, production flags,
+`nvidia-smi --query-compute-apps` per process:
+
+| Service | Flags | VRAM MiB | Breakdown (llama.cpp log) |
+| --- | --- | --- | --- |
+| embeddinggemma-2 Q8_0 | 4 slots, ubatch 8192, `-fa on` | 1388 | weights 144, compute 1088 |
+| bge-reranker-v2-m3 Q8_0 | ctx 2048, `-fa on` | 510 | `-fa off` 740, same latency and rankings |
+| d3-nano Q8_0 | 2 x 4096, ubatch 2048 | 2390 | weights 1908, KV 96, recurrent 39, compute 224 |
+| All three under concurrent load | | peak 4292 of 7786 | 3494 MiB (3.4 GiB) spare |
+
+Each process also holds ~110 MiB of CUDA context and ~1 GiB of host RSS (0.3-0.4 GiB anonymous,
+the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM is flat under load.
+`NvidiaVramLow` fires below 512 MiB free: time-slicing gives no VRAM isolation between pods.
+
+Turing is built only as PTX, so the driver JIT-compiles the kernels: with an empty cache the
+embedder took 59 s to load and 27 s for its first request; with a warm cache 1.3 s and 0.08 s.
+`CUDA_CACHE_PATH` points into the RWX model-cache PVC (`/cuda-cache/.nv-compute-cache`, ~0.15 GiB),
+shared by all three, so a restart or a node move stays warm. A driver bump rebuilds it once.
+
+Against the iGPU services (same inputs): embeddings cosine >= 0.9998, bge scores within 0.11
+logit, d3-nano identical on the 8-ball bench (27 wrong of 1119) and the effort prompts. Latency:
+194 x 400-char embeddings 0.9 s (7.4 s on the iGPU), rerank of 15 x 1024-char docs p95 0.39 s
+idle and 0.97 s beside embedder load, d3 effort decisions p50 0.05 s idle, 0.12 s under load.
+Board power reached 165 W under the combined load; the UPS shed query does not see the 2070.
+
+Cutover of the embedder: `embeddinggemma-2-cuda` runs beside the Vulkan `embeddinggemma-2` first
+(same GGUF, same vectors, no re-embed). Once it is Ready, point `proxy_pass` in
+`kubernetes/apps/ai/agentgateway/app/embedding-cache.yaml` and the direct provider in
+`kubernetes/apps/ai/agentgateway/app/models/embeddinggemma-2.yaml` at
+`embeddinggemma-2-cuda.ai.svc.cluster.local`, add it to the dashboard backend regex
+(`agentgateway-llm.json`), and delete `kubernetes/apps/ai/llmkube/models/embeddinggemma-2.yaml`.
+Consumers keep the model name `embeddinggemma-2`.
+
+Rollback: revert the commit; the Vulkan manifests return to the iGPUs (images and GGUFs are still
+cached). When control-1 is down all three are down: memini recall falls back to keyword-only and
+backfills vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).

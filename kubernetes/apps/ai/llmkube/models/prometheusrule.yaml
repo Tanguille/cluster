@@ -64,3 +64,17 @@ spec:
               (radiance:prefix_cache_ckpt_evictions_by_reason_total) or something is rewriting the resent prefix.
           labels:
             severity: warning
+    - name: rtx2070.rules
+      rules:
+        # Time-slicing gives the 2070's pods no VRAM isolation: one that grows can OOM the others. The three services
+        # peak at 4.2 GiB together (docs/nvidia-gpu-control-1.md), so this means something new or a leak.
+        - alert: NvidiaVramLow
+          # dcgm-exporter labels the series with the pod on the card, so one host can have several.
+          expr: max by (hostname) (DCGM_FI_DEV_FB_FREE) < 512
+          for: 10m
+          annotations:
+            summary: >-
+              The RTX 2070 on {{ $labels.hostname }} has {{ $value }} MiB of VRAM free; a new CUDA allocation on it
+              (a pod restart, a larger batch) can fail. Check nvidia-smi for the process that grew.
+          labels:
+            severity: warning
