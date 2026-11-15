@@ -33,6 +33,9 @@ cluster:
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: "true"
+      # Alpha since 1.26. Without it the apiserver silently drops a PVC dataSourceRef that carries
+      # a namespace, so cross-namespace restores look accepted but land on an empty volume.
+      feature-gates: CrossNamespaceVolumeDataSource=true
     env:
       # The default 100 let the process hold ~2.4x its live heap (2.5-3.5 GiB RSS); it uses under half a core.
       GOGC: "50"
@@ -45,6 +48,9 @@ cluster:
     image: registry.k8s.io/kube-controller-manager:{{ kubernetesVersion }}
     extraArgs:
       bind-address: 0.0.0.0
+      # KEP-3294 lists the apiserver and controller-manager together; the apiserver is the half
+      # that enforces the gate in 1.37, this one keeps the pair in step.
+      feature-gates: CrossNamespaceVolumeDataSource=true
   scheduler:
     image: registry.k8s.io/kube-scheduler:{{ kubernetesVersion }}
     extraArgs:

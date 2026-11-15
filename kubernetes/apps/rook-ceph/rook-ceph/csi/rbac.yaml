@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/clusterrole_v1.json
+# The rbd csi-provisioner runs with CrossNamespaceVolumeDataSource=true, so it reads ReferenceGrants
+# to decide whether a PVC may use a volume data source from another namespace. Without this the
+# provisioner never reports ready and rbd provisioning stalls cluster-wide.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rook-ceph-rbd-csi-ceph-com-ctrlplugin-referencegrants
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["get", "list", "watch"]
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/clusterrolebinding_v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rook-ceph-rbd-csi-ceph-com-ctrlplugin-referencegrants
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rook-ceph-rbd-csi-ceph-com-ctrlplugin-referencegrants
+subjects:
+  # Rendered by the ceph-csi-drivers chart as normalizeDriverName(driver) + "-ctrlplugin-sa"
+  # in the release namespace, for drivers.rbd.name rook-ceph.rbd.csi.ceph.com.
+  - kind: ServiceAccount
+    name: rook-ceph-rbd-csi-ceph-com-ctrlplugin-sa
+    namespace: rook-ceph
