@@ -25,7 +25,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  # Not server-cuda13: sm_75 crashes there (llama.cpp #31503).
+  # server-cuda (12.8), tested. server-cuda13 needs the runtime's compat libcuda on Turing: untested (llama.cpp #31503).
   image: ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:22bd49f4cf68236a63c5a187d7d1867ffb08472611ddfbf0392b6842a1b30d44
   # Only control-1 advertises nvidia.com/gpu (RTX 2070, time-sliced, no VRAM isolation between pods).
   runtimeClassName: nvidia

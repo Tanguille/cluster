@@ -59,7 +59,7 @@ node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
 <2 GiB, and missing GTT telemetry are the burst-leak backstop.
 
 `bge-reranker-v2-m3` and `d3-nano` moved to the RTX 2070 on 2026-11-15, and the
-embedder follows as `embeddinggemma-2-cuda`
+embedder followed in place under the same name
 ([nvidia-gpu-control-1.md](../nvidia-gpu-control-1.md#llamacpp-services-on-the-2070)); CUDA
 has no GTT, so the lifetime guard ends with the Vulkan embedder.
 

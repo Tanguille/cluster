@@ -265,10 +265,13 @@ and (with the owner's OK) add the facts worth keeping to `.agents/learned-worksp
 
 ## llama.cpp services on the 2070
 
-d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2-cuda`) run on the card through
+d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
 llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
-`server-cuda` (CUDA 12.8). Not `server-cuda13`: sm_75 crashes there
-([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)).
+`server-cuda` (CUDA 12.8), the tested one. `server-cuda13` carries PTX built with CUDA 13.4 and
+only loads on Turing when the container runtime injects the image's forward-compat `libcuda`
+(toolkit 1.19.1 or newer does, an older one fails with "unsupported PTX toolchain",
+[llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run toolkit v1.19.1 but
+have not tried it, and Turing gains nothing from CUDA 13.
 
 Measured 2026-11-15 in a throwaway pod on the card, llama.cpp b12407, production flags,
 `nvidia-smi --query-compute-apps` per process:
@@ -296,15 +299,12 @@ logit, d3-nano identical on the 8-ball bench (27 wrong of 1119) and the effort p
 idle and 0.97 s beside embedder load, d3 effort decisions p50 0.05 s idle, 0.12 s under load.
 Board power reached 165 W under the combined load; the UPS shed query does not see the 2070.
 
-Cutover of the embedder: `embeddinggemma-2-cuda` runs beside the Vulkan `embeddinggemma-2` first
-(same GGUF, same vectors, no re-embed). Once it is Ready, point `proxy_pass` in
-`kubernetes/apps/ai/agentgateway/app/embedding-cache.yaml` and the direct provider in
-`kubernetes/apps/ai/agentgateway/app/models/embeddinggemma-2.yaml` at
-`embeddinggemma-2-cuda.ai.svc.cluster.local`, add it to the dashboard backend regex
-(`agentgateway-llm.json`), and delete `kubernetes/apps/ai/llmkube/models/embeddinggemma-2.yaml`.
-Consumers keep the model name `embeddinggemma-2`.
+The embedder switched in place: `embeddinggemma-2` is now the CUDA service, with the same name,
+Service and GGUF, so the stored vectors and every consumer stay as they are. Its JIT cache starts
+empty, so the first start after the merge takes about 90 s (59 s load, 27 s first request); memini
+recall falls back to keyword-only and the optimizer's embeds fail until it is Ready. Later restarts
+are warm.
 
 Rollback: revert the commit; the Vulkan manifests return to the iGPUs (images and GGUFs are still
-cached). After the embedder follow-up, revert that one first, so the consumers point back at
-`embeddinggemma-2` before `embeddinggemma-2-cuda` goes. When control-1 is down all three are down: memini recall falls back to keyword-only and
+cached). When control-1 is down all three are down: memini recall falls back to keyword-only and
 backfills vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
