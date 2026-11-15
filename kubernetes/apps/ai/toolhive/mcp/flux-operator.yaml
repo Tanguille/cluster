@@ -62,11 +62,24 @@ subjects:
     name: flux-operator-mcp
     namespace: ai
 ---
-# Flux CRD write access for reconcile/suspend/resume.
+# Reconcile/suspend/resume are patches: flux-edit-flux-system covers the Flux controller kinds, flux-operator-edit the ResourceSets.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: flux-operator-mcp-edit
+  name: flux-operator-mcp-flux-edit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: flux-edit-flux-system
+subjects:
+  - kind: ServiceAccount
+    name: flux-operator-mcp
+    namespace: ai
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flux-operator-mcp-resourceset-edit
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
