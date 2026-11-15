@@ -305,5 +305,6 @@ Cutover of the embedder: `embeddinggemma-2-cuda` runs beside the Vulkan `embeddi
 Consumers keep the model name `embeddinggemma-2`.
 
 Rollback: revert the commit; the Vulkan manifests return to the iGPUs (images and GGUFs are still
-cached). When control-1 is down all three are down: memini recall falls back to keyword-only and
+cached). After the embedder follow-up, revert that one first, so the consumers point back at
+`embeddinggemma-2` before `embeddinggemma-2-cuda` goes. When control-1 is down all three are down: memini recall falls back to keyword-only and
 backfills vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
