@@ -152,7 +152,7 @@ spec:
   # KV pool under --max-num-seqs), plus bench/ruler.py after a KV, resume, attention or chat template change; baselines:
   # docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the card holds one engine, so a bench means
   # stopping production.
-  image: docker.io/stilldeadcode/radiance:1.17.0@sha256:6fb0e99bfb862e17cc15cb7b2f116c7dbdc831df59f82456a0691122e6cf5330
+  image: docker.io/stilldeadcode/radiance:2.1.0@sha256:d3d6c796083b0d00f2b462554aa002f853248506d55658d60d685017abb9b42d
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
     waitForIdle: true
