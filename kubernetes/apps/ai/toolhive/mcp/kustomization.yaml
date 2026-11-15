@@ -34,6 +34,17 @@ resources:
 
 patches:
   # Every MCPServer pod runs third-party tool code; MCPServerEntry has no pod. Opt a server out by narrowing the target.
+  - target:
+      kind: MCPServer
+    patch: |-
+      apiVersion: toolhive.stacklok.dev/v1beta1
+      kind: MCPServer
+      metadata:
+        name: not-used
+      spec:
+        podTemplateSpec:
+          spec:
+            runtimeClassName: gvisor
   # Only servers labelled mount-sa-token keep their service account token (flux-operator authenticates with it).
   - target:
       kind: MCPServer
@@ -47,4 +58,3 @@ patches:
         podTemplateSpec:
           spec:
             automountServiceAccountToken: false
-            runtimeClassName: gvisor
