@@ -39,11 +39,12 @@ spec:
     - name: cuda-cache
       mountPath: /cuda-cache
       subPath: cuda-cache/embeddinggemma-2
-  # 4 slots: the 194-tool search and memini share one embedder; keeps the
-  # 194-item batch from queueing behind memini (0.9 s on the 2070, 7.4 s on the iGPU).
-  parallelSlots: 4
+  # 8 slots: the 194-tool search and memini share one embedder; keeps the 194-item batch from queueing behind
+  # memini. 4 -> 8 on the 2070: batch 1.13 s -> 0.87 s, a memini query during the batch p95 0.90 s -> 0.72 s,
+  # no extra VRAM (7.4 s per batch on the iGPU).
+  parallelSlots: 8
   # contextSize/parallelSlots = 8192 per slot, matching the per-input cap below.
-  contextSize: 32768
+  contextSize: 65536
   # Bidirectional model: min(batchSize, uBatchSize) is the per-input token cap, so
   # set both (n_batch stays at its 2048 default otherwise). 8192 is the model's
   # native context: 4096 rejected a 4105-token kritika chunk.

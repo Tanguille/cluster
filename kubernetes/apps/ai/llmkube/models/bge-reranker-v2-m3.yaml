@@ -42,12 +42,12 @@ spec:
     - name: cuda-cache
       mountPath: /cuda-cache
       subPath: cuda-cache/bge-reranker-v2-m3
-  # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
-  # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
-  parallelSlots: 1
-  # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
-  # ~5000 chars plus a 1024-char doc.
-  contextSize: 2048
+  # llama.cpp scores each document as its own task, so 4 slots rerank 15 documents in parallel: p50 0.12 s -> 0.06 s
+  # alone, p95 0.50 s -> 0.20 s under 4 concurrent callers, same 0.5 GiB of VRAM (measured on the 2070).
+  parallelSlots: 4
+  # contextSize/parallelSlots = 2048 per slot: a pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query
+  # up to ~5000 chars plus a 1024-char doc.
+  contextSize: 8192
   uBatchSize: 2048
   extraArgs:
     # On the 2070: 0.50 GiB of VRAM vs 0.74 off, same latency and rankings.
