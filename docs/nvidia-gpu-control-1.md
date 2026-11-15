@@ -273,17 +273,20 @@ image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX t
 three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
 below for comparison; rolling back means pinning that image again.
 
-Measured 2026-11-15 in throwaway pods on the card, production flags, `nvidia-smi --query-compute-apps`
-per process:
+Per process in production after the merge (`nvidia-smi --query-compute-apps` in each pod) and in the
+first CUDA 12.8 pods:
 
-| Service | Flags | VRAM MiB, CUDA 13 | CUDA 12.8 |
+| Service | Flags | VRAM MiB, CUDA 13 (production) | CUDA 12.8 |
 | --- | --- | --- | --- |
-| embeddinggemma-2 Q8_0 | 8 slots, ubatch 8192, `-fa on` | 2064 | 1388 (weights 144, compute 1088) |
+| embeddinggemma-2 Q8_0 | 8 slots, ubatch 8192, `-fa on` | 1344 | 1388 (weights 144, compute 1088) |
 | bge-reranker-v2-m3 Q8_0 | 4 slots x 2048, `-fa on` | 500 | 510 |
-| d3-nano Q8_0 | 2 x 4096, ubatch 2048 | 2848 | 2390 (weights 1908, KV 96, recurrent 39, compute 224) |
-| All three loaded | | 5412 of 7786, 2374 MiB (2.3 GiB) spare | peak 4292, 3494 spare |
+| d3-nano Q8_0 | 2 x 4096, ubatch 2048 | 2386 | 2390 (weights 1908, KV 96, recurrent 39, compute 224) |
+| All three loaded | | 4227 of 7785 (DCGM), 3558 MiB (3.5 GiB) spare | peak 4292, 3494 spare |
 
-The CUDA 13 build holds about 1.1 GiB more. The concurrent-load peak was not re-measured on it.
+CUDA 13 costs the same VRAM as 12.8. The throwaway test pods before the merge showed about 1.1 GiB
+more (2064 and 2848 MiB for the embedder and d3-nano) because they loaded the models with `-hf`, which
+also pulled each repo's vision projector; production loads the plain GGUF. The concurrent-load peak
+was not re-measured on CUDA 13.
 CUDA 13 latency, serial, after the first request: rerank of 15 documents p50 0.12 s, p95 0.13 s
 (0.39 s p95 on 12.8); 20 embeddings 0.12 s median; d3 effort decisions p50 0.048 s, p95 0.061 s.
 Slots (CUDA 13, same VRAM either way): the reranker at 4 slots (context 8192) takes 0.06 s p50 for 15
