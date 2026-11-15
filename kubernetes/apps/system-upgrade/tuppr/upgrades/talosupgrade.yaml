@@ -6,15 +6,14 @@ metadata:
   name: talos
 spec:
   talos:
-    # Bumped by the two regex managers in .renovaterc.json5, one per half.
-    # No other literal -k<digits> in this file: the kernel manager is unanchored, so each one
-    # becomes its own dep.
-    version: v1.14.6-k7.3.4
+    # renovate: datasource=github-releases depName=siderolabs/talos
+    version: v1.15.0-beta.0
   talosctl:
     image:
-      # Plain tag: no -k<kernel> talosctl image is published, so that tag hits ImagePullBackOff.
+      # Unset, tuppr derives it from the node's current version, and the v1.14.6-k7.3.4 the nodes
+      # report from the old self-built kernel has no talosctl image. Drop once no node reports -k.
       # renovate: datasource=github-releases depName=siderolabs/talos
-      tag: v1.14.6
+      tag: v1.15.0-beta.0
   # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
   # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:
