@@ -2,8 +2,8 @@
 
 The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: signed
 NVIDIA open modules built into the custom kernel pipeline, the toolkit extension, and the GPU
-Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Wiring workloads
-onto it is out of scope. Plan and spike record: [the plan](plans/nvidia-gpu-operator-control-1.md).
+Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. FileFlows encodes on
+it ([FileFlows on NVENC](fileflows/nvenc.md)). Plan and spike record: [the plan](plans/nvidia-gpu-operator-control-1.md).
 
 Every step below is owner-run. **[ASK]** marks steps that touch a live system, push, or delete;
 nothing here runs from an agent session without an explicit OK. Node IPs: control-1

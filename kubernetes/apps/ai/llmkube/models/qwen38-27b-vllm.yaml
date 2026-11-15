@@ -193,7 +193,7 @@ spec:
     # K in int6, V in int4: ~0.69x the fp8 cost per token at the same KL.
     - --kv-cache-dtype
     - k6_v4
-    # Leaves 2 GiB VRAM free for Jellyfin and FileFlows (DgpuVramLow watches it); the engine sizes the KV pool from the rest.
+    # Leaves 2 GiB VRAM free for Jellyfin (and FileFlows on a VAAPI rollback; DgpuVramLow watches it); the engine sizes the KV pool from the rest.
     - --gpu-headroom-mib
     - "2048"
     # Shared card: no weight-prefetch ring.

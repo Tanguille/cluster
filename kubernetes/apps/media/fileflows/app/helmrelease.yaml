@@ -10,21 +10,14 @@ spec:
     kind: OCIRepository
     name: app-template
   valuesFrom:
-    # No affinity-control-1: the amd.com/gpu requirement below already pins this
-    # to control-1, the only node carrying that label.
+    # No affinity-control-1: nvidia.com/gpu below only exists on control-1.
     - kind: ConfigMap
       name: nfs-media
 
   values:
     defaultPodOptions:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: amd.com/gpu
-                    operator: In
-                    values: ["true"]
+      # NVENC on the RTX 2070; the flow's encoder must say NVIDIA (docs/fileflows/nvenc.md).
+      runtimeClassName: nvidia
       securityContext:
         # revenz/fileflows entrypoint must start as root (apt/groupadd on boot),
         # then drops to PUID/PGID=568 itself. #3569 wrongly "simplified" this to 568.
@@ -62,6 +55,7 @@ spec:
               TZ: ${TIMEZONE}
               PUID: "568"
               PGID: "568"
+              NVIDIA_DRIVER_CAPABILITIES: video,compute,utility
             # tcp, not http: the .NET app answers / with a redirect to the
             # login flow, which is a weaker signal than the listener itself.
             probes:
@@ -81,11 +75,13 @@ spec:
                 memory: 384Mi
                 # Without it kubelet evicts this pod first; a limit would evict it mid-transcode.
                 ephemeral-storage: 2Gi
+                # Kept so a rollback to VAAPI is a flow edit only.
                 squat.ai/dri: 1
               limits:
                 cpu: 2
                 memory: 5Gi
                 squat.ai/dri: 1
+                nvidia.com/gpu: 1
 
     service:
       fileflows:
