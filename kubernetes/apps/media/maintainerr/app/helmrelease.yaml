@@ -25,18 +25,21 @@ spec:
             probes:
               liveness:
                 enabled: true
+                custom: true
                 spec:
                   httpGet:
                     path: /
                     port: &port 6246
               readiness:
                 enabled: true
+                custom: true
                 spec:
                   httpGet:
                     path: /
                     port: *port
               startup:
                 enabled: true
+                custom: true
                 spec:
                   httpGet:
                     path: /
@@ -61,6 +64,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
     service:
       app:
         ports:

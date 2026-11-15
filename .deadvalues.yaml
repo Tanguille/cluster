@@ -13,10 +13,6 @@ ignore:
   - app: rook-ceph-cluster
     keys:
       - cephImage.repository
-  # app-template merges probes.*.spec into the generated probe (free-form); the keys never appear in the chart's values.yaml.
-  - app: maintainerr
-    keys:
-      - "controllers.maintainerr.containers.app.probes.**"
 
 flux:
   # cluster-secrets is SOPS-encrypted; charts that parse URLs fail on a literal ${SECRET_DOMAIN}.
