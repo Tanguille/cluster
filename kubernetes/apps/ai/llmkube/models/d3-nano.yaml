@@ -27,9 +27,10 @@ spec:
   modelRef: d3-nano
   # Not server-cuda13: sm_75 crashes there (llama.cpp #31503).
   image: ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:22bd49f4cf68236a63c5a187d7d1867ffb08472611ddfbf0392b6842a1b30d44
+  # Only control-1 advertises nvidia.com/gpu (RTX 2070, time-sliced, no VRAM isolation between pods).
   runtimeClassName: nvidia
-  # Turing ships only as PTX: a cold JIT cache costs ~60 s at start and ~25 s at the first request, a warm one 1-2 s.
-  # The cache lives in a per-service subPath of the model-cache PVC: writable, while the models stay read-only.
+  # Turing is PTX-only: a cold JIT cache costs ~60 s at start and ~25 s at the first request, a warm one 1-2 s.
+  # A per-service subPath of the model-cache PVC keeps it writable while the models stay read-only.
   env:
     - name: CUDA_CACHE_PATH
       value: /cuda-cache/.nv-compute-cache
@@ -48,7 +49,6 @@ spec:
   # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
   uBatchSize: 2048
 
-  # Only control-1 advertises nvidia.com/gpu (RTX 2070, time-sliced, no VRAM isolation between pods).
   # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
     runAsUser: 101

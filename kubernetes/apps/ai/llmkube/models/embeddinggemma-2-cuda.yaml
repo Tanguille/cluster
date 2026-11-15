@@ -5,8 +5,7 @@ kind: Model
 metadata:
   name: embeddinggemma-2-cuda
 spec:
-  # The embedder on the RTX 2070, beside the Vulkan embeddinggemma-2 until the cutover
-  # (docs/nvidia-gpu-control-1.md): same GGUF, so the same model-cache file and the same vectors.
+  # Beside the Vulkan embeddinggemma-2 until the cutover (docs/nvidia-gpu-control-1.md): same GGUF, same vectors.
   # EmbeddingGemma 2: 270M params, 768 dims native; needs llama.cpp with gemma-embedding2.
   source: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/6ea3e3a309d12a4779cfda98b8c19800d2d5da71/embeddinggemma-2-Q8_0.gguf
   quantization: Q8_0
