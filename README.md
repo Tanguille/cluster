@@ -78,7 +78,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
 | **DNS**         | external-dns                   | Record sync                              |
 | **TLS**         | cert-manager                   | Certificate lifecycle                    |
-| **GPU**         | AMD R9700 (full passthrough)   | LLM inference on control-1               |
+| **GPU**         | AMD R9700 + NVIDIA RTX 2070 (full passthrough) | LLM inference on control-1 (R9700), time-sliced media/inference (2070) |
 | **Storage**     | Rook-Ceph, OpenEBS Hostpath    | Tiered by durability requirement         |
 | **Databases**   | CloudNative-PG, Dragonfly      | Postgres clusters, in-memory store       |
 | **Secrets**     | SOPS + age                     | Encrypted manifests, zero plain-text     |
@@ -91,11 +91,11 @@ or replicated data where performance is critical (e.g. postgres).
 
 | Role      | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
 |-----------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
-| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
+| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 + NVIDIA RTX 2070 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
 | control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Samsung 980 Pro 1 TB |
 | control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Micron 7450 Pro 960 GB |
 
-All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
+All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU and the RTX 2070 is shared by time-slicing.
 Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 
 ---
@@ -275,6 +275,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | radiance runbook, vLLM-era tuning constraints + benchmark history |
+| [NVIDIA RTX 2070](docs/nvidia-gpu-control-1.md) | control-1 rollout and rollback runbook |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |

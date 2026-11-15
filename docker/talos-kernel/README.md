@@ -45,16 +45,22 @@ Kernel-series changes that bear on these nodes:
 
 ## Pipeline
 
-Four artifacts, each steered by a make variable. `PKGS`/`PKGS_PREFIX` and `PKG_KERNEL`
+Each artifact is steered by a make variable. `PKGS`/`PKGS_PREFIX` and `PKG_KERNEL`
 are the only handles required — no forks.
 
 ```text
 docker/talos-kernel/Dockerfile   ->  ghcr.io/tanguille/kernel:<tag>
-                                       |
+  (kernel + NVIDIA open modules          |   (NVIDIA modules sit in usr/lib/modules/<rel>/extra/)
+   under one signing key)                |
 siderolabs/pkgs linux-firmware   ------+   (mirrored as-is; firmware is kernel-independent,
   (retagged, not rebuilt)              |    so keep upstream's CURRENT blobs)
                                        v
 siderolabs/extensions @ vX.Y.Z    make amdgpu PKGS_PREFIX=... PKGS=<tag>
+                                       |
+kernel image extra/ only  ->  nvidia-open-gpu-kernel-modules-production-pkg:<tag>
+                                       |
+siderolabs/extensions @ vX.Y.Z    make nvidia-open-gpu-kernel-modules-production
+                                  PKGS_PREFIX=... PKGS=<tag>
                                        |
                                        v
 siderolabs/talos @ vX.Y.Z         make installer-base imager PKG_KERNEL=... TAG=<version>
@@ -69,6 +75,24 @@ out of the kernel package image and asserts every `.ko` carries a signature. The
 generates a fresh signing key per build, and the cmdline carries `module.sig_enforce=1`,
 so an extension built against a *different build* of the same version will fail to load.
 Rebuild the extension from the same kernel image, every time.
+
+The NVIDIA open modules (the RTX 2070 on control-1) follow the same rule, but upstream cannot
+be used as is: pkgs' `nvidia-open-gpu-kernel-modules-production-pkg` builds against pkgs'
+internal `kernel-build` stage, which `PKGS_PREFIX` cannot replace, and exporting a compatible
+stage would publish `certs/signing_key.pem`. So the Dockerfile compiles the modules in its own
+`builder` stage, after the kernel, with the same key (`MODULE_SIG_ALL` makes NVIDIA's
+`modules_install` sign them), into `usr/lib/modules/<rel>/extra/`. `extra/` is outside
+`hack/modules-amd64.txt`, so `installer-base` ignores it. The script then derives the `-pkg`
+image from the pushed kernel image (only `extra/*.ko`, never a second build of the builder
+stage, whose cache miss would mint a new key) and runs upstream's extension target on it, so
+the validator and manifest are upstream's. `siderolabs/nvidia-open-gpu-kernel-modules-production`
+in a schematic is swapped for that build, like `siderolabs/amdgpu`; the toolkit extension
+(`nvidia-container-toolkit-production`) is userspace and reused by digest.
+
+The driver version and tarball sha256 are read from `extensions/nvidia-gpu/vars.yaml` at the Talos
+tag and passed as build-args, so the modules always equal the toolkit extension's libraries and
+GSP firmware (they must match exactly). Nothing is pinned here. The published extension tag is
+`<driver>-<extensions-tag>` (e.g. `595.112.07-v1.14.6`) and, like amdgpu's, is discovered.
 
 `amd-ucode`, `nfsrahead`, `qemu-guest-agent` and `gvisor` are firmware/userspace only — reuse the
 official images by digest.
@@ -116,7 +140,8 @@ Not the schematic id, even though it is content-addressed: the id moves whenever
 edited, and each new id is a fresh private package, so a one-line `extraKernelArgs` change
 would silently strand nodes on an unpullable ref.
 
-The intermediates (`kernel`, `amdgpu`, `installer-base`, `imager`) stay private because only
+The intermediates (`kernel`, `amdgpu`, `nvidia-open-gpu-kernel-modules-production(-pkg)`,
+`installer-base`, `imager`) stay private because only
 the local build and the imager touch them.
 
 Verify it the way a node would, not with bare `crane` — `crane digest` silently uses whatever
@@ -133,6 +158,31 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOK" \
 `<firmware-date>-<extensions-tag>` (e.g. `20260810-v1.14.0-rc.2`), *not* as the pipeline's
 `v<talos>-k<kernel>`. The build discovers the published tag rather than assuming it; do not
 hardcode one.
+
+## Re-pushing one node's installer (`FORCE_NODE`)
+
+Tags are never reused, and the build no-ops when every ref exists. The exception is a node whose
+image must change without a version bump: tuppr compares the tag as a plain string, so a new tag
+for control-1 (the NVIDIA modules) would be rolled back to the old one. Dispatch with the node:
+
+```sh
+gh workflow run talos-kernel.yaml --ref "${branch}" -f force_node=control-1
+```
+
+(or `FORCE_NODE=control-1 just talos kernel-build`). Only that node's ref is pushed; every other
+ref that already resolves is skipped, so `installer/shared` is never re-pushed with a fresh
+kernel and key. Forcing a node on the shared schematic is refused. The job summary prints the
+pushed digest: upgrade by `...installer/control-1:<tag>@sha256:<digest>`, because the old
+digest is still what a stale cache holds for the tag.
+
+Consequences:
+
+- The previous control-1 image is gone from the tag. Roll back with `talosctl rollback` (A/B),
+  or by the old digest if GHCR still holds it as an untagged version.
+- control-1 now runs a different kernel build, and signing key, than control-2/3. That is fine
+  under `sig_enforce`: each node's kernel and modules come from one build.
+- The intermediates tagged `<version>` (`kernel`, `linux-firmware`, `amdgpu`, the NVIDIA images,
+  `installer-base`, `imager`) are overwritten too. Nothing at runtime references them.
 
 ## Per-bump maintenance
 
@@ -179,6 +229,16 @@ compiled-in default that upstream can move.
 The two columns bracket the range: the first spans three feature releases (6.19, 7.0, 7.1), the
 second is a single minor. They are close, so the delta tracks the series handover rather than
 the number of releases crossed — a minor bump is not the cheap case.
+
+The NVIDIA modules ride the same bump: they compile against the new kernel tree in the same
+`builder` stage, so a kernel API change breaks the build here rather than on a node. Upstream
+open-gpu-kernel-modules is the usual casualty of a new kernel series (7.3 needed
+NVIDIA/open-gpu-kernel-modules PR 1512 for runtime power management; 595.112.07 compiles on
+7.3.4). If the compile fails, the options are a patched driver or dropping the NVIDIA extension
+for that kernel; a newer driver branch would not match the toolkit extension's libraries. A new
+driver version arrives with a Talos bump (`vars.yaml`), so check the `nvidia_drm`/`modeset`
+behaviour and the GSP firmware path again then. Check the signature the way the build does:
+`find extra -name '*.ko' -exec grep -FL '~Module signature appended~' {} +` prints nothing.
 
 Talos **1.14 added a second gate**: `depmod --errsyms` must print nothing at all, so a listed
 module whose dependency is absent now fails the build. 7.x split `stmmac_libpci.ko` out of
@@ -250,7 +310,7 @@ which matters because `CONFIG_LTO_CLANG_THIN=y` makes the compiler load-bearing.
 versions are derived, not typed: the kernel from `ARG KERNEL_VERSION` in the Dockerfile (so a
 Renovate bump is what changes the build) and Talos from the tuppr CR.
 Requires ~35-40 GB free disk and takes roughly 15 min on 24 cores; the kernel compile
-dominates and is fully unattended.
+dominates and is fully unattended. The NVIDIA module compile adds under a minute.
 
 ## Rollout
 

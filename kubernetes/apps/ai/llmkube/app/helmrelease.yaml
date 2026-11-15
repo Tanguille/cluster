@@ -37,7 +37,7 @@ spec:
           # off.
           gpu:
             enabled: false
-          # NVIDIA DCGM alerts; nothing exports DCGM_* on this AMD-only cluster.
+          # NVIDIA DCGM alerts; llmkube does not use the RTX 2070 (DCGM comes from the gpu-operator app).
           gpuHealth:
             enabled: false
 

@@ -45,6 +45,21 @@ RUN cd /src \
     && curl -fsSL -o certs/x509.genkey \
        "https://raw.githubusercontent.com/siderolabs/pkgs/${PKGS_SHA}/kernel/build/certs/x509.genkey"
 
+# NVIDIA open modules for the RTX 2070 on control-1. Own stage for the same reason as `source`:
+# only the kernel-open tree crosses into the build. Both args come from the Talos release's
+# extensions/nvidia-gpu/vars.yaml (scripts/talos-kernel-build.sh), so the driver matches the
+# userspace libraries and GSP firmware in the toolkit extension, which hard-requires it. No
+# default on purpose, as with TOOLS_REV. --no-same-owner because the archive carries NVIDIA's
+# build uid, which a rootless builder cannot chown to.
+FROM alpine:3.24 AS nvidia-source
+RUN apk add --no-cache curl tar xz
+ARG NVIDIA_DRIVER_VERSION
+ARG NVIDIA_DRIVER_SHA256
+RUN curl -fsSL -o nvidia.tar.xz \
+       "https://developer.download.nvidia.com/compute/nvidia-driver/redist/nvidia_driver/linux-x86_64/nvidia_driver-linux-x86_64-${NVIDIA_DRIVER_VERSION}-archive.tar.xz" \
+    && echo "${NVIDIA_DRIVER_SHA256}  nvidia.tar.xz" | sha256sum -c - \
+    && mkdir -p /nvidia && tar -xJf nvidia.tar.xz --no-same-owner --strip-components=1 -C /nvidia
+
 FROM ghcr.io/siderolabs/llvm:${TOOLS_REV} AS llvm
 
 FROM ghcr.io/siderolabs/tools:${TOOLS_REV} AS builder
@@ -96,6 +111,28 @@ RUN cd /src \
 # SPDX doc per pkgs kernel/kernel/pkg.yaml (see generate-spdx.py); a script, not a heredoc:
 # hadolint can't parse an instruction after a heredoc in a multi-stage build.
 RUN mkdir -p /rootfs/usr/share/spdx && python3 /tmp/generate-spdx.py "$KERNEL_VERSION"
+
+# NVIDIA modules, built against the tree above and signed by the same per-build key (the
+# kernel config has MODULE_SIG_ALL, so NVIDIA's own modules_install signs them). This has to be
+# this stage: a second build of it on a cache miss would generate a new key and the modules
+# would silently fail to load under module.sig_enforce=1. Flags are pkgs'
+# nvidia-open-gpu-kernel-modules pkg.yaml (LLVM binutils for ThinLTO, NVIDIA issue 214).
+#
+# Installed to a scratch root and only extra/ copied over: modules_install also runs depmod and
+# writes modules.* files, which would replace the kernel's own modules.dep. INSTALL_MOD_DIR is
+# needed because NVIDIA's Makefile defaults it to kernel/drivers/video. extra/ is outside
+# hack/modules-amd64.txt, so installer-base ignores it; it only reaches a node through the
+# nvidia-open-gpu-kernel-modules-production extension derived from this image.
+COPY --from=nvidia-source /nvidia/kernel-open /nvidia/kernel-open
+RUN cd /nvidia/kernel-open \
+    && export LLVM=1 ARCH=x86_64 \
+    && KERNELRELEASE=$(cat /src/include/config/kernel.release) \
+    && make LD=ld.lld OBJDUMP=llvm-objdump -j"$(nproc)" SYSSRC=/src modules \
+    && make LD=ld.lld OBJDUMP=llvm-objdump -j"$(nproc)" SYSSRC=/src modules_install \
+       INSTALL_MOD_PATH=/nv-rootfs/usr INSTALL_MOD_DIR=extra INSTALL_MOD_STRIP=1 \
+    && ! { find /nv-rootfs -name '*.ko' -exec grep -FL '~Module signature appended~' {} + | grep -q .; } \
+    && cp -r "/nv-rootfs/usr/lib/modules/${KERNELRELEASE}/extra" "/rootfs/usr/lib/modules/${KERNELRELEASE}/" \
+    && ls "/rootfs/usr/lib/modules/${KERNELRELEASE}/extra"
 
 FROM scratch
 COPY --from=builder /rootfs/ /
