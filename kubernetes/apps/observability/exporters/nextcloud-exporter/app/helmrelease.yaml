@@ -9,6 +9,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: ndots-1
 
   values:
     controllers:
