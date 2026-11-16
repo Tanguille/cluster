@@ -3,6 +3,8 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: flux-operator
+  labels:
+    mount-sa-token: "true"
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.62.1@sha256:0b4181bc9ada80eedf3e9df3355153abc9c3e6d8b913bddebe0b12908309bff6
   transport: streamable-http
@@ -12,24 +14,12 @@ spec:
     - serve
     - --transport=http
     - --port=8080
-  env:
-    - name: KUBECONFIG
-      value: /kubeconfig/kubeconfig
+  # In-cluster auth: the old static admin kubeconfig carried a client cert that expired after 1 year.
+  serviceAccount: flux-operator-mcp
   podTemplateSpec:
     spec:
-      volumes:
-        - name: kubeconfig
-          secret:
-            secretName: toolhive-secrets
-            items:
-              - key: KUBECONFIG
-                path: kubeconfig
       containers:
         - name: mcp
-          volumeMounts:
-            - name: kubeconfig
-              mountPath: /kubeconfig
-              readOnly: true
           ports:
             - name: mcp
               containerPort: 8080
@@ -53,6 +43,53 @@ spec:
     limits:
       cpu: 500m
       memory: 200Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flux-operator-mcp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flux-operator-mcp-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: flux-operator-mcp
+    namespace: ai
+---
+# Reconcile/suspend/resume are patches (annotation / spec.suspend); no create or delete on Flux kinds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: flux-operator-mcp
+rules:
+  - apiGroups:
+      - fluxcd.controlplane.io
+      - helm.toolkit.fluxcd.io
+      - image.toolkit.fluxcd.io
+      - kustomize.toolkit.fluxcd.io
+      - notification.toolkit.fluxcd.io
+      - source.toolkit.fluxcd.io
+    resources: ["*"]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flux-operator-mcp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: flux-operator-mcp
+subjects:
+  - kind: ServiceAccount
+    name: flux-operator-mcp
+    namespace: ai
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
