@@ -56,10 +56,20 @@ spec:
     prometheusRule:
       enabled: true
       rules:
-        - alert: LanProbeFailed
-          # LB IPs are covered by LoadBalancerIPUnreachable; `on(service)` because the probe and self-monitor series differ in job and instance
+        - alert: TrueNASHostDown
+          # 2026-11-16: the host lost its uplink for 9 h and LanProbeFailed took 20 min to fire, in a burst of 40 other alerts.
           expr: |-
-            probe_success{service="blackbox-exporter",job!="probe/observability/loadbalancer-ips"} == 0
+            probe_success{job="probe/observability/lan-icmp",instance="${TRUENAS_IP}"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: |-
+              TrueNAS host {{ $labels.instance }} does not answer ping; control-1, Home Assistant and the NAS shares are off the network with it
+        - alert: LanProbeFailed
+          # LB IPs are covered by LoadBalancerIPUnreachable and the TrueNAS ping by TrueNASHostDown; `on(service)` because the probe and self-monitor series differ in job and instance
+          expr: |-
+            probe_success{service="blackbox-exporter",job!="probe/observability/loadbalancer-ips",instance!="${TRUENAS_IP}"} == 0
             and on(service)
             up{service="blackbox-exporter"} == 1
           for: 15m
