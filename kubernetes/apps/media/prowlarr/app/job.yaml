@@ -1,0 +1,46 @@
+---
+# One-off: drop the custom nsw2u Cardigann definition into Prowlarr's config PVC at
+# /config/Definitions/Custom/nsw2u.yml. Prowlarr loads custom Cardigann definitions from
+# disk by filename, so the file must exist before the indexer can be created via API.
+# Pinned to control-1 so it can co-mount the ReadWriteOnce `prowlarr` PVC alongside the
+# running Prowlarr pod. Runs as 568 (Prowlarr's UID) so it can write under /config.
+# No ttlSecondsAfterFinished: a completed Job is the steady state Flux expects (no re-run).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nsw2u-def-writer
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: control-1
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: writer
+          image: alpine:3.19
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /config/Definitions/Custom && echo 'bnN3MnU6CiAgbmFtZTogbnN3MnUKICBkZXNjcmlwdGlvbjogIk5pbnRlbmRvIFN3aXRjaCAvIFN3aXRjaCAyIFJPTXMgYW5kIHVwZGF0ZXMiCiAgYmFzZXVybDogImh0dHBzOi8vbnN3MnUueHl6IgogIGhlYWRlcnM6CiAgICBVc2VyLUFnZW50OiAiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyMC4wLjAuMCBTYWZhcmkvNTM3LjM2IgogIHNlYXJjaDoKICAgIGlkOgogICAgICBwYXRoOiAiLyIKICAgICAgc3RyaW5nOiAiP3M9e3NlYXJjaFRlcm19IgogICAgcGFyc2VyczoKICAgICAgLSBuYW1lOiAiSFRNTCIKICAgICAgICBzZWxlY3RvcnM6CiAgICAgICAgICAtIG5hbWU6ICJ0aXRsZSIKICAgICAgICAgICAgc2VsZWN0b3I6ICIucG9zdCAuZW50cnktdGl0bGUgYSIKICAgICAgICAgIC0gbmFtZTogImRldGFpbHMiCiAgICAgICAgICAgIHNlbGVjdG9yOiAiLnBvc3QgLmVudHJ5LXRpdGxlIGEiCiAgICAgICAgICAgIGF0dHJpYnV0ZTogImhyZWYiCiAgZG93bmxvYWQ6CiAgICBzZWxlY3RvcnM6CiAgICAgIC0gbmFtZTogImxpbmsiCiAgICAgICAgc2VsZWN0b3I6ICJhW2hyZWZePSdtYWduZXQ6J10sIGFbaHJlZiQ9Jy50b3JyZW50J10iCiAgICAgICAgYXR0cmlidXRlOiAiaHJlZiIK' | base64 -d > /config/Definitions/Custom/nsw2u.yml && echo "wrote $(wc -c < /config/Definitions/Custom/nsw2u.yml) bytes"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: prowlarr
