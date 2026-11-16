@@ -65,7 +65,7 @@ spec:
                   httpGet:
                     path: /health
                     port: *port
-                  periodSeconds: 10
+                  periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
               startup:
@@ -74,9 +74,10 @@ spec:
                   failureThreshold: 30
                   periodSeconds: 5
             resources:
+              # Sibling-class requests (sonarr 100m/256Mi); the chart default 250m/512Mi over-reserves for this workload.
               requests:
-                cpu: 250m
-                memory: 512Mi
+                cpu: 100m
+                memory: 256Mi
               limits:
                 cpu: 2
                 memory: 2Gi

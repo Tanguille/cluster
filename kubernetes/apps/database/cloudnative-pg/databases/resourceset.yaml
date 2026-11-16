@@ -51,6 +51,7 @@ spec:
     - name: tracearr
       extensions:
         # Requires the timescaledb shared_preload_libraries entry + timescaledb-oss extension image in cluster.yaml.
+        # Version must match the timescaledb-oss image tag in cluster.yaml (2.32.0-18-trixie).
         - name: timescaledb
           version: "2.32.0"
   resources:
