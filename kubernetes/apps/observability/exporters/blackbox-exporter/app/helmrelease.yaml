@@ -19,6 +19,15 @@ spec:
         memory: 16Mi
     securityContext:
       capabilities: { add: ["NET_RAW"] }
+    # The prober must survive the host it pings: control-1 is a VM on the TrueNAS host and goes dark with it.
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: NotIn
+                  values: [control-1]
     config:
       modules:
         icmp:
