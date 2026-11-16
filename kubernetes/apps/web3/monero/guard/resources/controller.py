@@ -9,6 +9,7 @@ import logging
 import math
 import threading
 import time
+import types
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,7 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # carry no comparable rating, so including them gated a Composite threshold against
 # the wrong reading. Fewer series also means fewer chances for a single missing sample
 # to fail the identity check and latch a node closed.
-SENSORS = frozendict({
+SENSORS = types.MappingProxyType({
     # empty tuple = no NVMe sensors on this node (control-1 is a VM with a properly cooled NVMe); it is gated on CPU
     # headroom instead, which is what every `if sensors` branch below keys off.
     "control-1": (),
@@ -169,7 +170,7 @@ class VictoriaMetricsClient:
         rows = self._query(expression, evaluation)
         # timestamp() over an or-expression becomes a step-aligned subquery in VictoriaMetrics
         # (fake boundary stamps broke 60% of freshness checks); single selectors return raw stamps
-        timestamps = [*self._query("timestamp(" + part + ")", evaluation) for part in parts]
+        timestamps = [row for part in parts for row in self._query("timestamp(" + part + ")", evaluation)]
         key = lambda m: (m.get("chip"), m.get("sensor"))
         if any(row.get("metric", {}).get("kubernetes_node") != node for row in rows + timestamps):
             raise ValueError("NVMe node identity changed")
