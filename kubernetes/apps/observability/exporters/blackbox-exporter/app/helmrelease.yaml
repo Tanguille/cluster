@@ -57,7 +57,7 @@ spec:
       enabled: true
       rules:
         - alert: TrueNASHostDown
-          # 2026-11-16: the host lost its uplink for 9 h and LanProbeFailed took 20 min to fire, in a burst of 40 other alerts.
+          # Faster and separate from LanProbeFailed (15 m, one of many target alerts when the host drops).
           expr: |-
             probe_success{job="probe/observability/lan-icmp",instance="${TRUENAS_IP}"} == 0
           for: 5m
@@ -67,7 +67,7 @@ spec:
             summary: |-
               TrueNAS host {{ $labels.instance }} does not answer ping; control-1, Home Assistant and the NAS shares are off the network with it
         - alert: LanProbeFailed
-          # LB IPs are covered by LoadBalancerIPUnreachable and the TrueNAS ping by TrueNASHostDown; `on(service)` because the probe and self-monitor series differ in job and instance
+          # Not LB IPs (LoadBalancerIPUnreachable) or the TrueNAS ping (TrueNASHostDown); `on(service)` because the probe and self-monitor series differ in job and instance
           expr: |-
             probe_success{service="blackbox-exporter",job!="probe/observability/loadbalancer-ips",instance!="${TRUENAS_IP}"} == 0
             and on(service)
