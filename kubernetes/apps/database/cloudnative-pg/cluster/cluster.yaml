@@ -149,9 +149,9 @@ spec:
       track_wal_io_timing: "on"
       # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
       log_lock_waits: "on"
-      # TimescaleDB (tracearr): values from the official extension-image README.
+      # tracearr's TimescaleDB; values from the official README.
       timescaledb.telemetry_level: "off"
-      # TimescaleDB chunk management takes more lock slots than the 64 default.
+      # TimescaleDB needs more lock slots than the 64 default.
       max_locks_per_transaction: "128"
     shared_preload_libraries:
       - "vchord.so"
@@ -170,8 +170,7 @@ spec:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
-      # Official CNPG extension image; it follows CNPG's default extension-image layout, so no path overrides (unlike vchord).
-      # Apache-2.0 edition (no TSL features) — fine for tracearr's core hypertable usage.
+      # Official CNPG extension image (default layout, no path overrides); Apache-2.0 edition, no TSL.
       - name: timescaledb-oss
         image:
           reference: ghcr.io/cloudnative-pg/timescaledb-oss:2.32.0-18-trixie

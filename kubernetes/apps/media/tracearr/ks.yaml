@@ -22,5 +22,5 @@ spec:
     substitute:
       APP: *app
       PVC_CAPACITY: 5Gi
-      # Image runs as uid/gid 1001; the kopiur mover must match to read the PVC.
+      # Must match the image uid (1001).
       KOPIUR_PUID: "1001"

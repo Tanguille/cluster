@@ -39,10 +39,10 @@ spec:
               TRUST_PROXY: "true"
               CORS_ORIGIN: "{{ .Release.Name }}.${SECRET_DOMAIN}"
               TZ: ${TIMEZONE}
-              # The shared cluster caps max_connections at 150; the app default pool of 50 would eat a third of it.
+              # Shared cluster caps max_connections at 150; the app default pool is 50.
               DATABASE_POOL_MAX: "10"
               DATABASE_URL: postgres://tracearr:$(DB_PASSWORD)@pgbouncer-rw.database.svc.cluster.local:5432/tracearr
-              # Own db index on the shared dragonfly (searxng has 11).
+              # Own db index; searxng has 11.
               REDIS_URL: redis://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/12
             envFrom:
               - secretRef:
@@ -74,7 +74,7 @@ spec:
                   failureThreshold: 30
                   periodSeconds: 5
             resources:
-              # Sibling-class requests (sonarr 100m/256Mi); the chart default 250m/512Mi over-reserves for this workload.
+              # Sibling-class; the chart default 250m/512Mi over-reserves.
               requests:
                 cpu: 100m
                 memory: 256Mi
@@ -86,7 +86,7 @@ spec:
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
 
-    # The image bakes USER tracearr (uid/gid 1001) and chowns /data at boot.
+    # Image runs as uid/gid 1001.
     defaultPodOptions:
       labels:
         egress.home.arpa/postgres: allow
@@ -119,7 +119,7 @@ spec:
             namespace: network
 
     persistence:
-      # Key name `data` mounts at /data by default; covers /data/backup and /data/tracearr/image-cache (IMAGE_CACHE_DIR default).
+      # Key `data` mounts at /data by default; covers /data/backup + /data/tracearr/image-cache.
       data:
         existingClaim: *app
       tmp:
