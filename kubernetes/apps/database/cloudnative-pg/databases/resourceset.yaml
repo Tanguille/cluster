@@ -48,6 +48,11 @@ spec:
     - name: radarr
     - name: sonarr
     - name: spoolman
+    - name: tracearr
+      extensions:
+        # Requires the timescaledb shared_preload_libraries entry + timescaledb-oss extension image in cluster.yaml.
+        - name: timescaledb
+          version: "2.32.0"
   resources:
     - apiVersion: postgresql.cnpg.io/v1
       kind: Database
