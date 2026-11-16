@@ -35,7 +35,11 @@ spec:
         initContainers:
           # Native sidecar.
           - name: podman
-            image: quay.io/podman/stable:v6.1.3@sha256:bf1f2288540b5cea8f14f232390ba4aedfc64d5e56d6b73c297a0ca0b16495c3
+            # The -immutable tag is a fixed build. Plain v6.1.3 is rebuilt nightly, and the rebuilds
+            # from 2026-11-12 (d29c7fd) and 2026-11-13 (03af9a3, bf1f228) break rsume CI:
+            # `hadolint` fails with "unable to upgrade to tcp, received 500" and `docker build` with
+            # fuse-overlayfs exit status 1. Last known good is this first 6.1.3 build (4cc3185).
+            image: quay.io/podman/stable:v6.1.3-immutable@sha256:4cc31850c189386faca95d72988fe9573b3df06360cb65aea3ff5b17a04d0454
             restartPolicy: Always
             command:
               [
