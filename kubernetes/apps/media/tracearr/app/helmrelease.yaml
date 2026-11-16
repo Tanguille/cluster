@@ -118,11 +118,9 @@ spec:
             namespace: network
 
     persistence:
-      # /data covers both /data/backup and /data/tracearr/image-cache (IMAGE_CACHE_DIR default).
+      # Key name `data` mounts at /data by default; covers /data/backup and /data/tracearr/image-cache (IMAGE_CACHE_DIR default).
       data:
         existingClaim: *app
-        globalMounts:
-          - path: /data
       tmp:
         type: emptyDir
         medium: Memory
