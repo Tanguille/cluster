@@ -19,7 +19,8 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
 - `prune` (daily) runs `prune-maintenance.sql`, then deletes and blocklists
   TMDB-matched dubs with no English, Dutch or original-language track, and
-  DHT-only swarms still at 0 seeders after 3 days.
+  DHT-only swarms at 1 seeder or fewer after 3 days (5 or fewer after 180 days),
+  and torrents still without a TMDB match after 90 days.
   Its scripts live in the `bitmagnet-prune` ConfigMap, so editing them does not
   restart bitmagnet.
 - bitmagnet always advertises imdbid/tmdbid but answers id searches only from
