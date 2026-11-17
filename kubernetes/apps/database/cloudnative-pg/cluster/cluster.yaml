@@ -182,8 +182,8 @@ spec:
       memory: 2Gi
     limits:
       cpu: 4
-      # working set peaked 3.47GiB (7d) at 2GB shared_buffers
-      memory: 4Gi
+      # Temporary: tracearr's 4,339 one-day chunks load ~0.7GiB of relcache per backend; 4Gi OOM-killed 3 times on 2026-11-17. Back to 4Gi after the chunk drop.
+      memory: 6Gi
   monitoring:
     enablePodMonitor: true
     customQueriesConfigMap:
