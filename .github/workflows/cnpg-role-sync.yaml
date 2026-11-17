@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: cnpg role sync
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - .github/workflows/cnpg-role-sync.yaml
+      - kubernetes/apps/database/cloudnative-pg/cluster/**
+      - kubernetes/apps/database/cloudnative-pg/databases/resourceset.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Adding an app touches three lists; a missed one only fails after the merge (role never reconciles, or Database without owner).
+  cnpg-role-sync:
+    name: managed roles, role secrets and databases agree
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare the lists
+        run: |
+          set -euo pipefail
+          dir=kubernetes/apps/database/cloudnative-pg
+          # Secrets named by managed roles vs role Secret files listed in the cluster kustomization.
+          want=$(yq -e '.spec.managed.roles[].passwordSecret.name' "$dir/cluster/cluster.yaml" | sort)
+          got=$(yq -e '.resources[] | select(test("^roles/"))' "$dir/cluster/kustomization.yaml" \
+            | sed -E 's|^roles/(.*)\.sops\.yaml$|\1-db|' | sort)
+          diff <(echo "$want") <(echo "$got") || { echo "::error::managed.roles passwordSecret and kustomization roles/ differ"; exit 1; }
+          # Every Role Secret file on disk is listed.
+          disk=$(ls "$dir"/cluster/roles | sed -E 's|\.sops\.yaml$|-db|' | sort)
+          diff <(echo "$want") <(echo "$disk") || { echo "::error::roles/ files and managed.roles differ"; exit 1; }
+          # Every ResourceSet database needs an owner role of the same name (kritik_app/kritik_runner own no database).
+          roles=$(yq -e '.spec.managed.roles[].name' "$dir/cluster/cluster.yaml" | sort)
+          dbs=$(yq -e '.spec.inputs[].name' "$dir/databases/resourceset.yaml" | sort)
+          missing=$(comm -13 <(echo "$roles") <(echo "$dbs"))
+          [ -z "$missing" ] || { echo "::error::ResourceSet inputs without a managed role: $missing"; exit 1; }
+          echo "lists agree"
