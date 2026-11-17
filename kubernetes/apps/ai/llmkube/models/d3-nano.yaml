@@ -27,7 +27,7 @@ spec:
   modelRef: d3-nano
   # CUDA 13.4 image: its PTX loads on Turing because toolkit >= 1.19.1 injects the image's compat libcuda
   # (llama.cpp #31503); measured on the 2070 in docs/nvidia-gpu-control-1.md.
-  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:94f24c2de45c8870e91308309406de14803479a6bd563b18e641e5c7aa44214a
+  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:d8d71f3b200080bfa67d65339cca8af7f3a506ede922323cc0dd35389a2a3534
   # Only control-1 advertises nvidia.com/gpu (RTX 2070, time-sliced, no VRAM isolation between pods).
   runtimeClassName: nvidia
   # Turing is PTX-only: a cold JIT cache costs ~60 s at start and ~25 s at the first request, a warm one 1-2 s.

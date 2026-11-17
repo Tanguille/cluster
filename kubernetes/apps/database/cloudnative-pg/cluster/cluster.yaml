@@ -100,6 +100,10 @@ spec:
         login: true
         passwordSecret:
           name: mealie-db
+      - name: tracearr
+        login: true
+        passwordSecret:
+          name: tracearr-db
   postgresql:
     parameters:
       wal_level: replica
@@ -145,9 +149,14 @@ spec:
       track_wal_io_timing: "on"
       # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
       log_lock_waits: "on"
+      # tracearr's TimescaleDB; values from the official README.
+      timescaledb.telemetry_level: "off"
+      # TimescaleDB needs more lock slots than the 64 default.
+      max_locks_per_transaction: "128"
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"
+      - "timescaledb"
     # pgvector is bundled in the image; a mounted copy would be shadowed ($system leads extension_control_path).
     extensions:
       - name: vchord
@@ -161,6 +170,11 @@ spec:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
+      # Community TSL build: CNPG only publishes the Apache-2.0 edition, which lacks the
+      # continuous aggregates and compression tracearr creates on boot.
+      - name: timescaledb
+        image:
+          reference: ghcr.io/adampetrovic/timescaledb-cnpg:2.32.0-18-trixie
   resources:
     requests:
       cpu: 500m
