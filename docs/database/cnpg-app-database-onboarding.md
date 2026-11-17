@@ -98,6 +98,10 @@ secret by hand to match.
   (`select default_version from pg_available_extensions where name='vector'`); the `pgvector pin matches
   image` CI job checks it, and `PgvectorVersionDrift` fires if a database lags the image. A wrong pin
   makes CNPG mark the Database CR not-Ready and blocks every dependent Kustomization.
+- **Startup options and poolers.** PgBouncer drops the startup `options` parameter, so settings an app
+  sends that way never arrive. `tracearr` (on `pgbouncer-session`) therefore has them on the role, applied
+  once as superuser on the primary and lost if the role is recreated:
+  `ALTER ROLE tracearr SET jit = off; ALTER ROLE tracearr SET plan_cache_mode = force_custom_plan;`
 
 ## Validation before applying
 

@@ -10,8 +10,8 @@ Like the main database connection, credentials stay in the secret: the chart doe
 
 ## Infrastructure
 
-- **Read-write:** `pgbouncer-session.database.svc.cluster.local:5432` (Pooler in `kubernetes/apps/database/cloudnative-pg/cluster/pooler-session.yaml`)
-- **Read-only:** `pgbouncer-ro.database.svc.cluster.local:5432` (Pooler in `kubernetes/apps/database/cloudnative-pg/cluster/pooler-ro.yaml`)
+- **Read-write:** `pgbouncer-session.database.svc.cluster.local:5432` (input in `kubernetes/apps/database/cloudnative-pg/cluster/poolers.yaml`)
+- **Read-only:** `pgbouncer-ro.database.svc.cluster.local:5432` (input in `kubernetes/apps/database/cloudnative-pg/cluster/poolers.yaml`)
 
 Both poolers use the same CNPG cluster (`postgres16`); the RO pooler routes to replicas.
 

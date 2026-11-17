@@ -107,7 +107,7 @@ spec:
   postgresql:
     parameters:
       wal_level: replica
-      # Pool ceilings are per database and user and sum above this; demand bounds it (30d peak 104 backends).
+      # Pool ceilings are per database and user (rw 3x20, session 2x20 each), so they sum above this across ~19 databases; demand bounds it (30d peak 104 backends).
       max_connections: "150"
       # nextcloud hot set is ~3GB; at 1GB the hit ratio sat at 99.1-99.4%.
       shared_buffers: 2GB
