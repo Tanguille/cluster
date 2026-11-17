@@ -207,8 +207,8 @@ and nothing else (see "R6" in the plan); `modeset=1` adds a second DRM card.
    kubectl -n gpu-operator delete pod nvidia-smi-test   # [ASK: delete]
    ```
 
-3. DCGM metrics reach VictoriaMetrics: query `DCGM_FI_DEV_GPU_TEMP` in Grafana Explore, and the
-   `nvidia-dcgm` dashboard (folder `hardware`) shows the card.
+3. GPU metrics reach VictoriaMetrics: query `nvidia_smi_temperature_gpu` in Grafana Explore, and the
+   `nvidia-gpu-exporter` dashboard (folder `hardware`) shows the card.
 4. R9700 workloads and device paths unchanged (R6). Compare with the baseline from step 0:
 
    ```sh

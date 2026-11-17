@@ -26,22 +26,9 @@ spec:
       # allocates through its own CDI kind instead of the extension's /run/cdi/nvidia.yaml.
       # The `nvidia` RuntimeClass is the chart default and owned by the operator, so none is shipped.
       enabled: false
+    # GPU metrics come from nvidia_gpu_exporter, not DCGM.
     dcgmExporter:
-      env:
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: all
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: all
-      resources:
-        requests:
-          memory: 128Mi
-        limits:
-          memory: 1Gi
-      serviceMonitor:
-        # Keep the exporter's pod/namespace labels of the workload using the GPU.
-        honorLabels: true
-        additionalLabels:
-          prometheus: victoria-metrics
+      enabled: false
     devicePlugin:
       config:
         create: true

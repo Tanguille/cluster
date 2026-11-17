@@ -5,7 +5,7 @@ kind: Kustomization
 namespace: gpu-operator
 components:
   - ../../components/common
-  # Operands (device plugin, validator, dcgm, nfd-worker) are privileged hostPath pods.
+  # Operands (device plugin, validator, nfd-worker) are privileged hostPath pods.
   - ../../components/psa-privileged
 resources:
   - ./gpu-operator/ks.yaml

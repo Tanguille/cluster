@@ -6,29 +6,29 @@ metadata:
   name: gpu-rules
 spec:
   groups:
-    - name: dcgm-exporter
+    - name: nvidia-gpu-exporter
       rules:
         - alert: HighGpuUsage
-          # dcgm-exporter 4.9.0 reports utilization as a 0-1 ratio (DCGM_FI_DEV_GPU_UTIL_RATIO), so scale to percent.
+          # nvidia_smi_utilization_gpu_ratio is 0-1, so 0.85 is 85%.
           expr: |-
-            avg_over_time(DCGM_FI_DEV_GPU_UTIL_RATIO[15m]) * 100 > 85
+            avg_over_time(nvidia_smi_utilization_gpu_ratio[15m]) > 0.85
           for: 15m
           labels:
             severity: warning
           annotations:
             summary: >-
-              High GPU usage on node {{ $labels.hostname }} for 15 minutes
+              High GPU usage on {{ $labels.instance }} for 15 minutes
             description: >-
-              GPU usage on node {{ $labels.hostname }} for gpu: {{ $labels.modelName }}
+              GPU {{ $labels.uuid }} on {{ $labels.instance }}
               has passed 85% for over 15 minutes
         - alert: NvidiaVramLow
           # Time-slicing gives the 2070's pods no VRAM isolation: one that grows can OOM the others. The three llama.cpp
           # services hold 4.2 GiB together (docs/nvidia-gpu-control-1.md), so this means something new or a leak.
-          expr: max by (hostname) (DCGM_FI_DEV_FB_FREE_BYTES) / 1048576 < 512
+          expr: max by (instance) (nvidia_smi_memory_total_bytes - nvidia_smi_memory_used_bytes) / 1048576 < 512
           for: 10m
           labels:
             severity: warning
           annotations:
             summary: >-
-              The RTX 2070 on {{ $labels.hostname }} has {{ $value }} MiB of VRAM free; a new CUDA allocation on it
+              The RTX 2070 on {{ $labels.instance }} has {{ $value }} MiB of VRAM free; a new CUDA allocation on it
               (a pod restart, a larger batch) can fail. Check nvidia-smi for the process that grew.
