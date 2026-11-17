@@ -170,10 +170,11 @@ spec:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
-      # Official CNPG extension image (default layout, no path overrides); Apache-2.0 edition, no TSL.
-      - name: timescaledb-oss
+      # Community TSL build: CNPG only publishes the Apache-2.0 edition, which lacks the
+      # continuous aggregates and compression tracearr creates on boot.
+      - name: timescaledb
         image:
-          reference: ghcr.io/cloudnative-pg/timescaledb-oss:2.32.0-18-trixie
+          reference: ghcr.io/adampetrovic/timescaledb-cnpg:2.32.0-18-trixie
   resources:
     requests:
       cpu: 500m

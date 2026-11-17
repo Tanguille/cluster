@@ -21,10 +21,11 @@ spec:
               repository: ghcr.io/connorgallopo/tracearr
               tag: 3.1.7
             env:
+              # Same value as database/tracearr-db; secretKeyRef cannot cross namespaces.
               DB_PASSWORD:
                 valueFrom:
                   secretKeyRef:
-                    name: tracearr-db
+                    name: tracearr-secret
                     key: password
               DRAGONFLY_PASSWORD:
                 valueFrom:
@@ -37,11 +38,15 @@ spec:
               LOG_LEVEL: info
               # One hop: the envoy gateway.
               TRUST_PROXY: "true"
-              CORS_ORIGIN: "{{ .Release.Name }}.${SECRET_DOMAIN}"
+              # Full origin (scheme included); the app compares it against the browser Origin header.
+              CORS_ORIGIN: "https://{{ .Release.Name }}.${SECRET_DOMAIN}"
               TZ: ${TIMEZONE}
               # Shared cluster caps max_connections at 150; the app default pool is 50.
               DATABASE_POOL_MAX: "10"
-              DATABASE_URL: postgres://tracearr:$(DB_PASSWORD)@pgbouncer-rw.database.svc.cluster.local:5432/tracearr
+              # Direct: migrations take session-scoped advisory locks, which transaction pooling breaks.
+              DATABASE_URL:
+                value: postgres://tracearr:$(DB_PASSWORD)@postgres16-rw.database.svc.cluster.local:5432/tracearr
+                dependsOn: DB_PASSWORD
               # Own db index; searxng has 11.
               REDIS_URL: redis://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/12
             envFrom:
