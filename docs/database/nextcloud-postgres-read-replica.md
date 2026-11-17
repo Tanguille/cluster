@@ -1,6 +1,6 @@
 # Nextcloud PostgreSQL read replica
 
-Nextcloud uses a read-only PgBouncer pooler (`pgbouncer-ro`) for read queries and the existing read-write pooler (`pgbouncer-rw`) for writes, via `dbreplica` (Nextcloud 29+).
+Nextcloud uses a read-only PgBouncer pooler (`pgbouncer-ro`) for read queries and the session-mode pooler (`pgbouncer-session`) for writes (Nextcloud reads inserted ids with a separate `SELECT lastval()`, unsafe under transaction pooling), via `dbreplica` (Nextcloud 29+).
 
 ## How it’s configured (same pattern as main DB)
 
@@ -10,7 +10,7 @@ Like the main database connection, credentials stay in the secret: the chart doe
 
 ## Infrastructure
 
-- **Read-write:** `pgbouncer-rw.database.svc.cluster.local:5432` (Pooler in `kubernetes/apps/database/cloudnative-pg/cluster/pooler.yaml`)
+- **Read-write:** `pgbouncer-session.database.svc.cluster.local:5432` (Pooler in `kubernetes/apps/database/cloudnative-pg/cluster/pooler-session.yaml`)
 - **Read-only:** `pgbouncer-ro.database.svc.cluster.local:5432` (Pooler in `kubernetes/apps/database/cloudnative-pg/cluster/pooler-ro.yaml`)
 
 Both poolers use the same CNPG cluster (`postgres16`); the RO pooler routes to replicas.

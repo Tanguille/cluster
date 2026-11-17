@@ -107,8 +107,9 @@ spec:
   postgresql:
     parameters:
       wal_level: replica
-      # Cluster-wide cap. Pooler pool sizes are per database and user, so worst case is the sum over databases
-      # of (pods x default_pool_size) plus direct clients (kritik), replication, autovacuum and admin.
+      # Cluster-wide cap (147 usable). Pool sizes are per database and user (rw 3x20, session 2x20), so the ceilings
+      # sum far above this and demand is what bounds it: 30d peak was 104 backends incl. direct kritik (45).
+      # Re-check the peak before adding databases: max_over_time(sum(cnpg_backends_total)[30d:5m]).
       max_connections: "150"
       # nextcloud hot set is ~3GB (oc_filecache alone 2GB); at 1GB the daily hit ratio sat at 99.1-99.4%, ~19GiB/day misses
       shared_buffers: 2GB
