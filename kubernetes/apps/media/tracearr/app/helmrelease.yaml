@@ -1,0 +1,132 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app tracearr
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    controllers:
+      tracearr:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/connorgallopo/tracearr
+              tag: 3.1.7
+            env:
+              # Same value as database/tracearr-db; secretKeyRef cannot cross namespaces.
+              DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: tracearr-secret
+                    key: password
+              DRAGONFLY_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: dragonfly-auth
+                    key: password
+              NODE_ENV: production
+              HOST: 0.0.0.0
+              PORT: &port "3000"
+              LOG_LEVEL: info
+              # One hop: the envoy gateway.
+              TRUST_PROXY: "true"
+              # Full origin (scheme included); the app compares it against the browser Origin header.
+              CORS_ORIGIN: "https://{{ .Release.Name }}.${SECRET_DOMAIN}"
+              TZ: ${TIMEZONE}
+              # Shared cluster caps max_connections at 150; the app default pool is 50.
+              DATABASE_POOL_MAX: "10"
+              # Direct: migrations take session-scoped advisory locks, which transaction pooling breaks.
+              DATABASE_URL:
+                value: postgres://tracearr:$(DB_PASSWORD)@postgres16-rw.database.svc.cluster.local:5432/tracearr
+                dependsOn: DB_PASSWORD
+              # Own db index; searxng has 11.
+              REDIS_URL: redis://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/12
+            envFrom:
+              - secretRef:
+                  name: tracearr-secret
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              # Sibling-class; the chart default 250m/512Mi over-reserves.
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 2
+                memory: 2Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+
+    # Image runs as uid/gid 1001.
+    defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
+        egress.home.arpa/dragonfly: allow
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Tracearr
+          gethomepage.dev/description: Streaming access metrics for Plex, Jellyfin and Emby
+          gethomepage.dev/group: Media
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+
+    persistence:
+      # Key `data` mounts at /data by default; covers /data/backup + /data/tracearr/image-cache.
+      data:
+        existingClaim: *app
+      tmp:
+        type: emptyDir
+        medium: Memory

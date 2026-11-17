@@ -9,6 +9,8 @@ components:
   - ../../components/deny-apiserver-egress
   - ../../components/deny-lan-egress
   - ../../components/affinity-control-1
+  # For tracearr's REDIS_URL.
+  - ../../components/dragonfly-auth
 
 resources:
   - ./bazarr/ks.yaml
@@ -27,6 +29,7 @@ resources:
   - ./radarr/ks.yaml
   - ./recyclarr/ks.yaml
   - ./sonarr/ks.yaml
+  - ./tracearr/ks.yaml
   - ./unpackerr/ks.yaml
   - ./wizarr/ks.yaml
   - ./networkpolicy.yaml
