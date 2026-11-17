@@ -20,6 +20,10 @@ spec:
             image:
               repository: ghcr.io/connorgallopo/tracearr
               tag: 3.1.7
+            # Named container port; the probes reference it by name.
+            ports:
+              - name: http
+                containerPort: 3000
             env:
               # Same value as database/tracearr-db; secretKeyRef cannot cross namespaces.
               DB_PASSWORD:
@@ -59,7 +63,7 @@ spec:
                 spec:
                   httpGet:
                     path: /health
-                    port: *port
+                    port: http
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
@@ -69,7 +73,7 @@ spec:
                 spec:
                   httpGet:
                     path: /health
-                    port: *port
+                    port: http
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
