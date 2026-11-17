@@ -67,6 +67,7 @@ spec:
               capabilities: { drop: ["ALL"] }
 
     defaultPodOptions:
+      automountServiceAccountToken: true
       labels:
         # kubernetes mode: cluster — without this the default-namespace apiserver deny
         # blanks every node/ingress/httproute widget.

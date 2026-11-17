@@ -13,6 +13,7 @@ spec:
     controllers:
       siren:
         replicas: 2
+        strategy: RollingUpdate
         # app-template renders this as a PDB on the siren pods: keep one alert
         # dashboard alive through node drains (it already has hostname TSC below).
         podDisruptionBudget:
