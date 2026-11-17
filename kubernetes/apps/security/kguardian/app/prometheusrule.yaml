@@ -30,9 +30,14 @@ spec:
           labels:
             severity: warning
 
+        # ai/pearl-mock-* is ephemeral: created out-of-band by an interactive CLI session on the VM,
+        # not by a manifest here, so there is no pod spec to fix. The broker keeps the dead pod row
+        # for 3d (podInventory.retention.deadPodDays) and the drift gauge re-fires for each mock
+        # series. Scope the alert only: chart 1.29.2 has no drift-exclusion value, and the metric
+        # with its dashboard panel stays unfiltered.
         - alert: KguardianSecurityContextRegression
           expr: |-
-            max by (workload_namespace, workload_kind, workload) (kguardian_workload_drift{type="securityContextRegression"}) > 0
+            max by (workload_namespace, workload_kind, workload) (kguardian_workload_drift{type="securityContextRegression", workload!~"pearl-mock-.*"}) > 0
           for: 30m
           annotations:
             summary: >-
