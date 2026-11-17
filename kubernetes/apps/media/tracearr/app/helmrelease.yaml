@@ -52,6 +52,8 @@ spec:
               DATABASE_URL:
                 value: postgres://tracearr:$(DB_PASSWORD)@pgbouncer-session.database.svc.cluster.local:5432/tracearr
                 dependsOn: DB_PASSWORD
+              # The poolers require TLS (client_tls_sslmode: require); node-postgres: TLS without verifying the self-signed cert.
+              PGSSLMODE: no-verify
               # Own db index; searxng has 11.
               REDIS_URL: redis://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/12
             envFrom:
