@@ -31,9 +31,24 @@ spec:
                 url = "http://d3-nano.ai.svc.cluster.local:8080"
                 kind = "systemone"
 
+                # An unsure answer is re-asked once on the 27B with thinking off (one token, logprob bands).
+                # qwen-3.8-fast is the non-thinking alias; qwen-3.8-auto would call d3-nano for its effort and may think.
+                # A failed, slow or over-budget escalation keeps the unsure answer.
+                [endpoints.qwen]
+                url = "http://agentgateway.ai.svc.cluster.local:4000"
+                kind = "logprob"
+                model = "qwen-3.8-fast"
+                api_key_env = "LLM_API_KEY"
+                concurrency = 8
+
+                [escalation]
+                endpoint = "qwen"
+                per_minute = 30
+
                 [specs.gitops-investigate]
                 type = "noul"
                 instructions = "Does this candidate warrant investigating for this homelab? The state is JSON data with context (current inventory and recent recommendations) and item (the candidate). Investigate changes plausibly affecting a component we use, including migrations, breakage, or meaningful operational improvements. Routine version bumps and changes limited to components we do not use do not warrant investigation. Judge only the supplied evidence."
+              LLM_API_KEY: ${LLM_API_KEY}
               EIGHTBALL_API_KEY:
                 valueFrom:
                   secretKeyRef:
