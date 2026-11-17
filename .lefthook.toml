@@ -66,6 +66,12 @@ name = "zizmor"
 glob = [".github/workflows/*.yaml"]
 run = "zizmor --offline {staged_files}"
 
+# ast.parse, not py_compile: no __pycache__ written next to read-only-mounted sources.
+[[pre-commit.jobs.group.jobs]]
+name = "python-syntax"
+glob = ["*.py"]
+run = "python3 -c 'import ast,sys; [ast.parse(open(f).read(), f) for f in sys.argv[1:]]' {staged_files}"
+
 # Reads the index after every mutator has re-staged.
 [[pre-commit.jobs.group.jobs]]
 name = "secret-check"
