@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nvidia-gpu-exporter
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: 2.19.0
+      url: oci://ghcr.io/utkuozdemir/charts/nvidia-gpu-exporter
+  values:
+    image:
+      # The -nvml variant reads libnvidia-ml in-process instead of spawning nvidia-smi.
+      tag: 1.19.0-nvml@sha256:f95e5097b89aaba66395c7dcbc02f51af740e25b504ccb426e533f60265a7b50
+    # The chart requests no nvidia.com/gpu, so the exporter does not take a time-slice from the workloads.
+    runtimeClassName: nvidia
+    priorityClassName: homelab-critical
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    nodeSelector:
+      nvidia.com/gpu: "true"
+    serviceMonitor:
+      enabled: true

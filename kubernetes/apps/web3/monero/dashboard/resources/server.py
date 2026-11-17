@@ -455,13 +455,17 @@ def log_loop():
     Runs in a separate daemon thread.
     """
     last_save = 0
-    with ThreadPoolExecutor(max_workers=2) as pool_executor:
+    with ThreadPoolExecutor(max_workers=3) as pool_executor:
         while not shutdown_event.is_set():
             try:
-                # The miners and monerod are independent HTTP calls (5s timeout each) —
-                # fire both concurrently instead of stacking their worst-case latency
+                # The miners and monerod are independent HTTP calls (5s timeout each) — fire
+                # them concurrently with the price instead of stacking their worst-case latency.
+                # get_xmr_price still chains up to 4 API calls (5s timeout each) inside its own
+                # worker, so overlapping it only removes the ~5s the other two added: a slow
+                # price chain can still delay the sample by up to ~20s.
                 miners_future = pool_executor.submit(poll_miners)
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
+                price_future = pool_executor.submit(get_xmr_price)
 
                 # KEDA scales xmrig to 0 replicas without excess solar, so a
                 # gated-off miner really is 0 H/s. The network and the pool did
@@ -473,7 +477,7 @@ def log_loop():
                 netHash = fetch_or(lambda: net_future.result()["result"]["difficulty"] / 120,
                                    last_logged("netHash"))
 
-                price = get_xmr_price()
+                price = price_future.result()
 
                 append_log(myHash, poolHash, netHash, price)
 
