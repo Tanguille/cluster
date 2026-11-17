@@ -10,19 +10,9 @@ spec:
     name: postgres16
   instances: 2
   type: rw
-  # Same as pgbouncer-rw: requests (Talos OOM kills request-less pods first) and a hard spread across nodes.
+  # Requests and priority class come from the Pooler patch in kustomization.yaml; hard spread across nodes.
   template:
     spec:
-      priorityClassName: homelab-critical
-      containers:
-        - name: pgbouncer
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: "1"
-              memory: 256Mi
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
