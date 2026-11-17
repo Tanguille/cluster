@@ -28,6 +28,9 @@ CONC = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 REPS = int(sys.argv[4]) if len(sys.argv) > 4 else 2
 SYSTEM_FILE = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != "-" else None
 PRESET = sys.argv[6] if len(sys.argv) > 6 else "deployment"
+# A typo here would silently run the deployment schema and report its numbers under the wrong preset.
+if PRESET not in ("deployment", "vmcp"):
+    sys.exit(f"unknown PRESET {PRESET!r}: use deployment or vmcp")
 SYSTEM = open(SYSTEM_FILE).read() if SYSTEM_FILE else None
 GEN = 400
 
