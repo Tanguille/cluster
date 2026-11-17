@@ -117,7 +117,7 @@ spec:
         prometheusRule:
           enabled: true
 
-      # 16 = inflightPermits + 8 floor; fits the 25/30 pooler and a 2x16 rollout burst.
+      # 16 = inflightPermits + 8 floor; fits the rw pool (20 per pod, 3 pods) and a 2x16 rollout burst.
       dbPoolMaxSize: 16
       audit:
         inflightPermits: 8

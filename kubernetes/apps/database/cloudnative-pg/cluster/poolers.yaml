@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
-# Pool sizes are per database and user (peak observed: rw 20, session 16).
+# Pool sizes are per pod, database and user. Peak observed per database across all pods: rw 20, session 16.
 apiVersion: fluxcd.controlplane.io/v1
 kind: ResourceSet
 metadata:
