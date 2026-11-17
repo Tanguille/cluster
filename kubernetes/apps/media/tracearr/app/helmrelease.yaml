@@ -48,6 +48,7 @@ spec:
               # Shared cluster caps max_connections at 150; the app default pool is 50.
               DATABASE_POOL_MAX: "10"
               # Session pooler: migrations take session-scoped advisory locks, which transaction pooling breaks.
+              # PgBouncer drops the startup options jit=off and plan_cache_mode=force_custom_plan, so they are set on the role instead (ALTER ROLE tracearr SET ...).
               DATABASE_URL:
                 value: postgres://tracearr:$(DB_PASSWORD)@pgbouncer-session.database.svc.cluster.local:5432/tracearr
                 dependsOn: DB_PASSWORD
