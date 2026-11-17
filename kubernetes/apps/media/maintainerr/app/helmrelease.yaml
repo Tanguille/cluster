@@ -23,6 +23,7 @@ spec:
               # The app also sends an anonymous weekly usage report by default.
               TELEMETRY: "off"
             probes:
+              # A rule run blocks the event loop, so the default 1 s timeout killed the pod mid-run.
               liveness:
                 enabled: true
                 custom: true
@@ -30,6 +31,9 @@ spec:
                   httpGet:
                     path: /
                     port: &port 6246
+                  timeoutSeconds: 10
+                  periodSeconds: 20
+                  failureThreshold: 6
               readiness:
                 enabled: true
                 custom: true
@@ -37,6 +41,7 @@ spec:
                   httpGet:
                     path: /
                     port: *port
+                  timeoutSeconds: 10
               startup:
                 enabled: true
                 custom: true
