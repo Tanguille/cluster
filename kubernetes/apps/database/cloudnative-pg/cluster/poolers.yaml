@@ -1,0 +1,87 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+# Pool sizes are per pod, database and user. Peak observed per database across all pods: rw 20, session 16.
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: cloudnative-pg-poolers
+spec:
+  wait: true
+  inputs:
+    - name: pgbouncer-rw
+      type: rw
+      instances: 3
+      poolMode: transaction
+      parameters:
+        client_tls_sslmode: require
+        max_client_conn: "1000"
+        default_pool_size: "20"
+        server_idle_timeout: "120"
+        server_login_retry: "5"
+        query_wait_timeout: "15"
+    # Replicas only; nextcloud dbreplica.
+    - name: pgbouncer-ro
+      type: ro
+      instances: 2
+      poolMode: transaction
+      parameters:
+        client_tls_sslmode: require
+        max_client_conn: "1000"
+        default_pool_size: "18"
+        max_db_connections: "32"
+        reserve_pool_size: "5"
+        reserve_pool_timeout: "3"
+        server_idle_timeout: "120"
+        server_login_retry: "5"
+        query_wait_timeout: "15"
+    # Session mode for advisory locks, lastval and LISTEN.
+    - name: pgbouncer-session
+      type: rw
+      instances: 2
+      poolMode: session
+      parameters:
+        client_tls_sslmode: require
+        max_client_conn: "800"
+        default_pool_size: "20"
+        server_idle_timeout: "300"
+        server_login_retry: "5"
+        query_wait_timeout: "15"
+  resources:
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Pooler
+      metadata:
+        name: << inputs.name >>
+        namespace: database
+      spec:
+        cluster:
+          name: postgres16
+        instances: << inputs.instances >>
+        type: << inputs.type >>
+        monitoring:
+          enablePodMonitor: true
+        # Requests keep it out of BestEffort; hard spread, one per node.
+        template:
+          spec:
+            priorityClassName: homelab-critical
+            containers:
+              - name: pgbouncer
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: "1"
+                    memory: 256Mi
+            topologySpreadConstraints:
+              - maxSkew: 1
+                topologyKey: kubernetes.io/hostname
+                whenUnsatisfiable: DoNotSchedule
+                # Per ReplicaSet, or old pods on two nodes pin the surge pod to the third.
+                matchLabelKeys:
+                  - pod-template-hash
+                labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: << inputs.name >>
+        pgbouncer:
+          poolMode: << inputs.poolMode >>
+          parameters: << inputs.parameters | toYaml | nindent 12 >>

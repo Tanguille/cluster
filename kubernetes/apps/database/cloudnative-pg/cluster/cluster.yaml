@@ -107,14 +107,13 @@ spec:
   postgresql:
     parameters:
       wal_level: replica
-      # Cluster-wide cap: backends stack per database + overlap if one DB uses both rw poolers.
-      # Keep above Σ(pooler instances × max_db_connections) for worst-case same-DB paths + replication/autovacuum/admin.
+      # Pool ceilings are per database and user (rw 3x20, session 2x20 each), so they sum above this across ~19 databases; demand bounds it (30d peak 104 backends).
       max_connections: "150"
-      # nextcloud hot set is ~3GB (oc_filecache alone 2GB); at 1GB the daily hit ratio sat at 99.1-99.4%, ~19GiB/day misses
+      # nextcloud hot set is ~3GB; at 1GB the hit ratio sat at 99.1-99.4%.
       shared_buffers: 2GB
-      # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
+      # off: no hugepages are reserved, so try would log a failure every start.
       huge_pages: "off"
-      # io_method: "io_uring" # Needs a custom seccomp profile (RuntimeDefault returns EPERM, cloudnative-pg/cloudnative-pg#9948); not worth it at 99.4% hit ratio and ~7.7 GB reads per 18d.
+      # io_method io_uring: RuntimeDefault seccomp returns EPERM (cloudnative-pg#10446); not worth it at a 99.5% hit ratio.
       work_mem: 16MB
       # End idle-in-xact sessions so xmin can advance (ORM leaks, forgotten BEGIN).
       idle_in_transaction_session_timeout: "600000"
@@ -147,10 +146,10 @@ spec:
       effective_io_concurrency: "200"
       maintenance_io_concurrency: "200"
       pg_stat_statements.max: "7500"
-      # pg_stat_io and pg_stat_wal timings were all 0, so IO and fsync stalls could not be measured; 23.6 ns/loop timer cost.
+      # pg_stat_io and pg_stat_wal timings were 0, so IO and fsync stalls were invisible.
       track_io_timing: "on"
       track_wal_io_timing: "on"
-      # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
+      # Advisory-lock waits reached 9.6 s (kguardian) unlogged; not log_min_duration_statement, it ships literals into logs.
       log_lock_waits: "on"
       # tracearr's TimescaleDB; values from the official README.
       timescaledb.telemetry_level: "off"
@@ -165,16 +164,12 @@ spec:
       - name: vchord
         image:
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
-        # vchord-scratch mirrors the base image's real install tree (usr/lib/postgresql/18/lib,
-        # usr/share/postgresql/18/extension) instead of CNPG's default extension-image layout
-        # (lib/, share/ at the image root), so the default search path never finds vchord.so.
-        # These paths are resolved relative to this extension's own mount.
+        # vchord-scratch mirrors the base image's install tree, not CNPG's lib/ share/ layout, which never finds vchord.so.
         dynamic_library_path:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
-      # Community TSL build: CNPG only publishes the Apache-2.0 edition, which lacks the
-      # continuous aggregates and compression tracearr creates on boot.
+      # Community TSL build: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
       - name: timescaledb
         image:
           reference: ghcr.io/adampetrovic/timescaledb-cnpg:2.32.0-18-trixie

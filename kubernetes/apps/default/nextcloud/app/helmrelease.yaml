@@ -221,6 +221,9 @@ spec:
             'loglevel' => 1,
             'logdateformat' => 'F d, Y H:i:s',
             'allow_local_remote_servers' => true,
+            // config.php on the PVC keeps the install-time dbhost (the primary); this file overrides it.
+            // Session pooler: the pgsql adapter reads inserted ids with a separate SELECT lastval(), which transaction pooling can route to another backend.
+            'dbhost' => 'pgbouncer-session.database.svc.cluster.local:5432',
           );
         performance.config.php: |-
           <?php
@@ -263,7 +266,7 @@ spec:
 
     externalDatabase:
       type: postgresql
-      host: pgbouncer-rw.database.svc.cluster.local:5432
+      host: pgbouncer-session.database.svc.cluster.local:5432
       existingSecret:
         secretName: nextcloud-secret
         usernameKey: INIT_POSTGRES_USER
