@@ -114,7 +114,7 @@ spec:
       shared_buffers: 2GB
       # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
       huge_pages: "off"
-      # io_method: "io_uring" # Needs a custom seccomp profile (RuntimeDefault returns EPERM, cloudnative-pg/cloudnative-pg#9948); not worth it at 99.4% hit ratio and ~7.7 GB reads per 18d.
+      # io_method: "io_uring" # Needs a custom seccomp profile (RuntimeDefault returns EPERM, cloudnative-pg/cloudnative-pg#10446, the closed #9948 is the same issue); not worth it at 99.4% hit ratio and ~7.7 GB reads per 18d.
       work_mem: 16MB
       # End idle-in-xact sessions so xmin can advance (ORM leaks, forgotten BEGIN).
       idle_in_transaction_session_timeout: "600000"
