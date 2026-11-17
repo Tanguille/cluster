@@ -76,7 +76,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 1
       },
@@ -164,8 +164,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 6,
+        "x": 6,
         "y": 1
       },
       "id": 4,
@@ -252,95 +252,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 1
-      },
-      "id": 5,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_MIMIR}"
-          },
-          "expr": "scraparr_services_up{scraparr_services=\"radarr\"}",
-          "legendFormat": "",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Radarr",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_MIMIR}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "Offline",
-                  "color": "semi-dark-red",
-                  "index": 0
-                },
-                "1": {
-                  "text": "Online",
-                  "color": "semi-dark-green",
-                  "index": 1
-                }
-              }
-            },
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "Offline",
-                  "color": "semi-dark-red",
-                  "index": 2
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "semi-dark-red",
-                "value": 0
-              },
-              {
-                "color": "semi-dark-green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 12,
         "y": 1
       },
@@ -428,8 +340,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 6,
+        "x": 18,
         "y": 1
       },
       "id": 7,
@@ -474,7 +386,7 @@
       },
       "id": 8,
       "panels": [],
-      "title": "Radarr & Sonarr",
+      "title": "Sonarr",
       "type": "row"
     },
     {
@@ -502,7 +414,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 12,
         "x": 0,
         "y": 6
       },
@@ -570,8 +482,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 12,
+        "x": 12,
         "y": 6
       },
       "id": 10,
@@ -600,131 +512,6 @@
         }
       ],
       "title": "Sonarr Free Disk",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_MIMIR}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 6
-      },
-      "id": 11,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_MIMIR}"
-          },
-          "expr": "radarr_movies_total",
-          "legendFormat": "Total",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_MIMIR}"
-          },
-          "expr": "radarr_missing_movies_total",
-          "legendFormat": "Missing",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "title": "Radarr Movies",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_MIMIR}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 6
-      },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_MIMIR}"
-          },
-          "expr": "radarr_free_disk_size",
-          "legendFormat": "Free",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Radarr Free Disk",
       "type": "stat"
     },
     {

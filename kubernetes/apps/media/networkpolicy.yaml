@@ -30,14 +30,13 @@ kind: CiliumNetworkPolicy
 metadata:
   name: media-ingress-hermes
 spec:
-  # Hermes media triage: only the four apps it queries, only their API ports (allows union with the list above).
+  # Hermes media triage: only the three apps it queries, only their API ports (allows union with the list above).
   endpointSelector:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
         values:
           - sonarr
-          - radarr
           - qbittorrent
           - unpackerr
   ingress:
