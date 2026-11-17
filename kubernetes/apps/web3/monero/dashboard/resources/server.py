@@ -458,11 +458,11 @@ def log_loop():
     with ThreadPoolExecutor(max_workers=3) as pool_executor:
         while not shutdown_event.is_set():
             try:
-                # The miners, monerod and price are independent HTTP calls (5s timeout each) —
-                # fire all three concurrently instead of stacking their worst-case latency.
-                # The price fetch runs up to 4 API calls when its 5-min cache expires; run it
-                # serially and a 10s sample lands up to ~20s late, a gap the charts render as
-                # a null datum.
+                # The miners and monerod are independent HTTP calls (5s timeout each) — fire
+                # them concurrently with the price instead of stacking their worst-case latency.
+                # get_xmr_price still chains up to 4 API calls (5s timeout each) inside its own
+                # worker, so overlapping it only removes the ~5s the other two added: a slow
+                # price chain can still delay the sample by up to ~20s.
                 miners_future = pool_executor.submit(poll_miners)
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
                 price_future = pool_executor.submit(get_xmr_price)
