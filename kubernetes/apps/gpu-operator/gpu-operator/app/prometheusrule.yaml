@@ -9,9 +9,9 @@ spec:
     - name: dcgm-exporter
       rules:
         - alert: HighGpuUsage
-          # DCGM_FI_DEV_GPU_UTIL is a 0-100 gauge, so average it (the old rate() > 0.85 never meant 85%).
+          # dcgm-exporter 4.9.0 reports utilization as a 0-1 ratio (DCGM_FI_DEV_GPU_UTIL_RATIO), so scale to percent.
           expr: |-
-            avg_over_time(DCGM_FI_DEV_GPU_UTIL[15m]) > 85
+            avg_over_time(DCGM_FI_DEV_GPU_UTIL_RATIO[15m]) * 100 > 85
           for: 15m
           labels:
             severity: warning
@@ -24,7 +24,7 @@ spec:
         - alert: NvidiaVramLow
           # Time-slicing gives the 2070's pods no VRAM isolation: one that grows can OOM the others. The three llama.cpp
           # services hold 4.2 GiB together (docs/nvidia-gpu-control-1.md), so this means something new or a leak.
-          expr: max by (hostname) (DCGM_FI_DEV_FB_FREE) < 512
+          expr: max by (hostname) (DCGM_FI_DEV_FB_FREE_BYTES) / 1048576 < 512
           for: 10m
           labels:
             severity: warning
