@@ -59,7 +59,8 @@ spec:
                 spec:
                   httpGet:
                     path: /health
-                    port: *port
+                    # Integer: probes reject the string form the &port anchor produces.
+                    port: 3000
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
@@ -69,7 +70,7 @@ spec:
                 spec:
                   httpGet:
                     path: /health
-                    port: *port
+                    port: 3000
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
