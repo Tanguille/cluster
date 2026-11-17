@@ -9,9 +9,21 @@ spec:
     name: postgres16
   instances: 3
   type: rw
-  # Requests (kept out of BestEffort: losing replicas funnels every client onto the survivor) and priority class come from the Pooler patch in kustomization.yaml.
+  monitoring:
+    enablePodMonitor: true
+  # Requests keep it out of BestEffort: losing replicas funnels every client onto the survivor's wait queue.
   template:
     spec:
+      priorityClassName: homelab-critical
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
       # Hard spread (one per node): soft ScheduleAnyway let all 3 rw pods pile onto one node after a flap.
       topologySpreadConstraints:
         - maxSkew: 1

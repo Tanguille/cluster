@@ -2,28 +2,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Shared by all three poolers: requests (Talos OOM kills request-less pods first) and the data-tier priority class.
-patches:
-  - target:
-      kind: Pooler
-    patch: |-
-      apiVersion: postgresql.cnpg.io/v1
-      kind: Pooler
-      metadata:
-        name: unused
-      spec:
-        template:
-          spec:
-            priorityClassName: homelab-critical
-            containers:
-              - name: pgbouncer
-                resources:
-                  requests:
-                    cpu: 50m
-                    memory: 64Mi
-                  limits:
-                    cpu: "1"
-                    memory: 256Mi
 resources:
   - cluster.yaml
   - custom-queries.yaml
@@ -32,7 +10,6 @@ resources:
   - pooler-ro.yaml
   - pooler-session.yaml
   - pdb.yaml
-  - podmonitor.yaml
   - prometheusrule.yaml
   - scheduledbackup.yaml
   # Basic-auth Secrets backing spec.managed.roles in cluster.yaml (one per adopted app), so each role reconciles with its secret present.
