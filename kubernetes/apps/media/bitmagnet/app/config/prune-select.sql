@@ -15,11 +15,19 @@ from (
 where words ~ '\m(rus(sian)?|rudub|ukr(ainian)?|(true)?french|vf[fqi2]?|ita(lian)?|ger(man)?|deutsch|spanish|castellano|latino|esp|pol(ish)?|pl|lektor|cze(ch)?|hun(garian)?|tur(kish)?|por(tuguese)?|dublado|hindi|tamil|telugu|jap(anese)?|kor(ean)?|chinese|mandarin|swe(dish)?|norwegian|danish|finnish|ara(bic)?|heb(rew)?|greek)\M'
   and words !~ '\m(en|eng)?subs?(bed)?\M'
 union
--- 2. Dead swarms: DHT-only, always 0 seeders, first seen over 3 days ago (re-sightings update counts, so revived swarms escape).
+-- 2. Weak swarms, DHT-only with known counts: at most 1 seeder after 3 days, at most 5 after 180 days
+--    (re-sightings update counts, so revived swarms escape).
 select encode(info_hash, 'hex')
 from torrents_torrent_sources
 group by info_hash
 having bool_and(source = 'dht')
   and count(seeders) = count(*)
-  and max(seeders) = 0
-  and min(created_at) < now() - interval '3 days';
+  and ((max(seeders) <= 1 and min(created_at) < now() - interval '3 days')
+    or (max(seeders) <= 5 and min(created_at) < now() - interval '180 days'))
+union
+-- 3. Still no TMDB match after 90 days (bitmagnet has no retention of its own). torrents.created_at,
+--    because a reprocess rewrites torrent_contents rows.
+select encode(t.info_hash, 'hex')
+from torrents t
+where t.created_at < now() - interval '90 days'
+  and not exists (select 1 from torrent_contents tc where tc.info_hash = t.info_hash and tc.content_id is not null);

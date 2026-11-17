@@ -23,6 +23,7 @@ spec:
               # The app also sends an anonymous weekly usage report by default.
               TELEMETRY: "off"
             probes:
+              # A rule run blocks the event loop, so the default 1 s timeout killed the pod mid-run.
               liveness:
                 enabled: true
                 custom: true
@@ -30,6 +31,9 @@ spec:
                   httpGet:
                     path: /
                     port: &port 6246
+                  timeoutSeconds: 10
+                  periodSeconds: 20
+                  failureThreshold: 6
               readiness:
                 enabled: true
                 custom: true
@@ -37,6 +41,7 @@ spec:
                   httpGet:
                     path: /
                     port: *port
+                  timeoutSeconds: 10
               startup:
                 enabled: true
                 custom: true
@@ -57,7 +62,9 @@ spec:
                 memory: 100Mi
               limits:
                 cpu: 500m
-                memory: 512Mi
+                # Node sizes its heap from this limit (about half); the ~256 MB heap at 512Mi
+                # was exhausted once after 13 h of uptime (exit 139).
+                memory: 1Gi
     # The image bakes User: node (uid 1000); run as the same user so /opt/data lands 1000:1000.
     # fsGroup: a fresh ceph-block volume is root-owned, so the app could not stage its UI into /opt/data.
     defaultPodOptions:

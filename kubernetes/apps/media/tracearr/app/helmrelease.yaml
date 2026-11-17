@@ -90,7 +90,10 @@ spec:
                 memory: 256Mi
               limits:
                 cpu: 2
-                memory: 2Gi
+                # Node sizes its heap from this limit (about half). A Jellystat import parses the
+                # whole upload; a 321 MB part exhausted the 1 GiB heap at 2Gi (exit 139). The
+                # in-memory /tmp holding the upload counts against the limit too.
+                memory: 3Gi
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

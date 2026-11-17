@@ -119,8 +119,11 @@ spec:
       idle_in_transaction_session_timeout: "600000"
       # Peak maintenance memory ≈ maintenance_work_mem × max_parallel_maintenance_workers (here ~1GB).
       maintenance_work_mem: 512MB
+      # Default -1 lets each of the 3 autovacuum workers take maintenance_work_mem; 128MB covers these small DBs.
+      autovacuum_work_mem: 128MB
       max_parallel_workers: "4"
-      max_parallel_workers_per_gather: "4"
+      # Each parallel worker builds its own relcache and work_mem; tracearr's chunk relcache is ~0.7GiB per backend.
+      max_parallel_workers_per_gather: "2"
       min_wal_size: 2GB
       max_wal_size: 8GB
       # All checkpoints are timed (0 requested/day); each one restarts full-page images in the WAL shipped to R2.
@@ -177,8 +180,8 @@ spec:
       memory: 2Gi
     limits:
       cpu: 4
-      # working set peaked 3.47GiB (7d) at 2GB shared_buffers
-      memory: 4Gi
+      # Temporary: tracearr's 4,339 one-day chunks load ~0.7GiB of relcache per backend; 4Gi OOM-killed 3 times on 2026-11-17. Back to 4Gi after the chunk drop.
+      memory: 6Gi
   monitoring:
     enablePodMonitor: true
     customQueriesConfigMap:

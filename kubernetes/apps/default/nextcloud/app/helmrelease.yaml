@@ -161,6 +161,11 @@ spec:
             items:
               - key: replica.config.php
                 path: replica.config.php
+        # Share root for files_external Local mounts; never mount /mnt/nas or /mnt/nas/Shared (the data dir).
+        - name: nas
+          nfs:
+            server: "${TRUENAS_IP}"
+            path: /mnt/TanguilleServer/TanguilleSMB
 
       extraVolumeMounts:
         - name: scripts
@@ -170,6 +175,8 @@ spec:
           mountPath: /var/www/html/config/replica.config.php
           subPath: replica.config.php
           readOnly: true
+        - name: nas
+          mountPath: /mnt/nas
 
       phpConfigs:
         www.conf: |
