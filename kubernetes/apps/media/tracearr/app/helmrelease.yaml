@@ -47,9 +47,9 @@ spec:
               TZ: ${TIMEZONE}
               # Shared cluster caps max_connections at 150; the app default pool is 50.
               DATABASE_POOL_MAX: "10"
-              # Direct: migrations take session-scoped advisory locks, which transaction pooling breaks.
+              # Session pooler: migrations take session-scoped advisory locks, which transaction pooling breaks.
               DATABASE_URL:
-                value: postgres://tracearr:$(DB_PASSWORD)@postgres16-rw.database.svc.cluster.local:5432/tracearr
+                value: postgres://tracearr:$(DB_PASSWORD)@pgbouncer-session.database.svc.cluster.local:5432/tracearr
                 dependsOn: DB_PASSWORD
               # Own db index; searxng has 11.
               REDIS_URL: redis://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/12

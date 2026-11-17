@@ -214,6 +214,8 @@ spec:
             'loglevel' => 1,
             'logdateformat' => 'F d, Y H:i:s',
             'allow_local_remote_servers' => true,
+            // config.php on the PVC keeps the install-time dbhost (the primary); this file overrides it.
+            'dbhost' => 'pgbouncer-rw.database.svc.cluster.local:5432',
           );
         performance.config.php: |-
           <?php
