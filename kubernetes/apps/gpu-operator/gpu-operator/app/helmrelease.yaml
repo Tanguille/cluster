@@ -29,6 +29,9 @@ spec:
     # GPU metrics come from nvidia_gpu_exporter, not DCGM.
     dcgmExporter:
       enabled: false
+      serviceMonitor:
+        # The chart default {} merges to null against the live ClusterPolicy and fails the server-side apply.
+        additionalLabels: null
     devicePlugin:
       config:
         create: true
