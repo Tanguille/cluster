@@ -205,6 +205,12 @@ names an installer tag that does not exist yet. Dispatching on the branch closes
 the workflow checks out that ref, so it builds that branch's `ARG KERNEL_VERSION` against that
 branch's tuppr CR, and the merge only ratifies an image that is already published.
 
+The build refuses to push an installer whose UKI cannot fit twice (plus 32 MiB) on the node's
+2101 MiB EFI partition, because an upgrade writes the new UKI next to the running one. If it
+fails with "two do not fit", the extensions grew: drop one from the node's schematic (the
+NVIDIA toolkit alone is ~409 MiB) rather than raising the limit. A node installed before
+Talos 1.11 has a 1101 MiB EFI (`talosctl get discoveredvolumes`) and needs a wipe reinstall.
+
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
 committed PGP key, so there is no second field to update. The key's fingerprint was
 cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:

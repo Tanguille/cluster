@@ -336,8 +336,14 @@ for node in "$@"; do
         "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
     # An upgrade writes the new UKI next to the running one, so the EFI partition must hold two.
-    uki_mib="$(crane export - - <"${WORK}/out/installer-amd64.tar" |
-        tar -tvf - usr/install/amd64/vmlinuz.efi | awk '{ print int($3 / 1048576) }')"
+    # Matched by awk, not named to tar: a missing member then reaches the check below with its own
+    # message instead of failing the pipe with tar's.
+    uki_mib="$(crane export - - <"${WORK}/out/installer-amd64.tar" | tar -tvf - |
+        awk '$6 == "usr/install/amd64/vmlinuz.efi" { print int($3 / 1048576) }')"
+    [[ "${uki_mib}" =~ ^[1-9][0-9]*$ ]] || {
+        echo "${node}: no usr/install/amd64/vmlinuz.efi in the installer (imager layout changed?)" >&2
+        exit 1
+    }
     # 32 MiB for systemd-boot, loader entries and FAT overhead.
     ((2 * uki_mib + 32 <= EFI_MIB)) || {
         echo "${node}: UKI is ${uki_mib} MiB, two do not fit a ${EFI_MIB} MiB EFI partition" >&2
