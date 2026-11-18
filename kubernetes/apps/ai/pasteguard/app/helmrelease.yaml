@@ -68,15 +68,6 @@ spec:
             secrets_detection:
               # Default caps each span at 200k chars, leaving a long tool result's tail unmasked; 0 scans it whole.
               max_scan_chars: 0
-              # Not the default ENV_PASSWORD, ENV_SECRET, BEARER_TOKEN: they match ordinary code under review.
-              entities:
-                - API_KEY_SK
-                - API_KEY_AWS
-                - API_KEY_GITHUB
-                - JWT_TOKEN
-                - OPENSSH_PRIVATE_KEY
-                - PEM_PRIVATE_KEY
-                - CONNECTION_STRING
             server:
               # Past agentgateway's 240s on the omniroute route.
               request_timeout: 300
