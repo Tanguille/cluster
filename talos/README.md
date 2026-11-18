@@ -113,7 +113,7 @@ after tuppr has rolled every node, and re-run `diff-node` on all three before ap
 | `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
 | `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default |
 | `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates |
-| `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
+| `UdevRulesConfig` | caps NVMe (and control-1's virtio `vd*`) `discard_max_bytes` at 256 MiB; the 2 TiB NVMe and 2 GiB virtio limits let weekly trim send multi-second discards |
 | `EtcFileConfig` | `/etc/gvisor/runsc-hostnet.toml` for the `runsc-hostnet` handler (`cri/` is a forbidden prefix). Upstream's `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize) is still unadopted; our five NFS mounts run at kernel defaults |
 
 Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
