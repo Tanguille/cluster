@@ -157,3 +157,5 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
 No disk tier, no `prompt_logprobs` (so no NLL gate), no `vllm:request_queue_time`, `vllm:prefix_cache_*`,
 `vllm:prompt_tokens_cached_by_source` or `vllm:cache_config_info` series (the `radiance:` cache series above replace them), and a
 single maintainer shipping a release every 1-3 days.
+
+Alternatives evaluated on the same card: [alt-engines-2026-11.md](alt-engines-2026-11.md) (vllm-sly-radiance and saber-engine, both rejected).
