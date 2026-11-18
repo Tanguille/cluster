@@ -98,6 +98,19 @@ spec:
               NodeGTTMemoryHigh is blind until it recovers
           labels:
             severity: warning
+        - alert: TrueNASSSDPoolSpaceWarning
+          # The VM zvols stay sparse on purpose; their full sizes fit the pool, so only snapshots
+          # and unbounded datasets can fill it. 100GiB leaves a day to delete snapshots before
+          # TrueNASSSDPoolSpaceLow.
+          expr: |-
+            node_filesystem_avail_bytes{job="node-exporter", fstype="zfs", mountpoint="/mnt/SSD_Pool"} < 107374182400
+          for: 1h
+          annotations:
+            summary: >-
+              TrueNAS SSD_Pool has under 100GiB free; free space before the sparse VM disks
+              (control-1, haos, k8s_management) fail writes and pause
+          labels:
+            severity: warning
         - alert: TrueNASSSDPoolSpaceLow
           # control-1's disk is a sparse zvol on this pool, so a full pool fails guest writes and stops the VM; the kubernetes_node!="" scoping of the other node alerts excludes this external target.
           expr: |-
