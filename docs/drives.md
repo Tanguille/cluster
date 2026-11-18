@@ -67,9 +67,8 @@ rebuildable from the Talos config, and etcd survives on the other two members.
 
 Capacity: `TALOS.block`, `haos` and `k8s_management` are sparse, and the OSD zvol is thick.
 Every zvol at full size needs about 1517 GiB of the 1730 GiB usable (2026-11-18), so only
-snapshots and datasets without a quota can fill the pool. `ix-apps` has a 50G quota.
-`TrueNASSSDPoolSpaceWarning` (100 GiB) and `TrueNASSSDPoolSpaceLow` (20 GiB) watch the free
-space. A full pool pauses the sparse VMs until space is freed.
+snapshots and datasets without a quota can fill the pool, which pauses the sparse VMs. `ix-apps`
+has a 50G quota, and `TrueNASSSDPoolSpace*` alerts watch the free space.
 
 ## Health (2026-09-24)
 

@@ -99,9 +99,7 @@ spec:
           labels:
             severity: warning
         - alert: TrueNASSSDPoolSpaceWarning
-          # The VM zvols stay sparse on purpose; their full sizes fit the pool, so only snapshots
-          # and unbounded datasets can fill it. 100GiB leaves a day to delete snapshots before
-          # TrueNASSSDPoolSpaceLow.
+          # 100GiB leaves a day to delete snapshots before TrueNASSSDPoolSpaceLow (docs/drives.md).
           expr: |-
             node_filesystem_avail_bytes{job="node-exporter", fstype="zfs", mountpoint="/mnt/SSD_Pool"} < 107374182400
           for: 1h
