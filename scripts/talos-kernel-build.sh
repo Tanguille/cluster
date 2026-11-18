@@ -288,8 +288,7 @@ DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar
 # Pre-created so it is owned by us: docker would create the bind-mount target as root, and the
 # EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.
 mkdir -p "${WORK}/out"
-# EFI partition size in MiB on every node (`talosctl get discoveredvolumes`): fixed at install,
-# 2101 since Talos 1.11. A node installed before that has 1101 and needs a wipe reinstall.
+# EFI partition MiB per node (`talosctl get discoveredvolumes`); pre-1.11 installs have 1101.
 EFI_MIB=2101
 declare -A BUILT=()
 PUBLISHED=()
@@ -337,8 +336,6 @@ for node in "$@"; do
         "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
     # An upgrade writes the new UKI next to the running one, so the EFI partition must hold two.
-    # The 2026-11-18 control-1 roll failed on "no space left on device": 2 x 555 MiB in 1101 MiB.
-    # Assignment so a failed export or a missing UKI aborts under set -e.
     uki_mib="$(crane export - - <"${WORK}/out/installer-amd64.tar" |
         tar -tvf - usr/install/amd64/vmlinuz.efi | awk '{ print int($3 / 1048576) }')"
     # 32 MiB for systemd-boot, loader entries and FAT overhead.
