@@ -124,7 +124,7 @@ Tuning constraints and benchmark history for the inference stack live in
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
-Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR ·
+Wizarr · Bazarr · Recyclarr · CleanRR ·
 Unpackerr · FlareSolverr · BRRPolice · FileFlows · Qui
 
 </details>
