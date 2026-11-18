@@ -92,6 +92,12 @@ the past 5 minutes; missing UPS data leaves the other factors in charge. It is t
 of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`, together with the
 R9700 dropping to its efficiency power profile (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
 
+### Other solar consumers
+
+`ai/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export. xmrig
+slots come first because the miner's query subtracts them; `resourceset.yaml` has no add-back for
+the miner, so xmrig can shed while it runs (replay: 0.28 replica-hours in 14 days).
+
 ## Measured
 
 Replayed against 180d of `node_hwmon_temp_celsius` (VM retention) at the native 20s cadence.

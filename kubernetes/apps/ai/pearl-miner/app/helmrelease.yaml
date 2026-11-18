@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pearl-miner
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      priorityClassName: low-priority-mining
+      # nvidia runtime injects the GPU; control-1 is the only node labelled for it.
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      # The image runs under tini, so SIGTERM stops the miner at once.
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+
+    controllers:
+      pearl-miner:
+        # KEDA owns the count (gate: docs/pearl-solar-mining.md).
+        replicas: null
+        containers:
+          app:
+            image:
+              repository: ghcr.io/tanguille/cppminer
+              tag: 1.0-09e79fb@sha256:4dfc5b80faec48ac4ddfb8af6beeff8de42408e79dcfc860577d492924208345
+            args:
+              - --backend
+              - cuda
+              - --devices
+              - "0"
+              - --pool
+              - stratum+tcp://fr.pearl.herominers.com:1200
+              - --wallet
+              - $(PEARL_WALLET)
+              - --worker
+              - cluster-2070
+            # The payout address stays out of git; args expand it from the secret.
+            envFrom:
+              - secretRef:
+                  name: pearl-miner-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            # CPU and RSS are unmeasured: re-size after the trial.
+            resources:
+              requests:
+                cpu: 250m
+                memory: 1Gi
+              limits:
+                cpu: "1"
+                memory: 3Gi
+                nvidia.com/gpu: 1
