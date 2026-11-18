@@ -12,14 +12,17 @@ spec:
       # with qwen3.8-27b on the AA index and no successor at similar price exists, or it is another quota tier.
       - providers:
           - name: omniroute
-            host: omniroute.ai.svc.cluster.local
-            port: 20128
+            # Through pasteguard, which masks secrets before they reach the free providers.
+            host: pasteguard.ai.svc.cluster.local
+            port: 3000
             custom:
               model: smart-free
               providerOverride: omniroute
               formats:
                 - type: Completions
+                  path: /openai/v1/chat/completions
                 - type: Messages
+                  path: /anthropic/v1/messages
             policies:
               # GLM thinks only when asked. No include_reasoning: since 11-01 any value makes Logfare DeepSeek 1017
               # answer 400 "supported API model names are deepseek-flash, deepseek-v4-pro", and 1017 no longer
