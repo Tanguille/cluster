@@ -63,8 +63,9 @@ Findings:
 - Cold prefill about 3,000 tok/s (arm 1).
 
 Verdict: rejected. On fp8 arm 1 read higher than radiance at 1 to 2 sessions (measured with prod down and a different checkpoint, against a
-baseline taken with agent traffic on the pod, so the gap is not isolated to the engine), but fp8 does not fit 262144 context at a safe
-headroom, kv4 fits but decodes slower, and none of the 8-session runs held.
+baseline taken with agent traffic on the pod, so the gap is not isolated to the engine), but fp8 booted 262144 only in the lighter arm 1
+config (375,686 pool, and the same utilization failed with chunk 4096), kv4 gives the larger pool but read slower, and none of the 8-session
+runs held (11 tok/s in arm 1), which is the basis for rejection.
 
 ## saber-engine (github.com/GGZ14/saber-engine, commit `ee99282`, MACaQ MXFP4 single-card pack, DFlash2 drafter, TP=1)
 
