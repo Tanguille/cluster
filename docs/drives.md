@@ -65,6 +65,11 @@ the ZIL. With the cache off, QEMU would have to make every write synchronous.
 `k8s_management` have copies under `TanguilleServer/VMBackups`. `TALOS.block` has no copy: it is
 rebuildable from the Talos config, and etcd survives on the other two members.
 
+Capacity: `TALOS.block`, `haos` and `k8s_management` are sparse, and the OSD zvol is thick.
+Every zvol at full size needs about 1517 GiB of the 1730 GiB usable (2026-11-18), so only
+snapshots and datasets without a quota can fill the pool, which pauses the sparse VMs. `ix-apps`
+has a 50G quota, and `TrueNASSSDPoolSpace*` alerts watch the free space.
+
 ## Health (2026-09-24)
 
 | drive | wear used | written | power-on | notes |
