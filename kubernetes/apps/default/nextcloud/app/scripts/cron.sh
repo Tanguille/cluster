@@ -14,9 +14,13 @@ php -d memory_limit=1536M -f cron.php || echo "ERROR: cron.php failed" >&2
 
 # Daily block. Runs take ~9min under concurrencyPolicy Forbid, so a fixed :00
 # slot gets skipped when the previous run overruns; the stamp makes any run in
-# the 02:xx UTC hour pick it up exactly once.
+# the 02:xx UTC hour pick it up exactly once. If the whole 02:xx window was
+# missed (app down for a rollout, NFS mount hang, node maintenance), the first
+# successful run after recovery picks it up instead. 10# forces decimal: in
+# dash "08"/"09" are invalid octal (same trap class as the #5071 MINUTE fix).
+HOUR=$((10#$(date -u +%H)))
 STAMP="/var/www/tmp/.daily-maintenance-$(date -u +%F)"
-if [ "$(date -u +%H)" = "02" ] && [ ! -e "$STAMP" ]; then
+if [ "$HOUR" -ge 2 ] && [ ! -e "$STAMP" ]; then
     rm -f /var/www/tmp/.daily-maintenance-*
     touch "$STAMP"
     for c in "app:update --all" files:cleanup "files:scan --all"; do

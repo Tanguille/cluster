@@ -358,8 +358,10 @@ spec:
       enabled: true
       type: cronjob
       cronjob:
-        failedJobsHistoryLimit: 1
-        successfulJobsHistoryLimit: 2
+        # 10/5 so a window of silent skips (e.g. a rollout over the 02:xx slot)
+        # stays visible in job history long enough to diagnose.
+        failedJobsHistoryLimit: 5
+        successfulJobsHistoryLimit: 10
         affinity:
           podAffinity:
             requiredDuringSchedulingIgnoredDuringExecution:
