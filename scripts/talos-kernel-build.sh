@@ -288,6 +288,9 @@ DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar
 # Pre-created so it is owned by us: docker would create the bind-mount target as root, and the
 # EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.
 mkdir -p "${WORK}/out"
+# EFI partition size per node in MiB (`talosctl get discoveredvolumes`), fixed at install time.
+# control-1 was installed with a smaller one than the Talos default the others got.
+declare -A EFI_MIB=([control - 1]=1101)
 declare -A BUILT=()
 PUBLISHED=()
 for node in "$@"; do
@@ -333,6 +336,17 @@ for node in "$@"; do
         -v "${HOME}/.docker:/dockercfg:ro" -e DOCKER_CONFIG=/dockercfg \
         "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
+    # An upgrade writes the new UKI next to the running one, so the EFI partition must hold two.
+    # The 2026-11-18 control-1 roll failed on "no space left on device": 2 x 555 MiB in 1101 MiB.
+    # Assignment so a failed export or a missing UKI aborts under set -e.
+    uki_mib="$(crane export - - <"${WORK}/out/installer-amd64.tar" |
+        tar -tvf - usr/install/amd64/vmlinuz.efi | awk '{ print int($3 / 1048576) }')"
+    efi_mib="${EFI_MIB[${node}]:-2101}"
+    # 32 MiB for systemd-boot, loader entries and FAT overhead.
+    ((2 * uki_mib + 32 <= efi_mib)) || {
+        echo "${node}: UKI is ${uki_mib} MiB, two do not fit its ${efi_mib} MiB EFI partition" >&2
+        exit 1
+    }
     crane push "${WORK}/out/installer-amd64.tar" "${dst}"
     # Assignment, not inline in the array: a failed substitution there is invisible to set -e.
     pushed="$(crane digest "${dst}")"
