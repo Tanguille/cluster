@@ -8,9 +8,9 @@ spec:
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: pearl-miner
-  # A third-party binary: DNS plus the internet only, no cluster or host
-  # endpoints. Not limited to the pool port or FQDN because the dev fee
-  # may use another pool endpoint.
+  # A third-party binary: DNS plus the public internet only, no cluster, host or
+  # LAN. Not limited to the pool port or FQDN because the dev fee may use
+  # another pool endpoint.
   egress:
     - toEndpoints:
         - matchLabels:
@@ -20,5 +20,11 @@ spec:
         - ports:
             - port: "53"
               protocol: ANY
-    - toEntities:
-        - world
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 100.64.0.0/10
+            - 169.254.0.0/16

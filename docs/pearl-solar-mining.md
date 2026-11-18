@@ -38,7 +38,7 @@ assumption. xmrig loses about 0.28 replica-hours in 14 days, and the R9700 balan
 
 `PearlMinerEnforcementBypassed` fires when the miner runs while a safety factor is unmet.
 `PearlMinerGpuHot` fires above 85 C. The egress policy `pearl-miner-egress` allows kube-dns and the
-internet only, so a compromised miner cannot reach other `ai` pods.
+public internet only (private ranges excluded, so no LAN), so a compromised miner cannot reach other `ai` pods.
 
 ## Stop everything
 
