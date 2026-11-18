@@ -288,9 +288,9 @@ DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar
 # Pre-created so it is owned by us: docker would create the bind-mount target as root, and the
 # EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.
 mkdir -p "${WORK}/out"
-# EFI partition size per node in MiB (`talosctl get discoveredvolumes`), fixed at install time.
-# control-1 was installed with a smaller one than the Talos default the others got.
-declare -A EFI_MIB=([control - 1]=1101)
+# EFI partition size in MiB on every node (`talosctl get discoveredvolumes`): fixed at install,
+# 2101 since Talos 1.11. A node installed before that has 1101 and needs a wipe reinstall.
+EFI_MIB=2101
 declare -A BUILT=()
 PUBLISHED=()
 for node in "$@"; do
@@ -341,10 +341,9 @@ for node in "$@"; do
     # Assignment so a failed export or a missing UKI aborts under set -e.
     uki_mib="$(crane export - - <"${WORK}/out/installer-amd64.tar" |
         tar -tvf - usr/install/amd64/vmlinuz.efi | awk '{ print int($3 / 1048576) }')"
-    efi_mib="${EFI_MIB[${node}]:-2101}"
     # 32 MiB for systemd-boot, loader entries and FAT overhead.
-    ((2 * uki_mib + 32 <= efi_mib)) || {
-        echo "${node}: UKI is ${uki_mib} MiB, two do not fit its ${efi_mib} MiB EFI partition" >&2
+    ((2 * uki_mib + 32 <= EFI_MIB)) || {
+        echo "${node}: UKI is ${uki_mib} MiB, two do not fit a ${EFI_MIB} MiB EFI partition" >&2
         exit 1
     }
     crane push "${WORK}/out/installer-amd64.tar" "${dst}"
