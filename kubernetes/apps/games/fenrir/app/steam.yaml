@@ -1,0 +1,80 @@
+---
+# yaml-language-server: $schema=https://github.com/games-on-whales/fenrir/raw/refs/heads/main/schemas/direwolf.games-on-whales.github.io/app_v1alpha1.json
+apiVersion: direwolf.games-on-whales.github.io/v1alpha1
+kind: App
+metadata:
+  name: steam
+spec:
+  id: 1
+  title: Steam
+  isHDRSupported: false
+  # 1x1 placeholder: the field is required.
+  appAssetWebP: UklGRhoAAABXRUJQVlA4IA4AAAAQAAGAiYCAgICAgIAA
+  wolfConfig:
+    runtimeVariables:
+      # The RTX 2070: renderD128 is the R9700.
+      renderNode: /dev/dri/renderD129
+      timeZone: ${TIMEZONE}
+      logLevel: INFO
+  # Steam library and state, mounted at /home/retro.
+  volumeClaimTemplate:
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: ceph-block
+      resources:
+        requests:
+          storage: 100Gi
+  template:
+    metadata:
+      labels:
+        # wolf sends the video and audio UDP straight to the Moonlight client's LAN address; networkpolicy.yaml narrows the opt-out.
+        egress.home.arpa/lan: allow
+    spec:
+      # The nvidia runtime injects the GPU; control-1 is the only node labelled for it.
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      hostIPC: true
+      # No container in the session pod talks to the apiserver.
+      automountServiceAccountToken: false
+      containers:
+        - name: app
+          image: ghcr.io/games-on-whales/steam:edge@sha256:7e2731e86bb7d49c66c8018e7df10e5d3dd9fc176c98fafbdbc727d3f4cababb
+          # Steam's pressure-vessel runtime uses bwrap namespaces: same privileges as Wolf's stock Steam app.
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_NICE
+                - SYS_PTRACE
+                - NET_RAW
+                - MKNOD
+                - NET_ADMIN
+            seccompProfile:
+              type: Unconfined
+            appArmorProfile:
+              type: Unconfined
+          env:
+            - name: RUN_SWAY
+              value: "true"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              # wolf and pulseaudio start next to this container: the entrypoint needs both sockets.
+              while [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ] || [ ! -S "$XDG_RUNTIME_DIR/pulse-socket" ]; do
+                echo "Waiting for the wayland and pulse sockets..." >&2
+                sleep 1
+              done
+              PULSE_SINK="$(pactl list sinks short | awk '$2 ~ /^virtual_sink/ {print $2; exit}')"
+              export PULSE_SINK PULSE_SOURCE="$PULSE_SINK.monitor"
+              exec /entrypoint.sh
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              memory: 12Gi
+              nvidia.com/gpu: 1

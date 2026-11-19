@@ -145,7 +145,7 @@ just talos apply-node control-1 192.168.0.11
 If Talos asks for a reboot, do it, then re-run the node checks from step 3. Then:
 
 ```sh
-talosctl -n 192.168.0.11 read /proc/modules | grep -E '^nvidia'          # nvidia, nvidia_uvm, nvidia_modeset
+talosctl -n 192.168.0.11 read /proc/modules | grep -E '^nvidia'          # nvidia, nvidia_uvm, nvidia_modeset, nvidia_drm
 talosctl -n 192.168.0.11 dmesg | grep -iE 'nvidia|module verification|sig'
 ```
 
@@ -169,8 +169,8 @@ operator operands or the test pod below fail on a missing CDI device, flip it to
 `kubernetes/apps/gpu-operator/gpu-operator/app/helmrelease.yaml` (the operator then also creates
 the `nvidia-cdi` and `nvidia-legacy` RuntimeClasses; workloads keep using `nvidia`).
 
-If the validator wants `nvidia_drm`, add a `KernelModuleConfig` with `parameters: [modeset=0]`
-and nothing else (see "R6" in the plan); `modeset=1` adds a second DRM card.
+`nvidia_drm` is loaded with `modeset=1` for wolf ([fenrir](../kubernetes/apps/games/fenrir/));
+it adds a second DRM card (see "R6" in the plan).
 
 ## 6. Post-checks
 
@@ -218,8 +218,8 @@ and nothing else (see "R6" in the plan); `modeset=1` adds a second DRM card.
    diff /tmp/drm-jellyfin-before.txt <(kubectl -n media exec deploy/jellyfin -- ls -l /dev/dri)
    ```
 
-   There must be no new `card*` or `renderD*` and the jellyfin VAAPI device must keep its
-   `renderD128` path. A new DRM node means `nvidia_drm` loaded with `modeset=1`.
+   The only new nodes must be the 2070's `card*` and `renderD129` (from `nvidia_drm`), and the
+   jellyfin VAAPI device must keep its `renderD128` path.
 5. R9700 temperature recheck (the 2070 adds heat next to it). Run a
    5-minute full-power load on the R9700 (a vLLM or radiance bench burst) while reading the
    junction temperature, and **stop at junction 97 C**. For reference the 2026-11-01 runs read
