@@ -87,7 +87,8 @@ fileflows or any inference workload onto `nvidia.com/gpu` is **out of scope** (f
 - **R6:** `nvidia_drm` adds a second DRM card and renderD node under `/dev/dri` next to the R9700;
   the squat plugin hands the whole `/dev/dri` to jellyfin, fileflows and vllm, so a UI-configured
   `/dev/dri/renderD128` could flip. Chunk 5 verifies the device paths; load `nvidia_drm` with
-  `modeset=0` or skip it if the toolkit does not need it (UNVERIFIED).
+  `modeset=0` or skip it if the toolkit does not need it (UNVERIFIED). Superseded: loaded with
+  `modeset=1` for wolf (`kubernetes/apps/games/fenrir`).
 
 ---
 

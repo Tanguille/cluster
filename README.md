@@ -133,7 +133,8 @@ FlareSolverr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · DumbAssets · Satisfactory
+Ghostfolio · IT-Tools · PicoShare · DumbAssets · Satisfactory ·
+Fenrir (Moonlight game streaming, namespace games/)
 
 </details>
 
