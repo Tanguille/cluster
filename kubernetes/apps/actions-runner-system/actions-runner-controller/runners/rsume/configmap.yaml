@@ -27,3 +27,11 @@ data:
     userns = "keep-id"
     # The runner's own env does not reach containers started through the socket; append keeps the default PATH entry.
     env = ["DO_NOT_TRACK=1", {append=true}]
+  # Native kernel overlay instead of the image's fuse-overlayfs: the pod has no /dev/fuse, so
+  # fuse-overlayfs exits 1 and every container start and `docker build` fails. The image sets
+  # this since containers/image_build#71; fsync=0 is a fuse-overlayfs option kernel overlay
+  # rejects, so mountopt goes back to the vendor's rootless default.
+  storage.conf: |
+    [storage.options.overlay]
+    mount_program = ""
+    mountopt = "nodev"
