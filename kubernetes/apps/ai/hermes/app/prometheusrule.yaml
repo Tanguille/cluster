@@ -12,12 +12,11 @@ spec:
       rules:
         # A paused job's frozen last status never clears, so paused jobs are excluded.
         # The 1h clause bounds last_status_ok staleness for infrequent jobs (a weekly cron fired 5 days on one transient error); with for: 15m plus the 10m export interval it leaves ~35m of firing.
-        # 503 no-backend failures: agentgateway alerts page once and rerun_interrupted.py re-runs; a failed re-run still alerts.
+        # Keep backend 503s visible because a failed cron run may be below agentgateway's per-model alert threshold.
         - alert: HermesCronJobFailed
           expr: |-
             last_over_time(hermes_cron_last_status_ok[30m]) == 0
               unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
-              unless on (id) last_over_time(hermes_cron_last_error_backend_unavailable[30m]) == 1
               and on (id) (time() - last_over_time(hermes_cron_last_run_timestamp[30m])) < 3600
           for: 15m
           annotations:
