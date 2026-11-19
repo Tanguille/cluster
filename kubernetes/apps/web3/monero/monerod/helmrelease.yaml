@@ -60,6 +60,13 @@ spec:
                     path: /get_info
                     port: 18089
                   periodSeconds: 30
+                  # app-template defaults are timeoutSeconds: 1 + failureThreshold: 3, so a
+                  # restricted-RPC stall > 90s (sync bursts on the 150Gi Ceph RBD) makes the
+                  # kubelet SIGTERM a healthy node. 2026-11-18 18:26-18:32Z: 4 liveness kills in
+                  # 6 minutes right after the 166106b rollout. Allow 10s per probe and 5
+                  # consecutive failures (150s of total unresponsiveness) before killing.
+                  timeoutSeconds: 10
+                  failureThreshold: 5
               readiness:
                 enabled: true
                 custom: true
