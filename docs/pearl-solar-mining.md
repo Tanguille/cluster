@@ -1,10 +1,9 @@
 # Pearl solar mining on the 2070
 
 `ai/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
-surplus. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/ai/pearl-miner/app/scaledobject.yaml`)
+surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/ai/pearl-miner/app/scaledobject.yaml`)
 raises it to 1. xmrig keeps priority: the gate subtracts every safe xmrig slot from the surplus.
-Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in the HelmRelease
-(public, no secret). The image is built from the `Tanguille/CPPminer` fork (`ci/cluster-image`,
+Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built from the `Tanguille/CPPminer` fork (`ci/cluster-image`,
 keeps the 1% dev fee).
 
 ## Gate
@@ -14,7 +13,8 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 
 | factor | start | keep |
 | --- | --- | --- |
-| surplus (15 m net export, miner and xmrig draw added back, safe xmrig slots subtracted) | 200 W | 100 W |
+| surplus (15 m net export, miner and xmrig draw added back, safe xmrig slots subtracted), or | 200 W | 100 W |
+| tech cave temperature, 15 m average | under 18 C | under 18 C |
 | UPS load max | 15 m under 70 % | 5 m under 85 % |
 | 2070 free VRAM | 2560 MiB | 1024 MiB |
 | 2070 temperature | under 80 C | under 80 C |
@@ -22,7 +22,10 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 | control-1 guard (`xmrig_guard_safe`) | safe and under 120 s old | same |
 | control-1 memory | 1Gi request fits, 2Gi `MemAvailable` | same |
 
-DCGM is disabled in the cluster, so the gate uses `nvidia_smi_*`.
+DCGM is disabled in the cluster, so the gate uses `nvidia_smi_*`. A cold room replaces only the
+surplus test (the heat is wanted, so grid power is fine); every other factor still applies, and a
+missing room sensor counts as warm. The room was under 18 C 21 % of the time over the 30 days to
+2026-11-19 (range 9.7 to 23.4 C).
 
 ## Expected behaviour
 
@@ -42,10 +45,14 @@ public internet only (private ranges excluded, so no LAN), so a compromised mine
 
 ## Stop everything
 
+Flux drops a manually added annotation on its next reconcile, so suspend the Kustomization first.
+
 ```sh
+flux suspend kustomization pearl-miner -n ai
 kubectl -n ai annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas=0 --overwrite
 # resume
 kubectl -n ai annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas-
+flux resume kustomization pearl-miner -n ai
 ```
 
 To remove it for good, revert the commit; Flux prunes it.
