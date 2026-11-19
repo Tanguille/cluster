@@ -2,19 +2,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Here, not in ks.yaml: a per-app ks.yaml `patches:` block is dropped by the cluster-apps defaults patch.
-components:
-  - ../../../../components/kopiur
-patches:
-  # Keeps the kopia identity satisfactory@default:/data from before the namespace move, so the Restore
-  # finds the existing history (a new identity resolves to NoSnapshot, i.e. an empty PVC).
-  - target:
-      kind: SnapshotPolicy
-    patch: |
-      - op: add
-        path: /spec/identity
-        value:
-          hostname: default
 resources:
   - helmrelease.yaml
   - networkpolicy.yaml
