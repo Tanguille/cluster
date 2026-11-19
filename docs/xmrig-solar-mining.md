@@ -92,6 +92,9 @@ the past 5 minutes; missing UPS data leaves the other factors in charge. It is t
 of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`, together with the
 R9700 dropping to its efficiency power profile (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
 
+When the tech cave is under 18 C (15 m average) the share is floored at 50W, so every node whose
+own gate is open mines without surplus: the heat is wanted. A missing room sensor counts as warm.
+
 ### Other solar consumers
 
 `ai/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export. xmrig
