@@ -21,3 +21,14 @@ spec:
               protocol: UDP
             - port: "8888"
               protocol: TCP
+    # games has no namespace allowlist, so this policy's default-deny would cut the FRM callers
+    # that default's allowlist used to admit: the envoy gateways (routes) and the metrics exporter.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
