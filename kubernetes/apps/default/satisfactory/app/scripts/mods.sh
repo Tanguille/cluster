@@ -34,16 +34,3 @@ if ! {
     fi
     echo "WARNING: mod install failed, starting with the mods already in $MODS_DIR" >&2
 fi
-
-# FRM's web server is off by default and headless servers have no console for `/frm http start`,
-# so force its autostart on. The game rewrites this file, so every start re-asserts it.
-FRM_INI=/config/gamefiles/FactoryGame/Saved/Config/LinuxServer/GameUserSettings.ini
-FRM_KEY='"FicsitRemoteMonitoring.Server.uWS.Autostart"'
-if [[ -f $FRM_INI ]]; then
-    # Flip an existing 0 to 1, else prepend to the tuple list (or fill the empty "()"). "b"/"t" stop after the first hit.
-    sed -i -e "s/($FRM_KEY, *0)/($FRM_KEY, 1)/" -e "/$FRM_KEY/b" \
-        -e "s/^mIntValues=()/mIntValues=(($FRM_KEY, 1))/;t" \
-        -e "s/^mIntValues=(/mIntValues=(($FRM_KEY, 1),/;t" "$FRM_INI"
-    grep -q '^mIntValues=' "$FRM_INI" ||
-        sed -i "/^\[\/Script\/FactoryGame\.FGGameUserSettings\]$/a mIntValues=(($FRM_KEY, 1))" "$FRM_INI"
-fi
