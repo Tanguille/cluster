@@ -25,6 +25,10 @@ spec:
         requests:
           storage: 100Gi
   template:
+    metadata:
+      labels:
+        # wolf sends the video and audio UDP straight to the Moonlight client's LAN address.
+        egress.home.arpa/lan: allow
     spec:
       # The nvidia runtime injects the GPU; control-1 is the only node labelled for it.
       runtimeClassName: nvidia
@@ -65,7 +69,7 @@ spec:
                 sleep 1
               done
               PULSE_SINK="$(pactl list sinks short | awk '$2 ~ /^virtual_sink/ {print $2; exit}')"
-              export PULSE_SINK PULSE_SOURCE="${PULSE_SINK}.monitor"
+              export PULSE_SINK PULSE_SOURCE="$PULSE_SINK.monitor"
               exec /entrypoint.sh
           resources:
             requests:
