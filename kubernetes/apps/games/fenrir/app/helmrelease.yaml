@@ -23,18 +23,15 @@ spec:
         containers:
           operator:
             image:
-              tag: main@sha256:2fea5ce2f045b0840b0c931e932d46fab55a5ef159ac41d9530cb46cfa503b23
               pullPolicy: IfNotPresent
             env:
               WOLF_IMAGE: ghcr.io/games-on-whales/wolf:stable@sha256:47ce7a0b67ee6645d2c6fefd8fdda7fee49a00e327c39597a04e84a0cd052910
-              AGENT_IMAGE: ghcr.io/games-on-whales/fenrir/wolf-agent:main@sha256:afee2732787f0faa7268931855ecc976ba4b31e8edf8143ad0280a74612e41d5
       moonlight_proxy:
         pod:
           labels: *apiserver
         containers:
           proxy:
             image:
-              tag: main@sha256:a7366a0cb015aae10c05098843c3f5f628f1e276c742bb96a5a2092a9e7115d1
               pullPolicy: IfNotPresent
     service:
       app:
