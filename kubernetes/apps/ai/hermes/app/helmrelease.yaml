@@ -86,8 +86,8 @@ spec:
               requests:
                 cpu: 100m
                 memory: 896Mi
+              # No CPU limit: under gVisor only the pod cgroup gets a quota, and only when every container sets one.
               limits:
-                cpu: 2
                 memory: 6Gi
           # Holds the Google token away from the agents; serves the digest on 127.0.0.1:8765 (resources/google_digest.py).
           google-digest:
@@ -157,14 +157,6 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
-      dshm:
-        type: emptyDir
-        medium: Memory
-        sizeLimit: 1Gi
-        advancedMounts:
-          hermes:
-            app:
-              - path: /dev/shm
       google-digest:
         type: configMap
         name: hermes-google-digest
