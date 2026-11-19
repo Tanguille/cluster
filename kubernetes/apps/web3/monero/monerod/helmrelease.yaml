@@ -60,6 +60,12 @@ spec:
                     path: /get_info
                     port: 18089
                   periodSeconds: 30
+                  # app-template defaults (timeoutSeconds: 1, failureThreshold: 3) kill a healthy
+                  # node about 60s into a restricted-RPC stall (sync bursts on the 150Gi Ceph RBD):
+                  # 4 liveness kills in 6 minutes on 2026-11-18 after the 166106b rollout.
+                  # 10s per probe and 5 failures tolerate about 130s.
+                  timeoutSeconds: 10
+                  failureThreshold: 5
               readiness:
                 enabled: true
                 custom: true
