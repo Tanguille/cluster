@@ -30,9 +30,11 @@ missing room sensor counts as warm. The room was under 18 C 21 % of the time ove
 ## Expected behaviour
 
 Measured offline on the 2070 with `--mock`: 44 to 47 TH/s at about 168 W, 70 C, 1.6 GiB VRAM.
-d3-nano latency goes from about 75 ms to 175 ms while mining (accepted). A 14-day replay of the gate
-(2026-11-05 to 2026-11-18, 30 s steps) opens about 0.33 h/day with 19 starts and 7 cycles in one
-window, so it can flap. Power alone allows about 1.4 h/day; the UPS start rule is the binding
+d3-nano latency goes from about 75 ms to 175 ms while mining (accepted). A 14-day replay of the
+surplus-only gate (2026-11-05 to 2026-11-18, 30 s steps) opens about 0.33 h/day with 19 starts and 7
+cycles in one window, so it can flap. The replay predates the cold-room path, which adds up to the
+21 % of the time the room is under 18 C (still capped by the UPS start rule); its 15 m average
+crossed 18 C 35 times in those 30 days. Power alone allows about 1.4 h/day; the UPS start rule is the binding
 constraint. Add a minimum off time if the trial shows flapping. The UPS rating (750 W) is an
 assumption. xmrig loses about 0.28 replica-hours in 14 days, and the R9700 balanced profile
 (`amdgpu-undervolt`) loses time while the miner runs. Revenue is unmeasured.
@@ -40,7 +42,8 @@ assumption. xmrig loses about 0.28 replica-hours in 14 days, and the R9700 balan
 ## Alerts
 
 `PearlMinerEnforcementBypassed` fires when the miner runs while a safety factor is unmet.
-`PearlMinerGpuHot` fires above 85 C. The egress policy `pearl-miner-egress` allows kube-dns and the
+`PearlMinerGpuHot` fires above 85 C. `TechCaveSensorAbsent` fires when the room sensor has been
+missing for 30 min, since the gate then reads the room as warm. The egress policy `pearl-miner-egress` allows kube-dns and the
 public internet only (private ranges excluded, so no LAN), so a compromised miner cannot reach other `ai` pods.
 
 ## Stop everything
