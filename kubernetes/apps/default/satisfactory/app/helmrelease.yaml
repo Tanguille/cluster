@@ -27,6 +27,8 @@ spec:
             env:
               MAXTICKRATE: "120"
               TIMEOUT: "300"
+            # Wraps the image's /init.sh to drop FicsitRemoteMonitoring when it crash-loops the server.
+            command: [/bin/bash, /scripts/start.sh]
             securityContext: &sc
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
@@ -125,8 +127,9 @@ spec:
         name: satisfactory-scripts
         advancedMounts:
           satisfactory:
-            mods:
+            app: &scripts
               - path: /scripts
                 readOnly: true
+            mods: *scripts
       config:
         existingClaim: *app

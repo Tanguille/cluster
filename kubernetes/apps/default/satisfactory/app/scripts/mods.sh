@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# New pod: FicsitRemoteMonitoring gets a fresh try, see start.sh.
+rm -f /config/.frm-starts
+
 # First start: steamcmd hasn't installed the game yet, so mods land on the next restart.
 if [[ ! -f /config/gamefiles/FactoryServer.sh ]]; then
     echo "game not installed yet, skipping mods"
