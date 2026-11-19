@@ -4,7 +4,8 @@ The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. St
 NVIDIA open modules built into the custom kernel pipeline, the toolkit extension, and the GPU
 Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Plan and spike
 record: [the plan](plans/nvidia-gpu-operator-control-1.md). Workloads on it:
-[llama.cpp services](#llamacpp-services-on-the-2070).
+[llama.cpp services](#llamacpp-services-on-the-2070) and the solar-gated
+[Pearl miner](pearl-solar-mining.md).
 
 Every step below is owner-run. **[ASK]** marks steps that touch a live system, push, or delete;
 nothing here runs from an agent session without an explicit OK. Node IPs: control-1
@@ -321,3 +322,11 @@ are warm.
 Rollback: revert the commit; the Vulkan manifests return to the iGPUs (images and GGUFs are still
 cached). When control-1 is down all three are down: memini recall falls back to keyword-only and
 backfills vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
+
+## Pearl solar miner on the 2070
+
+`ai/pearl-miner` is an optional fourth workload: a Deployment at 0 replicas that KEDA raises to 1 on
+solar surplus ([gate and thresholds](pearl-solar-mining.md)). It needs about 1.6 GiB of VRAM beside
+the three services, starts only with 2560 MiB free, stops below 1024 MiB, and has no toleration
+(control-1 has no taint). The UPS shed query does not see the 2070's draw, so the gate reads the UPS
+itself. Metrics come from `nvidia_smi_*`; DCGM is disabled.
