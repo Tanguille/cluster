@@ -11,6 +11,23 @@ spec:
         # node -> "xmrig-<node>" Deployment map; EnforcementBypassed and ThermalPanic join through it.
         - record: xmrig_guard_deployment_node
           expr: label_replace(xmrig_guard_rank, "deployment", "xmrig-$1", "node", "(.*)")
+        # Nodes that can take a miner: guard safe and the 2Gi request fits beside live non-miner pods.
+        # The xmrig ScaledObjects rank these for the surplus share; ai/pearl-miner subtracts them all.
+        - record: xmrig_slot_available
+          expr: |-
+            (xmrig_guard_safe == 1)
+            and on (node) (
+              (
+                min by (node) (kube_node_status_allocatable{resource="memory"})
+                - sum by (node) (
+                  kube_pod_container_resource_requests{resource="memory",pod!~"xmrig-.*"}
+                  * on (namespace, pod) group_left () (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+                )
+              ) >= 2147483648
+            )
+        # 1 while the tech cave is under 18 C: miner heat is wanted, so xmrig and ai/pearl-miner run without surplus.
+        - record: tech_cave_cold
+          expr: max(avg_over_time(hass_sensor_temperature_celsius{entity="sensor.techcave_wifi_temperature_humidity_sensor_temperature",job="homeassistant"}[15m])) < bool 18
         - alert: XmrigGuardEnforcementBypassed
           # Per-node since each miner is its own Deployment gated on its own node: a global
           # min() would fire whenever any one node is unsafe while another legitimately mines.
