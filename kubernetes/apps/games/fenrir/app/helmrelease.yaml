@@ -17,6 +17,9 @@ spec:
   values:
     controllers:
       direwolf_operator:
+        pod:
+          labels: &apiserver
+            egress.home.arpa/kube-apiserver: allow
         containers:
           operator:
             image:
@@ -26,6 +29,8 @@ spec:
               WOLF_IMAGE: ghcr.io/games-on-whales/wolf:stable@sha256:47ce7a0b67ee6645d2c6fefd8fdda7fee49a00e327c39597a04e84a0cd052910
               AGENT_IMAGE: ghcr.io/games-on-whales/fenrir/wolf-agent:main@sha256:afee2732787f0faa7268931855ecc976ba4b31e8edf8143ad0280a74612e41d5
       moonlight_proxy:
+        pod:
+          labels: *apiserver
         containers:
           proxy:
             image:

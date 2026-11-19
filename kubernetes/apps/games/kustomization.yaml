@@ -5,6 +5,8 @@ kind: Kustomization
 namespace: games
 components:
   - ../../components/common
+  - ../../components/deny-apiserver-egress
+  - ../../components/deny-lan-egress
   # Session pods run Steam: SYS_ADMIN, unconfined seccomp and hostIPC for its bwrap sandbox.
   - ../../components/psa-privileged
 resources:

@@ -31,6 +31,8 @@ spec:
       nodeSelector:
         nvidia.com/gpu: "true"
       hostIPC: true
+      # No container in the session pod talks to the apiserver.
+      automountServiceAccountToken: false
       containers:
         - name: app
           image: ghcr.io/games-on-whales/steam:edge@sha256:7e2731e86bb7d49c66c8018e7df10e5d3dd9fc176c98fafbdbc727d3f4cababb
