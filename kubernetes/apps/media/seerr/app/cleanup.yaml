@@ -43,7 +43,7 @@ spec:
               - python3
               - -c
               - |
-                import datetime, json, os, urllib.request
+                import datetime, json, os, urllib.error, urllib.request
 
                 base = "http://seerr.media.svc.cluster.local:5055/api/v1"
                 dry = os.environ["DRY_RUN"] == "true"
@@ -60,20 +60,37 @@ spec:
                 while True:
                     page = call("GET", f"/request?filter=pending&sort=added&sortDirection=asc&take=100&skip={skip}")
                     for req in page["results"]:
-                        # status 1 = pending approval; filter=pending also covers approved-but-not-available media.
+                        # filter=pending already returns only status 1 (pending approval); the check guards the delete.
                         if req["status"] == 1 and datetime.datetime.fromisoformat(req["createdAt"]) < cutoff:
                             stale.append(req)
                     skip += len(page["results"])
                     if not page["results"] or skip >= page["pageInfo"]["results"]:
                         break
 
+                deleted = skipped = failed = 0
                 for req in stale:
                     media = req.get("media") or {}
                     who = (req.get("requestedBy") or {}).get("displayName")
-                    print(f"{'would delete' if dry else 'deleting'} request {req['id']}: {req['createdAt'][:10]} by {who}, {media.get('mediaType')} tmdb {media.get('tmdbId')}")
-                    if not dry:
+                    label = f"request {req['id']}: {req['createdAt'][:10]} by {who}, {media.get('mediaType')} tmdb {media.get('tmdbId')}"
+                    if dry:
+                        print(f"would delete {label}", flush=True)
+                        continue
+                    try:
+                        # DELETE does not require the request to still be pending: re-read it so one
+                        # approved or declined since the listing is kept.
+                        if call("GET", f"/request/{req['id']}")["status"] != 1:
+                            print(f"skip {label}: no longer pending", flush=True)
+                            skipped += 1
+                            continue
                         call("DELETE", f"/request/{req['id']}")
-                print(f"{len(stale)} pending requests older than {os.environ['MAX_AGE_DAYS']} days{' (dry run)' if dry else ' deleted'}")
+                        print(f"deleted {label}", flush=True)
+                        deleted += 1
+                    except urllib.error.HTTPError as err:
+                        # One failure (e.g. a 404 for a request removed meanwhile) must not end the run.
+                        print(f"failed {label}: HTTP {err.code}", flush=True)
+                        failed += 1
+                summary = "(dry run)" if dry else f"deleted {deleted}, skipped {skipped}, failed {failed}"
+                print(f"{len(stale)} pending requests older than {os.environ['MAX_AGE_DAYS']} days: {summary}", flush=True)
             resources:
               requests:
                 cpu: 10m
