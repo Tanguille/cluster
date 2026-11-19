@@ -27,6 +27,8 @@ spec:
             env:
               MAXTICKRATE: "120"
               TIMEOUT: "300"
+            # Wraps the image's /init.sh to drop FicsitRemoteMonitoring when it crash-loops the server.
+            command: [/bin/bash, /scripts/start.sh]
             securityContext: &sc
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
@@ -59,10 +61,7 @@ spec:
             image: *image
             env:
               # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
-              # FicsitRemoteMonitoring segfaults the server at boot since the game update
-              # (porisius/FicsitRemoteMonitoring#330). Re-add it once fixed: its port, routes,
-              # exporter and restart.yaml stay in place.
-              MODS: InfiniteZoop SS_Mod LoadBalancers InfiniteNudge EfficiencyCheckerMod
+              MODS: InfiniteZoop SS_Mod LoadBalancers InfiniteNudge EfficiencyCheckerMod FicsitRemoteMonitoring
               FICSIT_VERSION: v0.7.1
               FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
               HOME: /tmp/ficsit
@@ -128,8 +127,9 @@ spec:
         name: satisfactory-scripts
         advancedMounts:
           satisfactory:
-            mods:
+            app: &scripts
               - path: /scripts
                 readOnly: true
+            mods: *scripts
       config:
         existingClaim: *app

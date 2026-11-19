@@ -2,6 +2,7 @@
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
 # The 06:00 UTC in-process session reload can leave FRM bound to the destroyed world ("World not ready",
 # porisius/FicsitRemoteMonitoring#313); only a process restart recovers it. Delete once #313 is fixed.
+# The new pod is also the daily retry of an FRM that scripts/start.sh removed.
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# New pod: FicsitRemoteMonitoring gets a fresh try, see start.sh.
+rm -f /config/.frm-starts
+
 # First start: steamcmd hasn't installed the game yet, so mods land on the next restart.
 if [[ ! -f /config/gamefiles/FactoryServer.sh ]]; then
     echo "game not installed yet, skipping mods"
@@ -34,10 +37,6 @@ if ! {
     fi
     echo "WARNING: mod install failed, starting with the mods already in $MODS_DIR" >&2
 fi
-
-# FRM is out of MODS until porisius/FicsitRemoteMonitoring#330 is fixed. ficsit-cli deletes a dropped
-# mod only when `apply` succeeds, so the fallback above would keep the crashing copy. Drop on re-add.
-rm -rf "$MODS_DIR/FicsitRemoteMonitoring" "$MODS_DIR/GameFeatures/FicsitRemoteMonitoring"
 
 # FRM's web server is off by default and headless servers have no console for `/frm http start`,
 # so force its autostart on. The game rewrites this file, so every start re-asserts it.
