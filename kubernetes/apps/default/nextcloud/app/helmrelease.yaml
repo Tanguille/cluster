@@ -358,10 +358,8 @@ spec:
       enabled: true
       type: cronjob
       cronjob:
-        # 10 (failed stays at the chart default of 5) so a window of silent
-        # skips (e.g. a rollout over the 02:xx slot) stays visible in job
-        # history long enough to diagnose.
-        successfulJobsHistoryLimit: 10
+        failedJobsHistoryLimit: 1
+        successfulJobsHistoryLimit: 2
         affinity:
           podAffinity:
             requiredDuringSchedulingIgnoredDuringExecution:
