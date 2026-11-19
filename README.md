@@ -134,7 +134,7 @@ FlareSolverr · BRRPolice · FileFlows · Qui
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
 Ghostfolio · IT-Tools · PicoShare · DumbAssets · Satisfactory ·
-Fenrir (Moonlight game streaming, namespace games/)
+Fenrir (Moonlight game streaming)
 
 </details>
 
