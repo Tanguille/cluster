@@ -10,12 +10,9 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 2.19.0
+        tag: 3.0.0
       url: oci://ghcr.io/utkuozdemir/charts/nvidia-gpu-exporter
   values:
-    image:
-      # The -nvml variant reads libnvidia-ml in-process instead of spawning nvidia-smi.
-      tag: 1.19.0-nvml@sha256:f95e5097b89aaba66395c7dcbc02f51af740e25b504ccb426e533f60265a7b50
     # The chart requests no nvidia.com/gpu, so the exporter does not take a time-slice from the workloads.
     runtimeClassName: nvidia
     priorityClassName: homelab-critical
