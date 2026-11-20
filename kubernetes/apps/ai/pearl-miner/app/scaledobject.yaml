@@ -25,6 +25,7 @@ spec:
         # S = 15m net export plus the running miner (168 W) and running xmrig (50 W each) added back: start at 200 W, keep at 100 W.
         # Pearl outranks xmrig: it takes the surplus xmrig is using, and xmrig (which reads the raw meter) sheds once the miner's draw shows up.
         # tech_cave_cold (under 18 C, 15m average) adds 10 kW to S so the surplus test passes: the heat is wanted then. A missing sensor counts as warm.
+        # Without a P1 reading the whole surplus part is 0 (add-backs included), so only the cold-room path can run the miner.
         # It is recorded in kubernetes/apps/web3/monero/guard/prometheusrule.yaml.
         # Also needs: control-1 guard safe and fresh, 64Mi request fits and 2Gi MemAvailable, 2070 free VRAM 2560 MiB to start / 1024 to keep and under 80 C,
         # R9700 junction 5m max under 85 C to start / 90 to keep, UPS 15m max under 70 % to start, 5m max under 85 % to keep.
@@ -33,9 +34,11 @@ spec:
           (
             (
               (
-                -sum(avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]))
-                + 168 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="ai",deployment="pearl-miner"}[15m])) or vector(0))
-                + 50 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="web3",deployment=~"xmrig-.*"}[15m])) or vector(0))
+                ((
+                  -sum(avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]))
+                  + 168 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="ai",deployment="pearl-miner"}[15m])) or vector(0))
+                  + 50 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="web3",deployment=~"xmrig-.*"}[15m])) or vector(0))
+                ) or vector(0))
                 + 10000 * (tech_cave_cold or vector(0))
               ) >= bool (200 - 100 * running)
             )
