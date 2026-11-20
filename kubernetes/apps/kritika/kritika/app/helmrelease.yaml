@@ -150,11 +150,13 @@ spec:
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
-      # Keep default step/token limits: 1M tokens stopped a 98-file PR with 42 files unread.
+      # The default 60 steps and 6M tokens per part left docs and CI parts of 8-ball#62 unsubmitted in 5 reviews.
       agent:
         parts: 16
-        # 60 default steps at omniroute's ~80s p95 per call need over an hour; 45m canceled 98- and 28-file reviews.
-        timeout: 90m
+        steps: 100
+        tokens: 12000000
+        # 100 steps at omniroute's ~80s p95 per call need over 2h; the cap is 2h35m.
+        timeout: 150m
       rules:
         - id: verify-effective-behavior
           rule: >-
