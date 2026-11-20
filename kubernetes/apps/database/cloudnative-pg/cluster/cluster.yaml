@@ -122,9 +122,10 @@ spec:
       max_parallel_workers: "4"
       min_wal_size: 2GB
       max_wal_size: 8GB
-      # All checkpoints are timed (0 requested/day); each one restarts full-page images in the WAL shipped to R2.
+      # None is WAL-driven (10 days of logs); requested ones come from promotions, shutdowns and replica joins. Each checkpoint restarts full-page images in the WAL shipped to R2.
       checkpoint_timeout: 1h
       checkpoint_warning: "60"
+      # on would also pick zstd in this image; explicit avoids a silent fallback on a build without zstd.
       wal_compression: "zstd"
       wal_buffers: 32MB
       # Many small DBs: more aggressive autovacuum + freeze than defaults.
