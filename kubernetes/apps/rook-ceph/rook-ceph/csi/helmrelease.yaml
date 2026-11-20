@@ -27,7 +27,7 @@ spec:
           # Snapshotter 8.7 enables groups by default; both drivers use volumeSnapshot.
           # Drop this arg before switching a driver to volumeGroupSnapshot, or it stays off.
           containerExtraArgs:
-            csi-snapshotter:
+            csi-snapshotter: &csiSnapshotterArgs
               - --feature-gates=CSIVolumeGroupSnapshot=false
         nodePlugin:
           priorityClassName: system-node-critical
@@ -38,6 +38,13 @@ spec:
         log: *csiLog
         controllerPlugin:
           replicas: 2
+          # With this gate on, the provisioner never becomes ready without the ReferenceGrant CRD
+          # (from envoy-gateway) and the RBAC in rbac.yaml.
+          # The operator inherits the defaults' containerExtraArgs only when this map is unset, so repeat the snapshotter arg.
+          containerExtraArgs:
+            csi-snapshotter: *csiSnapshotterArgs
+            csi-provisioner:
+              - --feature-gates=CrossNamespaceVolumeDataSource=true
           # Sidecars idle at <=1m CPU p99 (7d), plugins 39m; container keys left out render as {}.
           resources: &csiControllerResources
             attacher:
