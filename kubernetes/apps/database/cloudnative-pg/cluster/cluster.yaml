@@ -7,7 +7,7 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-standard-trixie@sha256:029885b439d5afb1637d56cc2c75bfcf1a2cb2d2c48837537783d4776eb630c7
+  imageName: ghcr.io/cloudnative-pg/postgresql:19.0-standard-trixie@sha256:e845b0146b37f13d912461b63b1a25ef4bbc6992e19fa2447f6ec001f4ee06e8
   instances: 3
   primaryUpdateMethod: switchover
   # Hostpath PVs pin each instance; a preempted one never returns and deadlocks drains.
@@ -145,12 +145,11 @@ spec:
       # pg_stat_io and pg_stat_wal timings were 0, so IO and fsync stalls were invisible.
       track_io_timing: "on"
       track_wal_io_timing: "on"
-      # Advisory-lock waits reached 9.6 s (kguardian) unlogged; not log_min_duration_statement, it ships literals into logs.
-      log_lock_waits: "on"
+      # log_lock_waits (default on since 19) covers slow lock waits; not log_min_duration_statement, it ships literals into logs.
       # tracearr's TimescaleDB; values from the official README.
       timescaledb.telemetry_level: "off"
-      # TimescaleDB needs more lock slots than the 64 default.
-      max_locks_per_transaction: "128"
+      # TimescaleDB needs more lock slots than the default; 19 halved what a slot holds, so 256 equals 128 on 18.
+      max_locks_per_transaction: "256"
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"
@@ -159,15 +158,17 @@ spec:
     extensions:
       - name: vchord
         image:
+          # Move to a pg19 build before merge; none is published yet.
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
         # vchord-scratch mirrors the base image's install tree, not CNPG's lib/ share/ layout, which never finds vchord.so.
         dynamic_library_path:
-          - /usr/lib/postgresql/18/lib
+          - /usr/lib/postgresql/19/lib
         extension_control_path:
-          - /usr/share/postgresql/18
+          - /usr/share/postgresql/19
       # Community TSL build: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
       - name: timescaledb
         image:
+          # Move to a PG19 build before merge; none is published yet.
           reference: ghcr.io/adampetrovic/timescaledb-cnpg:2.32.0-18-trixie
   resources:
     requests:
@@ -188,8 +189,8 @@ spec:
       isWALArchiver: true
       parameters: &barmanParameters
         barmanObjectName: r2
-        # Bump when restoring from an existing CNPG cluster (new logical server id for backups).
-        serverName: postgres18
+        # Bump on a major upgrade or when restoring from an existing CNPG cluster (new logical server id for backups).
+        serverName: postgres19
   # Recovery from prior cluster: set previousCluster, uncomment bootstrap + externalClusters, align serverName.
   # bootstrap:
   #   recovery:
