@@ -87,19 +87,19 @@ removing three hardcoded numbers that had to stay consistent with `threshold: 50
 The gate itself is a separate factor in the same query: cardinality must be exactly 1 and the
 sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
-A last `unless` drops every miner once the tech cave UPS load has peaked at 85 % or more in
+A last `unless` drops every miner once the tech cave UPS load has peaked at 75 % or more in
 the past 5 minutes; missing UPS data leaves the other factors in charge. It is the first stage
 of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`, together with the
-R9700 dropping to its efficiency power profile (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
+R9700 dropping to its efficiency power profile at 85 % (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
 
 When the tech cave is under 18 C (15 m average) the share is floored at 50W, so every node whose
 own gate is open mines without surplus: the heat is wanted. A missing room sensor counts as warm.
 
 ### Other solar consumers
 
-`ai/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export. xmrig
-slots come first because the miner's query subtracts them; `resourceset.yaml` has no add-back for
-the miner, so xmrig can shed while it runs (replay: 0.28 replica-hours in 14 days).
+`ai/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export and comes
+first: its query counts running xmrig draw as available, and `resourceset.yaml` has no add-back for
+the miner, so xmrig sheds while it runs. xmrig also stops first on UPS load, at 75 % against Pearl's 85 %.
 
 ## Measured
 

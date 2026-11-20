@@ -12,7 +12,7 @@ spec:
         - record: xmrig_guard_deployment_node
           expr: label_replace(xmrig_guard_rank, "deployment", "xmrig-$1", "node", "(.*)")
         # 1 per node that can take a miner (guard safe and the 2Gi request fits beside live non-miner pods), else 0.
-        # The xmrig ScaledObjects rank these for the surplus share; ai/pearl-miner subtracts them all.
+        # The xmrig ScaledObjects rank these for the surplus share.
         # 0/1 rather than filtered so consumers sum it with no `or vector(0)`: a missing rule fails closed.
         - record: xmrig_slot_available
           expr: |-

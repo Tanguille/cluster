@@ -2,7 +2,8 @@
 
 `ai/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
 surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/ai/pearl-miner/app/scaledobject.yaml`)
-raises it to 1. xmrig keeps priority: the gate subtracts every safe xmrig slot from the surplus.
+raises it to 1. Pearl outranks xmrig: the gate counts running xmrig draw as available, and xmrig sheds
+once the miner's draw shows on the meter. On UPS load xmrig stops first (75 %, Pearl at 85 %).
 Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built from the `Tanguille/CPPminer` fork (`ci/cluster-image`,
 keeps the 1% dev fee).
 
@@ -13,14 +14,14 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 
 | factor | start | keep |
 | --- | --- | --- |
-| surplus (15 m net export, miner and xmrig draw added back, safe xmrig slots subtracted), or | 200 W | 100 W |
+| surplus (15 m net export, miner and xmrig draw added back), or | 200 W | 100 W |
 | tech cave temperature, 15 m average | under 18 C | under 18 C |
 | UPS load max | 15 m under 70 % | 5 m under 85 % |
 | 2070 free VRAM | 2560 MiB | 1024 MiB |
 | 2070 temperature | under 80 C | under 80 C |
 | R9700 junction, 5 m max | under 85 C | under 90 C |
 | control-1 guard (`xmrig_guard_safe`) | safe and under 120 s old | same |
-| control-1 memory | 1Gi request fits, 2Gi `MemAvailable` | same |
+| control-1 memory | 64Mi request fits, 2Gi `MemAvailable` | same |
 
 DCGM is disabled in the cluster, so the gate uses `nvidia_smi_*`. A cold room replaces only the
 surplus test (the heat is wanted, so grid power is fine); every other factor still applies, and a
@@ -32,11 +33,12 @@ missing room sensor counts as warm. The room was under 18 C 21 % of the time ove
 Measured offline on the 2070 with `--mock`: 44 to 47 TH/s at about 168 W, 70 C, 1.6 GiB VRAM.
 d3-nano latency goes from about 75 ms to 175 ms while mining (accepted). A 14-day replay of the
 surplus-only gate (2026-11-05 to 2026-11-18, 30 s steps) opens about 0.33 h/day with 19 starts and 7
-cycles in one window, so it can flap. The replay predates the cold-room path, which adds up to the
+cycles in one window, so it can flap. The replay predates Pearl-first priority (it still reserved
+xmrig slots) and the cold-room path, which adds up to the
 21 % of the time the room is under 18 C (still capped by the UPS start rule); its 15 m average
 crossed 18 C 35 times in those 30 days. Power alone allows about 1.4 h/day; the UPS start rule is the binding
 constraint. Add a minimum off time if the trial shows flapping. The UPS rating (750 W) is an
-assumption. xmrig loses about 0.28 replica-hours in 14 days, and the R9700 balanced profile
+assumption. xmrig gives way whenever the miner runs, and the R9700 balanced profile
 (`amdgpu-undervolt`) loses time while the miner runs. Revenue is unmeasured.
 
 ## Alerts
