@@ -60,7 +60,7 @@ spec:
               - secretRef:
                   name: tracearr-secret
             probes:
-              liveness:
+              liveness: &probes
                 enabled: true
                 custom: true
                 spec:
@@ -70,16 +70,7 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
-              readiness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /health
-                    port: http
-                  periodSeconds: 30
-                  timeoutSeconds: 5
-                  failureThreshold: 5
+              readiness: *probes
               startup:
                 enabled: true
                 spec:
@@ -126,7 +117,7 @@ spec:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: Tracearr
           gethomepage.dev/description: Streaming access metrics for Plex, Jellyfin and Emby
-          gethomepage.dev/group: Media
+          gethomepage.dev/group: Library
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

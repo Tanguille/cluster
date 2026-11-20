@@ -1,7 +1,7 @@
 # Embedder: CPU vs iGPU (Vulkan)
 
-Decision record for how the Vulkan embedders run on the iGPU nodes, and why the
-GTT leak is handled by native pod-lifetime recycling rather than moving off the GPU.
+Decision record for how the Vulkan embedders ran on the iGPU nodes, and why the
+GTT leak was handled by native pod-lifetime recycling rather than moving off the GPU.
 
 ## Context
 
@@ -46,30 +46,28 @@ Same model and settings on both sides; only the accelerator differs.
 
 ## Decision
 
-CPU is 5–35× slower — not worth the regression. **PR #4082 closed.** The iGPU
-stays, along with the nodeSelectors / affinity rules that only make sense while
-the embedders are GPU-pinned.
+CPU is 5–35× slower — not worth the regression. **PR #4082 closed.** The
+embedders stayed on the iGPU until the 2026-11-15 move to the RTX 2070.
 
-The leak is bounded by LLMKube's native `maxPodLifetimeSeconds: 86400` on
+Until 2026-11-15 the leak was bounded by LLMKube's native `maxPodLifetimeSeconds: 86400` on
 `embeddinggemma-2`. This support landed in upstream PR #1182 and has been
 live since chart/CRD 0.9.10. LLMKube copies the lifetime to the generated
-Deployment pod template, so each Vulkan embedder is recycled after 24 hours,
+Deployment pod template, so each Vulkan embedder was recycled after 24 hours,
 including startup and model load time, without bespoke controller logic.
 node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
-<2 GiB, and missing GTT telemetry are the burst-leak backstop.
+<2 GiB, and missing GTT telemetry were the burst-leak backstop.
 
 `bge-reranker-v2-m3` and `d3-nano` moved to the RTX 2070 on 2026-11-15, and the
 embedder followed in place under the same name
 ([nvidia-gpu-control-1.md](../nvidia-gpu-control-1.md#llamacpp-services-on-the-2070)); CUDA
-has no GTT, so the lifetime guard ends with the Vulkan embedder.
+has no GTT, so the lifetime guard ended with the Vulkan embedder and the GTT alerts were
+removed on 2026-11-20.
 
 ## Alternatives considered
 
 - **llmkube's native eviction watchdog** (`spec.evictionProtection` + the
-  metal-agent reaper) remains the reactive node-pressure equivalent and could
-  catch burst wedges before the 24-hour lifetime. It is not enabled: the
-  metal-agent DaemonSet isn't deployed (only `controllerManager` is), so it
-  would add a privileged node agent rather than use the existing CRD field.
-- **Upstream driver fix** remains the real resolution: the ggml-Vulkan GTT leak
-  itself (ggml-org/llama.cpp #12531 / #15054, open). Native lifetime recycling
-  is the current mitigation until that leak is fixed.
+  metal-agent reaper) was the reactive node-pressure equivalent. It was not
+  enabled: the metal-agent DaemonSet isn't deployed (only `controllerManager`
+  is), so it would have added a privileged node agent.
+- **Upstream driver fix** for the ggml-Vulkan GTT leak itself
+  (ggml-org/llama.cpp #12531 / #15054, both closed as stale).

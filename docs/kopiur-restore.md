@@ -190,7 +190,7 @@ Large restores (e.g. nextcloud's 50Gi, jellyfin's 28.8GiB) can take 10-30 minute
 `status.phase` transition `Restoring` → `Completed`; `status.conditions[type=Reconciling]`
 tells you if it's actively working or stuck.
 
-### Issue: Mover stuck, no log output, near-zero CPU
+### Issue: Mover stuck, no log output, near-zero CPU (NFS repository only)
 
 **Cause**: repo-wide permission drift — kopia silently retries `PermissionDenied` forever
 instead of erroring. Check `find /repo -type d -not -perm 0775` / `-type f -not -perm 0664`
