@@ -102,6 +102,7 @@ spec:
           name: tracearr-db
   postgresql:
     parameters:
+      # CNPG defaults to logical; nothing here uses logical replication and replica writes less WAL.
       wal_level: replica
       # Pool ceilings are per database and user (rw 3x20, session 2x20 each), so they sum above this across ~19 databases; demand bounds it (30d peak 104 backends).
       max_connections: "150"
@@ -117,9 +118,8 @@ spec:
       maintenance_work_mem: 512MB
       # Default -1 lets each of the 3 autovacuum workers take maintenance_work_mem; 128MB covers these small DBs.
       autovacuum_work_mem: 128MB
+      # CNPG defaults to 32. Per-gather stays at the default 2: each parallel worker builds its own relcache and work_mem; tracearr's chunk relcache is ~0.7GiB per backend.
       max_parallel_workers: "4"
-      # Each parallel worker builds its own relcache and work_mem; tracearr's chunk relcache is ~0.7GiB per backend.
-      max_parallel_workers_per_gather: "2"
       min_wal_size: 2GB
       max_wal_size: 8GB
       # All checkpoints are timed (0 requested/day); each one restarts full-page images in the WAL shipped to R2.
@@ -141,6 +141,7 @@ spec:
       random_page_cost: "1.1"
       effective_io_concurrency: "200"
       maintenance_io_concurrency: "200"
+      # ~5,400 distinct statements tracked; the 5000 default would evict.
       pg_stat_statements.max: "7500"
       # pg_stat_io and pg_stat_wal timings were 0, so IO and fsync stalls were invisible.
       track_io_timing: "on"
