@@ -18,6 +18,17 @@ spec:
       terminationGracePeriodSeconds: 90
       # Terminal tool and headless Chromium run model-directed code.
       runtimeClassName: gvisor
+      # control-1 is a VM that resets a few times a week; keep the agents off it when another node fits.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - control-1
       # No fsGroup: the root entrypoint chowns /opt/data, and Hermes chmods it 0700, so every
       # OnRootMismatch mount re-walked the PVC adding g+rw and ssh then refused the 0660 key.
       securityContext:

@@ -17,5 +17,6 @@ spec:
       APP: *app
       PVC_CAPACITY: 32Gi
       KOPIUR_PUID: "10000"
-      # npm/pnpm/uv/cargo caches, rustup and mise toolchains, Hermes-managed LSP servers: all re-fetched on demand
-      KOPIUR_IGNORE_RULES: "[/lost+found, /.npm/*, /home/.npm/*, /profiles/*/home/.npm/*, /home/.cache/*, /home/.local/share/pnpm/store/*, /home/.local/share/pnpm/package-manager-store/*, /cache/uv/*, /home/.cargo/registry/*, /home/.rustup/toolchains/*, /home/.local/share/mise/installs/*, /lsp/node_modules/*, /profiles/*/lsp/node_modules/*]"
+      # npm/pnpm/uv/cargo caches, rustup and mise toolchains, Hermes-managed LSP servers: all re-fetched on demand.
+      # After a restore also run `pnpm install --frozen-lockfile` in /mo and `uv python install 3.11` (the age tool).
+      KOPIUR_IGNORE_RULES: "[/lost+found, /.npm/*, /home/.npm/*, /profiles/*/home/.npm/*, /home/.cache/*, /home/.local/share/pnpm/store/*, /home/.local/share/pnpm/package-manager-store/*, /cache/uv/*, /home/.cargo/registry/*, /home/.rustup/toolchains/*, /home/.local/share/mise/installs/*, /lsp/node_modules/*, /profiles/*/lsp/node_modules/*, /mo/node_modules/*, /home/.local/share/uv/python/*]"
