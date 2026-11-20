@@ -30,6 +30,9 @@ spec:
       key: KOPIA_PASSWORD
   credentialProjection:
     allowed: true
+  # Movers and their caches run in kopiur-system; needs the CrossNamespaceVolumeDataSource gate (talos + RBD provisioner).
+  execution:
+    mode: Central
   maintenance:
     schedule:
       quick:
