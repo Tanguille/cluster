@@ -61,7 +61,7 @@ spec:
                     port: 18089
                   periodSeconds: 30
                   # app-template defaults (timeoutSeconds: 1, failureThreshold: 3) kill a healthy
-                  # node about 60s into a restricted-RPC stall (sync bursts on the 150Gi Ceph RBD):
+                  # node about 60s into a restricted-RPC stall (sync bursts on the 300Gi Ceph RBD):
                   # 4 liveness kills in 6 minutes on 2026-11-18 after the 166106b rollout.
                   # 10s per probe and 5 failures tolerate about 130s.
                   timeoutSeconds: 10
@@ -79,7 +79,7 @@ spec:
                   failureThreshold: 60
     defaultPodOptions:
       priorityClassName: low-priority-chain
-      # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s
+      # monerod flushes chain data to the 300Gi PVC on shutdown; the 30s
       # default risks killing it mid-write.
       terminationGracePeriodSeconds: 120
       # Started as 1000, the entrypoint skips its root chown + su-exec.
@@ -108,7 +108,7 @@ spec:
       data:
         storageClass: ceph-block
         accessMode: ReadWriteOnce
-        size: 150Gi
+        size: 300Gi
         retain: true
         globalMounts:
           - path: /home/monero/.bitmonero
