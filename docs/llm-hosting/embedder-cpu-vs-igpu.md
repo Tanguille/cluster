@@ -70,4 +70,4 @@ removed on 2026-11-20.
   enabled: the metal-agent DaemonSet isn't deployed (only `controllerManager`
   is), so it would have added a privileged node agent.
 - **Upstream driver fix** for the ggml-Vulkan GTT leak itself
-  (ggml-org/llama.cpp #12531 / #15054, both closed as completed).
+  (ggml-org/llama.cpp #12531 / #15054, both auto-closed as stale, unfixed).
