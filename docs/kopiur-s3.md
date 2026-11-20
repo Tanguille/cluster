@@ -51,7 +51,7 @@ An unsigned `curl https://s3.${SECRET_DOMAIN}:9000/` must complete TLS verificat
 return S3 `AccessDenied` (HTTP 403); do not use `-k` or `--resolve` for this check.
 
 S3 is pod traffic, unlike the kubelet's NFS mounts, so `moverDefaults.podLabels` grants
-movers the `egress.home.arpa/lan: allow` exception that `default`, `games` and `media` require.
+movers the `egress.home.arpa/lan: allow` exception that `default`, `games`, `maker` and `media` require.
 It is that LAN exception, not a restriction to port 9000. Browse sessions ignore
 `podLabels`, so run `kubectl kopiur` browse, `ls` and `download` in `kopiur-system`.
 Kopiur's [TLS configuration](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mod.rs#L242)

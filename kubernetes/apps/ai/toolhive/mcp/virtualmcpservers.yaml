@@ -16,7 +16,7 @@ spec:
     spec:
       # The 30s default is shorter than the drain (shutdown waits on 20s backend health checks): exit 137 mid-drain.
       terminationGracePeriodSeconds: 60
-      # Evicted before an llmkube model under memory pressure; back in ~1min (re-embed ~30s).
+      # Evicted before an llmkube model under memory pressure; back in ~1min.
       priorityClassName: homelab-important
       # The operator sets readOnlyRootFilesystem, so the optimizer's FTS5 index has
       # nowhere to spill: queries whose sorter exceeds memory fail with "disk I/O
@@ -83,7 +83,7 @@ spec:
         - workload: opnsense
           toolConfigRef:
             name: opnsense
-    # Cold embedding cache takes ~27-35s on the iGPU, past the 30s default.
+    # The embedder's first request on an empty CUDA JIT cache took 27s, near the 30s default.
     # Anchored to embeddingServiceTimeout — same call.
     # `default` covers every backend request, not just session-build;
     # switch to perWorkload if a hung backend's slow failure starts mattering.
@@ -97,7 +97,7 @@ spec:
         healthCheckTimeout: 20s
     optimizer:
       # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
-      # Routes to the LLM gateway (agentgateway) -> existing iGPU embedder instead.
+      # Routes to the LLM gateway (agentgateway) -> existing embedder instead.
       embeddingProvider: openai
       embeddingService: http://agentgateway.ai.svc.cluster.local:4000/v1
       embeddingModel: embeddinggemma-2

@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: media-ingress-allowlist
 spec:
-  # Default-deny ingress for every media pod; per-pod allowlists (flaresolverr) union with it, egress stays open.
+  # Default-deny ingress for every media pod; egress stays open.
   endpointSelector: {}
   ingress:
     # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media).
