@@ -8,14 +8,7 @@ spec:
   concurrency:
     maxConcurrentJobs: 4
   allowedNamespaces:
-    list:
-      - ai
-      - default
-      - games
-      - kopiur-system
-      - maker
-      - media
-      - security
+    all: true
   backend:
     s3:
       bucket: kopiur
@@ -25,11 +18,8 @@ spec:
   encryption:
     passwordSecretRef:
       name: kopia-s3-credentials
-      # Must stay explicit: credentialProjection reads it to know which Secret to copy.
       namespace: kopiur-system
       key: KOPIA_PASSWORD
-  credentialProjection:
-    allowed: true
   # Movers and their caches run in kopiur-system; needs the CrossNamespaceVolumeDataSource gate (talos + RBD provisioner).
   execution:
     mode: Central
@@ -42,13 +32,12 @@ spec:
         cron: 0 3 * * *
         jitter: 1h
   moverDefaults:
-    podLabels:
-      # S3 uses pod networking; default, games and media otherwise deny LAN egress.
-      egress.home.arpa/lan: allow
-    resources:
-      requests:
-        cpu: 50m
-        memory: 128Mi
+    cache:
+      # Cache PVCs are 5Gi (KOPIUR_CAPACITY default); kopia's 5000 MiB per-budget defaults exceed that,
+      # so the sweeper never runs and the cache fills the volume. The metadata budget applies twice:
+      # kopia caps the index-blobs cache at the same size.
+      contentCacheSizeMb: 512
+      metadataCacheSizeMb: 1024
   parameters:
     epoch:
       minDuration: 1h
