@@ -38,6 +38,11 @@ spec:
         log: *csiLog
         controllerPlugin:
           replicas: 2
+          # With this gate on, the provisioner never becomes ready without the ReferenceGrant CRD
+          # (from envoy-gateway) and the RBAC in rbac.yaml.
+          containerExtraArgs:
+            csi-provisioner:
+              - --feature-gates=CrossNamespaceVolumeDataSource=true
           # Sidecars idle at <=1m CPU p99 (7d), plugins 39m; container keys left out render as {}.
           resources: &csiControllerResources
             attacher:
