@@ -23,7 +23,7 @@ spec:
               has passed 85% for over 15 minutes
         - alert: NvidiaVramLow
           # Time-slicing gives the 2070's pods no VRAM isolation: one that grows can OOM the others. The llama.cpp services
-          # hold 4.2 GiB together (docs/nvidia-gpu-control-1.md), so this means a Fenrir session, something new or a leak.
+          # hold 4.2 GiB together (docs/nvidia-gpu-control-1.md), so this means something new or a leak.
           expr: max by (instance) (nvidia_smi_memory_total_bytes - nvidia_smi_memory_used_bytes) / 1048576 < 512
           for: 10m
           labels:
