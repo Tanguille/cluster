@@ -76,8 +76,8 @@ anecdotal source. It says "possible", not "safe for this card".
 
 ## Rollout mechanics (read before changing anything)
 
-- The DaemonSet script runs `apply_gpu_tuning` **once** at pod start, then
-  `exec sleep infinity`. It does not watch the env. A changed
+- The DaemonSet script writes `VOLTAGE_OFFSET_MV` **once** at pod start, then
+  only re-asserts the power cap. It does not watch the env. A changed
   `VOLTAGE_OFFSET_MV` takes effect only when the DaemonSet pod is recreated.
 - Editing the env in the manifest changes the pod template → the DaemonSet's
   default RollingUpdate recreates the pod by itself. No manual pod delete
@@ -109,8 +109,8 @@ cluster-apps --with-source`):
 Confirm it landed:
 
 ```sh
-kubectl -n kube-system logs ds/amdgpu-undervolt | grep VDDGFX
-# expect: set card0 VDDGFX offset to -100mV   (NOT "... failed: wanted")
+kubectl -n kube-system logs ds/amdgpu-undervolt | grep -w vo
+# expect: set vo to -100mV   (NOT "vo failed: wanted" or "write vo=... failed")
 kubectl -n ai exec deploy/qwen38-27b-vllm -- amd-smi metric -m --power | grep -E 'GFX_VOLTAGE|SOCKET'
 ```
 
@@ -165,7 +165,7 @@ anything); no new NaN/garbage outputs reported by users or the gateway logs.
 **Unstable means any of:** `amdgpu: GPU reset`, `ring gfx timeout`,
 `*ERROR* ... page fault`, a Xid-equivalent hang, NPD kernel-event condition on
 the node (`kubectl describe node control-1`), vLLM pod crash/restart, a
-`VDDGFX offset failed` log line, or garbage model output. Any one → roll back
+`vo failed` or `write vo=... failed` log line, or garbage model output. Any one → roll back
 (below), record it, and the plan ends at the previous step.
 
 **Improvement means** (compare same uptime band and same ITL state against
@@ -200,7 +200,7 @@ Seconds-fast, no vLLM impact:
 
 ```sh
 kubectl -n kube-system set env ds/amdgpu-undervolt VOLTAGE_OFFSET_MV=-82
-kubectl -n kube-system logs ds/amdgpu-undervolt | grep VDDGFX   # expect -82mV
+kubectl -n kube-system logs ds/amdgpu-undervolt | grep -w vo   # expect -82mV
 ```
 
 Then make git agree so Flux doesn't re-apply the test value on the next
@@ -209,7 +209,7 @@ says -82 (you were testing with `set env` only), Flux converges by itself
 within 1h and the `set env` above just makes it immediate.
 
 If the GPU is wedged hard enough that the offset write itself fails
-(`VDDGFX offset failed` or the DaemonSet pod stuck), the offset is still
+(`vo failed`, `write vo=... failed` or the DaemonSet pod stuck), the offset is still
 volatile: a node reboot returns the card to stock and the DaemonSet re-applies
 -82 from git on boot. That is the actual worst case and it costs one
 control-1 reboot (jellyfin + vLLM outage, ~minutes, plus the hours-long vLLM

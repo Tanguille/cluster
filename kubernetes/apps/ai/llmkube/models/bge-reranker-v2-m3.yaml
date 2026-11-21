@@ -17,7 +17,6 @@ spec:
     gpu:
       enabled: true
       count: 1
-      vendor: nvidia
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
@@ -29,7 +28,7 @@ spec:
   # mode: rerank auto-appends --reranking --embedding --pooling rank --cache-ram 0; no hand-wired flags.
   mode: rerank
   # Image, runtime class and JIT cache: see d3-nano.
-  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:d8d71f3b200080bfa67d65339cca8af7f3a506ede922323cc0dd35389a2a3534
+  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:936fb902b76d651b1f855ae1a716b9f9ab7ba046b18ba644b4088bf5cdb65c85
   runtimeClassName: nvidia
   env:
     - name: CUDA_CACHE_PATH

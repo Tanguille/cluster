@@ -22,7 +22,6 @@ import threading
 import signal
 import socket
 import statistics
-import sys
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
@@ -520,7 +519,6 @@ def main():
         shutdown_event.set()
         save_log_disk()
         print("Server stopped cleanly.")
-        sys.exit(0)
 
 if __name__ == "__main__":
     main()

@@ -167,11 +167,11 @@ spec:
           - /usr/lib/postgresql/19/lib
         extension_control_path:
           - /usr/share/postgresql/19
-      # Community TSL build: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
+      # Community TSL build from docker/timescaledb: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
       - name: timescaledb
         image:
-          # Move to a PG19 build before merge; none is published yet.
-          reference: ghcr.io/adampetrovic/timescaledb-cnpg:2.32.0-18-trixie
+          # Move to a PG19 build before merge; Timescale has not published one yet.
+          reference: ghcr.io/tanguille/timescaledb:2.32.1-18-trixie
   resources:
     requests:
       cpu: 500m
