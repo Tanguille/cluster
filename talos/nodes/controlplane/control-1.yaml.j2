@@ -48,7 +48,7 @@ rules:
 ---
 # The nvidia extension blacklists its modules (nvidia.conf), so each must be loaded explicitly.
 # nvidia_uvm is the one CUDA needs; nvidia_modeset has no DRM side effect. nvidia_drm with modeset=1
-# is for wolf (kubernetes/apps/games/fenrir), whose compositor renders through GBM on the 2070's
+# is for wolf (kubernetes/apps/games/fenrir, disabled for now), whose compositor renders through GBM on the 2070's
 # render node. It adds a second DRM card next to the R9700, and the squat plugin hands all of
 # /dev/dri to jellyfin, fileflows and vllm: those must keep finding the R9700 as renderD128.
 apiVersion: v1alpha1
