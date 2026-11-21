@@ -52,6 +52,24 @@ spec:
                 [specs.llm-radar-recommend]
                 type = "noul"
                 instructions = "Does this radar candidate (a new model, engine release or deployment change) warrant a Now or Engine Swap recommendation for this homelab's local LLM stack? The state is JSON data with context (the deployed stack and recent radar entries) and item (the candidate). Judge only the supplied evidence. Routine version bumps, models that do not fit our hardware and things we already run do not warrant one."
+
+                # career-ops job eligibility (Hermes scripts/eligibility.mjs); unsure jobs go to a full qwen read.
+                # Rules source: career-ops config/eligibility.yml; keep these in step with it by hand.
+                [specs.job-location]
+                type = "noul"
+                instructions = "Can a person living in Ghent, Belgium take this job? Yes only if it is fully remote and open to people in Belgium or the EU (worldwide, EU, EMEA or Europe), or on-site/hybrid in the Ghent area (Ghent, Antwerp, Bruges, Kortrijk, Leuven, Aalst, Mechelen, Lokeren, Ostend). No if it is limited to another country or region, or on-site/hybrid in any other city, Brussels included."
+
+                [specs.job-other-language]
+                type = "noul"
+                instructions = "Does this job require speaking a language other than English or Dutch, for example German or French? Answer no when the posting only asks for English."
+
+                [specs.job-level-out]
+                type = "noul"
+                instructions = "Is this an intern, junior, graduate, Staff, Principal, Lead, Head, Director, Manager, research or scientist role?"
+
+                [specs.job-work-permit]
+                type = "noul"
+                instructions = "Does this job require a security clearance, a specific non-EU citizenship, or the right to work in the UK or US?"
               LLM_API_KEY: ${LLM_API_KEY}
               EIGHTBALL_API_KEY:
                 valueFrom:
