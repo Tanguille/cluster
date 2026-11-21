@@ -16,7 +16,7 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 | --- | --- | --- |
 | surplus (15 m net export, miner and xmrig draw added back), or | 200 W | 100 W |
 | tech cave temperature, 15 m average | under 18 C | under 18 C |
-| UPS load max | 15 m under 70 % | 5 m under 85 % |
+| UPS load max, 5 m | under 63 % (85 % stop minus the miner's ~22 points) | under 85 % |
 | 2070 free VRAM | 2560 MiB | 1024 MiB |
 | 2070 temperature | under 80 C | under 80 C |
 | R9700 junction, 5 m max | under 85 C | under 90 C |

@@ -146,9 +146,11 @@ spec:
                       ) >= bool 4294967296
                     )
                   )
-                  # UPS stage 1: stop mining at 75 % tech cave UPS load, before web3/pearl-miner (85 %), so xmrig sheds first.
-                  # llmkube/models/ups-load-shed.yaml is the last resort.
-                  unless on() max_over_time(network_ups_tools_ups_load[5m]) >= 75
+                  # UPS stage 1: xmrig stops at 75 % tech cave UPS load while pearl-miner runs, before its own 85 % stop, so xmrig sheds first.
+                  # While pearl is off the ceiling drops to 63 % (pearl's 85 % stop minus its ~22 points), so xmrig never
+                  # holds the UPS above pearl's start level. llmkube/models/ups-load-shed.yaml is the last resort.
+                  unless on() max(max_over_time(network_ups_tools_ups_load[5m]))
+                    >= 63 + 12 * (sum(kube_deployment_status_replicas{namespace="web3",deployment="pearl-miner"}) or vector(0))
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
               # half a miner's draw
