@@ -4,9 +4,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: pearl-miner
-  namespace: &namespace ai
+  namespace: &namespace web3
 spec:
   interval: 30m
-  path: ./kubernetes/apps/ai/pearl-miner/app
+  path: ./kubernetes/apps/web3/pearl-miner/app
   prune: true
   targetNamespace: *namespace

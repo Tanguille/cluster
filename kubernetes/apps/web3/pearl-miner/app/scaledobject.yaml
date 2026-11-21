@@ -30,13 +30,13 @@ spec:
         # Also needs: control-1 guard safe and fresh, 64Mi request fits and 2Gi MemAvailable, 2070 free VRAM 2560 MiB to start / 1024 to keep and under 80 C,
         # R9700 junction 5m max under 85 C to start / 90 to keep, UPS 15m max under 70 % to start, 5m max under 85 % to keep.
         query: >-
-          WITH (running = sum(kube_deployment_status_replicas{namespace="ai",deployment="pearl-miner"}) or vector(0))
+          WITH (running = sum(kube_deployment_status_replicas{namespace="web3",deployment="pearl-miner"}) or vector(0))
           (
             (
               (
                 ((
                   -sum(avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]))
-                  + 168 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="ai",deployment="pearl-miner"}[15m])) or vector(0))
+                  + 168 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="web3",deployment="pearl-miner"}[15m])) or vector(0))
                   + 50 * (sum(avg_over_time(kube_deployment_status_replicas{namespace="web3",deployment=~"xmrig-.*"}[15m])) or vector(0))
                 ) or vector(0))
                 + 10000 * (tech_cave_cold or vector(0))
@@ -57,7 +57,7 @@ spec:
             * (
               (
                 min(node_memory_MemAvailable_bytes{kubernetes_node="control-1"})
-                + (sum(container_memory_working_set_bytes{node="control-1",namespace="ai",pod=~"pearl-miner-.*",container!="",container!="POD"}) or vector(0))
+                + (sum(container_memory_working_set_bytes{node="control-1",namespace="web3",pod=~"pearl-miner-.*",container!="",container!="POD"}) or vector(0))
               ) >= bool 2147483648
             )
             * (max(nvidia_smi_memory_free_bytes) / 1048576 >= bool (2560 - 1536 * running))
