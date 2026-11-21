@@ -10,6 +10,10 @@ spec:
     # wolf composites and encodes (NVENC), so it needs the GPU as well as the app container.
     wolf:
       env:
+        # The operator sets UNAME=ubuntu, but wolf:stable runs supervisord as root and exits with
+        # "Can't drop privilege as nonroot user". Later duplicates win, so this overrides it.
+        - name: UNAME
+          value: root
         - name: NVIDIA_DRIVER_CAPABILITIES
           value: all
         - name: NVIDIA_VISIBLE_DEVICES
