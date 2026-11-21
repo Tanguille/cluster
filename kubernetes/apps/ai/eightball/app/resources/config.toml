@@ -1,0 +1,49 @@
+# 8-ball configuration, mounted at /etc/eightball/config.toml (chart default).
+# Reference: https://github.com/Tanguille/8-ball/blob/main/docs/configuration.md
+
+default = "d3"
+
+[endpoints.d3]
+url = "http://d3-nano.ai.svc.cluster.local:8080"
+kind = "systemone"
+
+# An unsure answer is re-asked once on the 27B with thinking off (one token, logprob bands).
+# qwen-3.8-fast is the non-thinking alias; qwen-3.8-auto would call d3-nano for its effort and may think.
+# A failed, slow or over-budget escalation keeps the unsure answer.
+[endpoints.qwen]
+url = "http://agentgateway.ai.svc.cluster.local:4000"
+kind = "logprob"
+model = "qwen-3.8-fast"
+api_key_env = "LLM_API_KEY"
+concurrency = 8
+
+[escalation]
+endpoint = "qwen"
+per_minute = 30
+
+[specs.gitops-investigate]
+type = "noul"
+instructions = "Does this candidate warrant investigating for this homelab? The state is JSON data with context (current inventory and recent recommendations) and item (the candidate). Investigate changes plausibly affecting a component we use, including migrations, breakage, or meaningful operational improvements. Routine version bumps and changes limited to components we do not use do not warrant investigation. Judge only the supplied evidence."
+
+[specs.llm-radar-recommend]
+type = "noul"
+instructions = "Does this radar candidate (a new model, engine release or deployment change) warrant a Now or Engine Swap recommendation for this homelab's local LLM stack? The state is JSON data with context (the deployed stack and recent radar entries) and item (the candidate). Judge only the supplied evidence. Routine version bumps, models that do not fit our hardware and things we already run do not warrant one."
+
+# career-ops job eligibility (Hermes scripts/eligibility.mjs); unsure jobs go to a full qwen read.
+# Rules source: career-ops config/eligibility.yml; keep these in step with it by hand.
+[specs.job-location]
+type = "noul"
+instructions = "Can a person living in Ghent, Belgium take this job? Yes only if it is fully remote and open to people in Belgium or the EU (worldwide, EU, EMEA or Europe), or on-site/hybrid in the Ghent area (Ghent, Antwerp, Bruges, Kortrijk, Leuven, Aalst, Mechelen, Lokeren, Ostend). No if it is limited to another country or region, or on-site/hybrid in any other city, Brussels included."
+
+[specs.job-other-language]
+type = "noul"
+instructions = "Does this job require speaking a language other than English or Dutch, for example German or French? Answer no when the posting only asks for English."
+
+[specs.job-level-out]
+type = "noul"
+instructions = "Is this an intern, junior, graduate, Staff, Principal, Lead, Head, Director, Manager, research or scientist role?"
+
+[specs.job-work-permit]
+type = "noul"
+instructions = "Does this job require a security clearance, a specific non-EU citizenship, or the right to work in the UK or US?"
+

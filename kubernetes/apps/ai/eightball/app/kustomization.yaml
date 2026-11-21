@@ -6,3 +6,12 @@ resources:
   - grafanadashboard.yaml
   - helmrelease.yaml
   - secret.sops.yaml
+configMapGenerator:
+  - name: eightball-config
+    files:
+      - config.toml=./resources/config.toml
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
