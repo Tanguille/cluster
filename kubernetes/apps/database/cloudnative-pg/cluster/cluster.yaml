@@ -7,7 +7,7 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-standard-trixie@sha256:029885b439d5afb1637d56cc2c75bfcf1a2cb2d2c48837537783d4776eb630c7
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-standard-trixie@sha256:7a9e91495f62115001b305d2a14fbd0fdd259bb48216383555f5434908853bf6
   instances: 3
   primaryUpdateMethod: switchover
   # Hostpath PVs pin each instance; a preempted one never returns and deadlocks drains.
@@ -165,10 +165,10 @@ spec:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
-      # Community TSL build: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
+      # Community TSL build from docker/timescaledb: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
       - name: timescaledb
         image:
-          reference: ghcr.io/adampetrovic/timescaledb-cnpg:2.32.0-18-trixie
+          reference: ghcr.io/tanguille/timescaledb:2.32.1-18-trixie
   resources:
     requests:
       cpu: 500m

@@ -6,7 +6,8 @@ metadata:
   name: flux-system-ingress-allowlist
 spec:
   # Default-deny ingress for the namespace; egress stays default-allow.
-  # flux-system = controllers to the webhook-receiver; observability = vmagent scrapes the PodMonitors, gatus probes;
+  # flux-system = controllers to source-controller (artifacts) and notification-controller (events);
+  # observability = vmagent scrapes the PodMonitors, gatus probes;
   # network = envoy-external fronts flux-webhook, envoy-internal fronts the flux UI.
   endpointSelector: {}
   ingress:

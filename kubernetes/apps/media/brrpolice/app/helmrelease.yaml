@@ -13,6 +13,12 @@ spec:
       url: oci://ghcr.io/zariel/charts/brrpolice
   interval: 1h
   values:
+    extraEnv:
+      - name: BRRPOLICE_FILTERS__ALLOWLIST_PEER_IPS
+        valueFrom:
+          secretKeyRef:
+            name: brrpolice-secret
+            key: QBITTORRENT_PUBLIC_IPV4
     config:
       qbittorrent:
         base_url: http://qbittorrent.media.svc.cluster.local

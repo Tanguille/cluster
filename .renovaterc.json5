@@ -118,6 +118,17 @@
       datasourceTemplate: "github-tags"
     },
     {
+      description: "CNPG Database timescaledb version pin; moves with the extension image so ALTER EXTENSION UPDATE runs",
+      customType: "regex",
+      managerFilePatterns: ["/cloudnative-pg/databases/resourceset\\.yaml$/"],
+      matchStrings: [
+        'name: timescaledb\\n\\s+version: "(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
+      ],
+      depNameTemplate: "ghcr.io/tanguille/timescaledb",
+      datasourceTemplate: "docker",
+      extractVersionTemplate: "^(?<version>\\d+\\.\\d+\\.\\d+)-\\d+-trixie$"
+    },
+    {
       description: "Digest-pinned oci:// references",
       customType: "regex",
       managerFilePatterns: ["/\\.ya?ml(?:\\.j2)?$/"],
@@ -206,6 +217,12 @@
         "/obico/"
       ],
       automerge: false
+    },
+    {
+      description: "timescaledb build base is the rolling tag of the PG_MAJOR build arg",
+      matchFileNames: ["docker/timescaledb/Dockerfile"],
+      matchDatasources: ["docker"],
+      enabled: false
     },
     {
       matchPackageNames: ["docker.io/stilldeadcode/radiance"],

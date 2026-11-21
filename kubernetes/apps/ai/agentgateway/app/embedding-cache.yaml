@@ -63,7 +63,7 @@ spec:
                 client_body_buffer_size 16m;
                 location / {
                   proxy_pass http://embeddinggemma-2.ai.svc.cluster.local:8080;
-                  # embeddinggemma-2's 194-item batch is ~7.4s; toolhive gives up at 120s.
+                  # embeddinggemma-2's 194-item batch is ~0.9s; toolhive gives up at 120s.
                   proxy_read_timeout 600s;
                   proxy_cache embeddings;
                   proxy_cache_methods POST;
@@ -77,7 +77,7 @@ spec:
                   proxy_cache_bypass $skip_cache;
                   proxy_no_cache $skip_cache;
                   # MCP sessions initializing together on a cold cache send the same 194-item
-                  # batch; one goes upstream, the rest wait for it. Past one cold batch (~35s).
+                  # batch; one goes upstream, the rest wait for it. Past one cold batch (~27s on an empty CUDA JIT cache).
                   proxy_cache_lock on;
                   proxy_cache_lock_timeout 60s;
                   # Surfaced as the cache_status metric label (agentgateway-metrics policy).

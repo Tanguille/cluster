@@ -89,6 +89,7 @@ spec:
         externalTrafficPolicy: Local
         annotations:
           lbipam.cilium.io/ips: ${SATISFACTORY_IP}
+          coredns.io/hostname: satisfactory.${SECRET_DOMAIN}
         ports:
           game-tcp:
             port: 7777
