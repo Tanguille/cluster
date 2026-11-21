@@ -12,5 +12,8 @@ components:
   # Session pods run Steam: SYS_ADMIN, unconfined seccomp and hostIPC for its bwrap sandbox.
   - ../../components/psa-privileged
 resources:
-  - ./fenrir/ks.yaml
+  # Disabled until a session can start: the operator forces UNAME=ubuntu on wolf, while wolf:stable's
+  # supervisord must run as root, so wolf never starts. A single-pod Sunshine would work, but needs
+  # uinput in control-1's custom kernel build, i.e. an installer rebuild and a control-1 reboot.
+  # - ./fenrir/ks.yaml
   - ./satisfactory/ks.yaml
