@@ -17,7 +17,7 @@ spec:
       # drops are invisible to it — see docs/kopiur-restore.md "Identity").
       # KOPIUR_PUID: "1000"
       # Movers run in kopiur-system (PSA baseline, no privileged-movers annotation), so a root
-      # mover or one with KOPIUR_MOVER_CAPS_ADD is rejected there. Run apps as a non-root uid.
+      # mover is rejected there. Run apps as a non-root uid.
       # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
       # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
       # `kopia policy set <id> --remove-ignore` (not from the kopia browser pod, which reads only the NFS history; use a separate --config-file against S3).
