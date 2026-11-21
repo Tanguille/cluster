@@ -59,8 +59,6 @@ spec:
     populator: {}
   policy:
     onMissingSnapshot: Continue
-  credentialProjection:
-    enabled: true
   mover:
     securityContext:
       runAsUser: <app's real uid>
