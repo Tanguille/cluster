@@ -145,7 +145,7 @@ Continuwuity · Sable · rsume · family-blog
 <details>
 <summary>🎮 <b>Games</b> (namespace <code>games/</code>)</summary>
 
-Satisfactory · Fenrir (Moonlight game streaming)
+Satisfactory
 
 </details>
 
