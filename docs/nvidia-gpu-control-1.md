@@ -161,7 +161,7 @@ vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
 
 ## Pearl solar miner on the 2070
 
-`ai/pearl-miner` is an optional workload: a Deployment at 0 replicas that KEDA raises to 1 on
+`web3/pearl-miner` is an optional workload: a Deployment at 0 replicas that KEDA raises to 1 on
 solar surplus ([gate and thresholds](pearl-solar-mining.md)). It needs about 1.6 GiB of VRAM beside
 the three services, starts only with 2560 MiB free, stops below 1024 MiB, and has no toleration
 (control-1 has no taint). The UPS shed query does not see the 2070's draw, so the gate reads the UPS

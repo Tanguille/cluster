@@ -146,7 +146,7 @@ spec:
                       ) >= bool 4294967296
                     )
                   )
-                  # UPS stage 1: stop mining at 75 % tech cave UPS load, before ai/pearl-miner (85 %), so xmrig sheds first.
+                  # UPS stage 1: stop mining at 75 % tech cave UPS load, before web3/pearl-miner (85 %), so xmrig sheds first.
                   # llmkube/models/ups-load-shed.yaml is the last resort.
                   unless on() max_over_time(network_ups_tools_ups_load[5m]) >= 75
                 ) or vector(0)

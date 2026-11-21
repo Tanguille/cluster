@@ -1,7 +1,7 @@
 # Pearl solar mining on the 2070
 
-`ai/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
-surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/ai/pearl-miner/app/scaledobject.yaml`)
+`web3/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
+surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/web3/pearl-miner/app/scaledobject.yaml`)
 raises it to 1. Pearl outranks xmrig: the gate counts running xmrig draw as available, and xmrig sheds
 once the miner's draw shows on the meter. On UPS load xmrig stops first (75 %, Pearl at 85 %).
 Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built from the `Tanguille/CPPminer` fork (`ci/cluster-image`,
@@ -46,18 +46,18 @@ assumption. xmrig gives way whenever the miner runs, and the R9700 balanced prof
 `PearlMinerEnforcementBypassed` fires when the miner runs while a safety factor is unmet.
 `PearlMinerGpuHot` fires above 85 C. `TechCaveSensorAbsent` fires when the room sensor has been
 missing for 30 min, since the gate then reads the room as warm. The egress policy `pearl-miner-egress` allows kube-dns and the
-public internet only (private ranges excluded, so no LAN), so a compromised miner cannot reach other `ai` pods.
+public internet only (private ranges excluded, so no LAN), so a compromised miner cannot reach other `web3` pods.
 
 ## Stop everything
 
 Flux drops a manually added annotation on its next reconcile, so suspend the Kustomization first.
 
 ```sh
-flux suspend kustomization pearl-miner -n ai
-kubectl -n ai annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas=0 --overwrite
+flux suspend kustomization pearl-miner -n web3
+kubectl -n web3 annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas=0 --overwrite
 # resume
-kubectl -n ai annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas-
-flux resume kustomization pearl-miner -n ai
+kubectl -n web3 annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas-
+flux resume kustomization pearl-miner -n web3
 ```
 
 To remove it for good, revert the commit; Flux prunes it.
