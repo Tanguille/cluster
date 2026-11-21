@@ -16,11 +16,8 @@ spec:
       # never trust the helmrelease's own securityContext alone (entrypoint privilege
       # drops are invisible to it — see docs/kopiur-restore.md "Identity").
       # KOPIUR_PUID: "1000"
-      # Root apps additionally need the capability (backup only, not restore) and the
-      # namespace-level kopiur.home-operations.com/privileged-movers: "true" annotation
-      # (ai composes components/kopiur/privileged-movers plus psa-privileged; default and media
-      # enforce PSA baseline and have neither, so check the target namespace's kustomization.yaml).
-      # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
+      # Movers run in kopiur-system (PSA baseline, no privileged-movers annotation), so a root
+      # mover or one with KOPIUR_MOVER_CAPS_ADD is rejected there. Run apps as a non-root uid.
       # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
       # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
       # `kopia policy set <id> --remove-ignore` (not from the kopia browser pod, which reads only the NFS history; use a separate --config-file against S3).
