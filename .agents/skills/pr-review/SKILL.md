@@ -118,9 +118,9 @@ flate diff hr <name> -n <namespace> -p kubernetes --base origin/main --no-progre
   compares against the latest `main`. When a render line is not in the PR's
   diff, rerun with `--base <merge-base-sha>` from
   `gh api repos/<owner>/<repo>/compare/<base-sha>...<head-sha> --jq .merge_base_commit.sha`.
-- An unchanged render exits 1 with `no HelmRelease named "<name>" in --path
-  or --path-orig`. Check the name and namespace before you read it as "no
-  change".
+- A render that finds no such HelmRelease exits 1 with `no HelmRelease named
+  "<name>" in --path or --path-orig`. Check the name and namespace before
+  you read it as "no change".
 - A render that succeeds proves only that the tag exists and the values fit
   the schema, nothing about runtime. A failure the change caused is a
   finding: a value the chart schema rejects, a template that errors on these
