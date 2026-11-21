@@ -158,7 +158,6 @@ spec:
           failureDomain: host
           replicated:
             size: 2
-            minSize: 1
           parameters:
             compression_mode: aggressive
             compression_algorithm: zstd
@@ -189,12 +188,10 @@ spec:
           metadataPool:
             replicated:
               size: 2
-              minSize: 1
           dataPools:
             - failureDomain: host
               replicated:
                 size: 2
-                minSize: 1
               parameters:
                 compression_mode: aggressive
                 compression_algorithm: zstd
