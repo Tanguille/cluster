@@ -15,7 +15,7 @@ spec:
           # miner without a reason to run, so it fires (the gate is shut then too). Catches KEDA down, a wedged HPA
           # and a manual scale.
           expr: |-
-            kube_deployment_status_replicas{namespace="ai", deployment="pearl-miner"} > 0
+            kube_deployment_status_replicas{namespace="web3", deployment="pearl-miner"} > 0
             unless on ()
             (
               (min(xmrig_guard_safe{node="control-1"}) == 1)
@@ -38,7 +38,7 @@ spec:
           expr: |-
             max(nvidia_smi_temperature_gpu) > 85
             and on ()
-            (kube_deployment_status_replicas{namespace="ai", deployment="pearl-miner"} > 0)
+            (kube_deployment_status_replicas{namespace="web3", deployment="pearl-miner"} > 0)
           for: 5m
           annotations:
             summary: >-

@@ -97,7 +97,7 @@ own gate is open mines without surplus: the heat is wanted. A missing room senso
 
 ### Other solar consumers
 
-`ai/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export and comes
+`web3/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export and comes
 first: its query counts running xmrig draw as available, and `resourceset.yaml` has no add-back for
 the miner, so xmrig sheds while it runs. xmrig also stops first on UPS load, at 75 % against Pearl's 85 %.
 

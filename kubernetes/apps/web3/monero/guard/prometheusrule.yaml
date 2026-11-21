@@ -26,7 +26,7 @@ spec:
                 )
               ) >= bool 2147483648
             )
-        # 1 while the tech cave is under 18 C: miner heat is wanted, so xmrig and ai/pearl-miner run without surplus.
+        # 1 while the tech cave is under 18 C: miner heat is wanted, so xmrig and web3/pearl-miner run without surplus.
         - record: tech_cave_cold
           expr: max(avg_over_time(hass_sensor_temperature_celsius{entity="sensor.techcave_wifi_temperature_humidity_sensor_temperature",job="homeassistant"}[15m])) < bool 18
         - alert: TechCaveSensorAbsent
