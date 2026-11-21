@@ -45,9 +45,11 @@ spec:
         # Skips quota, slo and model-router: blank without GPUQuota, pyrra or router-proxy (the ModelRouter compiles to agentgateway).
         # Skips sglang (no SGLang runtime) and amd-gpu-observability (drm-exporter has its own GPU dashboard).
         # Auto mode publishes the runtime dashboards only while a matching InferenceService exists.
+        # vllm-dashboard covers radiance, which serves through the vllm runtime.
         only:
           - llamacpp-dashboard
           - llmkube-inference
+          - vllm-dashboard
         operator:
           enabled: true
           folder: ai
