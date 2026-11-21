@@ -33,6 +33,8 @@ cluster:
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: "true"
+      # Alpha: kopiur central execution stages backups from PVC snapshots in kopiur-system.
+      feature-gates: CrossNamespaceVolumeDataSource=true
     env:
       # The default 100 let the process hold ~2.4x its live heap (2.5-3.5 GiB RSS); it uses under half a core.
       GOGC: "50"
@@ -45,6 +47,7 @@ cluster:
     image: registry.k8s.io/kube-controller-manager:{{ kubernetesVersion }}
     extraArgs:
       bind-address: 0.0.0.0
+      feature-gates: CrossNamespaceVolumeDataSource=true
   scheduler:
     image: registry.k8s.io/kube-scheduler:{{ kubernetesVersion }}
     extraArgs:

@@ -108,6 +108,7 @@ spec:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
               # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
               # tech_cave_cold floors the share at one miner. It and xmrig_slot_available are recorded in ../guard/prometheusrule.yaml; a missing sensor counts as warm, a missing slot rule closes the gate.
+              # A missing P1 meter counts as 0 W export, so only the surplus share is lost, not the cold-room floor.
               # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
               # Requests sit below usage, so the last term also wants 4Gi really available, counting the miner's own use.
               # A node failing only that term keeps its ranked share, so some surplus goes unmined.
@@ -115,7 +116,7 @@ spec:
                 (
                   clamp_min(
                     clamp_max(
-                      clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0),
+                      (sum(clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0)) or vector(0)),
                       150
                     )
                     - 50 * sum(

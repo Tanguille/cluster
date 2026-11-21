@@ -121,8 +121,6 @@ class CPUObservation:
 
 
 def cpu_value(observation):
-    if not isinstance(observation.host, Source):
-        raise ValueError("host source is required")
     xmrig = observation.xmrig.value if observation.xmrig else 0.0
     return max(0.0, min(100.0, observation.host.value - xmrig))
 

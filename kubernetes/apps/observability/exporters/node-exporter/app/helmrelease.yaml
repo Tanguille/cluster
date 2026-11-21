@@ -18,7 +18,7 @@ spec:
     image:
       distroless: true
     extraArgs:
-      # GTT/VRAM totals for NodeGTTMemoryHigh and DgpuVramLow; GTT is pinned RAM outside memcg, so the embedder leak wedged control-2
+      # VRAM totals for DgpuVramLow
       - --collector.drm
     prometheus:
       monitor:
