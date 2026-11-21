@@ -104,7 +104,7 @@ When a chart version or HelmRelease values change, render from the
 repository root. `-p kubernetes` is required: a namespace directory alone
 finds no HelmRelease, because the `ks.yaml` paths start at the root.
 
-```
+```sh
 flate diff hr <name> -n <namespace> -p kubernetes --base origin/main --no-progress -o diff
 ```
 
