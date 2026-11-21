@@ -18,6 +18,9 @@ spec:
   # The whole token is the list value: `${VAR}` braces break flow-sequence YAML parsing when nested in `[]`.
   # Group follows the uid: every app's uid and gid match.
   mover:
+    cache:
+      capacity: ${KOPIUR_CAPACITY:=5Gi}
+      mode: Persistent
     securityContext:
       runAsUser: ${KOPIUR_PUID:=568}
       runAsGroup: ${KOPIUR_PUID:=568}
@@ -39,5 +42,3 @@ spec:
   files:
     ignoreRules: ${KOPIUR_IGNORE_RULES:=[/lost+found]}
   volumeSnapshotClassName: ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}
-  credentialProjection:
-    enabled: true
