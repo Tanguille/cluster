@@ -6,18 +6,29 @@ kind: User
 metadata:
   name: alex
 spec:
+  volumes:
+    - name: wolf-supervisord
+      configMap:
+        name: wolf-supervisord
+        defaultMode: 0755
   sidecarPolicies:
     # wolf composites and encodes (NVENC), so it needs the GPU as well as the app container.
     wolf:
       env:
-        # The operator sets UNAME=ubuntu, but wolf:stable runs supervisord as root and exits with
-        # "Can't drop privilege as nonroot user". Later duplicates win, so this overrides it.
-        - name: UNAME
-          value: root
         - name: NVIDIA_DRIVER_CAPABILITIES
           value: all
         - name: NVIDIA_VISIBLE_DEVICES
           value: all
+      # See wolf/supervisord.conf: the operator starts wolf as ubuntu, the image expects root.
+      volumeMounts:
+        - name: wolf-supervisord
+          mountPath: /etc/supervisord.conf
+          subPath: supervisord.conf
+          readOnly: true
+        - name: wolf-supervisord
+          mountPath: /etc/cont-init.d/99-stdout.sh
+          subPath: 99-stdout.sh
+          readOnly: true
       resources:
         requests:
           cpu: 100m

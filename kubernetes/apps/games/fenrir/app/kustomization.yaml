@@ -12,3 +12,14 @@ resources:
   - networkpolicy.yaml
   - user.yaml
   - steam.yaml
+configMapGenerator:
+  - name: wolf-supervisord
+    files:
+      - wolf/supervisord.conf
+      - wolf/99-stdout.sh
+    options:
+      annotations:
+        # Plain config and shell: nothing in them is a flux variable.
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
