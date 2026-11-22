@@ -107,6 +107,9 @@ flux resume ks cloudnative-pg-cluster -n database
   The object store has no backup.
 - Redis is Dragonfly db 13. Plane flushes its Redis database on every api start, so never point
   `REDIS_URL` at a shared index.
+- First thing after Plane is up: claim the instance admin at `/god-mode/` (the first visitor can
+  claim it; the route is LAN-only via envoy-internal), then disable public sign-up there before
+  anything else.
 - Mail, sign-up and telemetry are set by hand in `/god-mode/` and live only in the `plane` database.
   SMTP: `smtp-relay.network.svc.cluster.local`, port 25, no auth, no TLS.
 - `SECRET_KEY` in `plane-app-keys` encrypts that configuration: never rotate it.
