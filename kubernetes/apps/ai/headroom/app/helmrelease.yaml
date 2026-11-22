@@ -31,7 +31,7 @@ spec:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
               # slim: the compressors selected below need neither code-aware parsing nor ML extras.
-              tag: 0.44.0-slim-nonroot@sha256:d7fbf2765e84db50b33f55830268535357bce6407309d4622f4c93e81135053d
+              tag: 0.45.0-slim-nonroot@sha256:27e28146913b66bc62232e69eac1bcaec66a47cb4844afa9ce100b638f64bd4d
             # Appended to the image's `headroom proxy` entrypoint, which runs a semantic response
             # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
             # owns rate limits. --no-ccr: HEADROOM_STATELESS leaves no store to retrieve from, and
