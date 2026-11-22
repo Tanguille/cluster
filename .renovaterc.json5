@@ -163,6 +163,12 @@
       automerge: true
     },
     {
+      description: "Plane chart bumps carry the app version and its migrations: merge by hand",
+      matchDatasources: ["helm"],
+      matchPackageNames: ["plane-ce"],
+      automerge: false
+    },
+    {
       description: "Auto-merge GitHub Actions on minor too",
       matchManagers: ["github-actions"],
       matchUpdateTypes: ["minor"],
