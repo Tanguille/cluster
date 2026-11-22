@@ -1,0 +1,27 @@
+---
+# Logfare stealth reviewer: no tool loop, no image input, 24576-token context. Benchmarked against
+# the mesh-organiser #536 and cluster #7199 review replays, it ranked the strongest reviewer of the
+# Logfare lineup. Reached through the omniroute backend's Logfare provider (passthrough model), so
+# no key lives in this repo.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: logfare-stealth-parrot
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-router
+  match:
+    model: logfare/stealth/autistic-parrot
+  provider: Custom
+  custom:
+    # Same omniroute server; the model id passes through to its Logfare provider untouched.
+    # No model rewrite: agentgateway's x-gateway-model copy already carries the full id.
+    backendRef:
+      name: omniroute
+      port: 20128
+    providerOverride: omniroute
+    formats:
+      - type: Completions
+      - type: Messages
