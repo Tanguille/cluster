@@ -13,13 +13,13 @@ Does grid charging at night pay on the fixed day/night tariff?
 - Break-even round-trip efficiency: 0.19998 / 0.25009 = 80 %.
 - Weekend nights have no spread, so only the conversion loss remains.
 
-Estimates, assuming about 2.8 kWh per night on about 185 deficit nights a year:
+Estimates, assuming about 2.8 kWh per night on about 185 deficit nights a year, of which about 130 are weekday nights (gain per the formula) and about 55 are weekend nights (loss only):
 
 | Option | Arbitrage per year | Peak shaving per year |
 |--------|--------------------|-----------------------|
 | Predictive charging off | 0 | 0 |
 | Top-up to the reserve only | 0 | +5 to 20 EUR |
-| Full predictive, every night | about 0 at 85 %, a few EUR at 90 % | +5 to 25 EUR |
+| Full predictive, every night | about 0 at 85 % (+4.6 weekdays, -4.6 weekends), +6 EUR at 90 % | +5 to 25 EUR |
 | Full predictive, Sunday to Thursday nights | +5 EUR at 85 %, +9 EUR at 90 % | +5 to 20 EUR |
 
 The peak-shaving figures are guesses: the battery shaves at most 800 W, worth up to about 45 EUR a year at a capacity tariff of roughly 4 to 5 EUR per kW per month (not looked up). All options are within about 20 EUR a year of each other.
