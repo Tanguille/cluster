@@ -6,6 +6,9 @@ metadata:
   name: &app orbit
   namespace: &namespace default
 spec:
+  dependsOn:
+    - name: cloudnative-pg-databases
+      namespace: database
   path: ./kubernetes/apps/default/orbit/app
   targetNamespace: *namespace
   prune: true

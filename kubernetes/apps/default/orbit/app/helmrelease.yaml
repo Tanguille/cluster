@@ -12,6 +12,8 @@ spec:
 
   values:
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       # Orbit drains for up to 30s after SIGTERM.
       terminationGracePeriodSeconds: 40
       securityContext:
@@ -31,8 +33,12 @@ spec:
             image:
               repository: ghcr.io/coollabsio/orbit
               tag: 0.4.1
-            # SQLite and attachments stay on the image's default paths under /var/lib/orbit.
+            # Attachments stay on the image's default path under /var/lib/orbit.
             env:
+              # Direct to postgres16-rw without TLS (the URL is in orbit-db-secret): Orbit 0.4.1 is built without
+              # Postgres TLS, which the poolers require, and needs session state (advisory locks, LISTEN).
+              # Two pools of this size plus one lock connection: 11 backends at most.
+              ORBIT_DATABASE_MAX_CONNECTIONS: "5"
               ORBIT_PUBLIC_ORIGIN: https://orbit.${SECRET_DOMAIN}
               # Envoy connects from the pod network (networkpolicy.yaml keeps other pods out); loopback is the readiness exec.
               ORBIT_TRUSTED_PROXIES: 127.0.0.1/32,${POD_CIDR}
@@ -43,6 +49,8 @@ spec:
             envFrom:
               - secretRef:
                   name: orbit-secret
+              - secretRef:
+                  name: orbit-db-secret
             probes:
               liveness:
                 enabled: true
