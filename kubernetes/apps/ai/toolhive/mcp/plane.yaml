@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: plane
+spec:
+  image: docker.io/makeplane/plane-mcp-server:v0.3.6@sha256:435df7ccd08aeee1f42222157831a4b8a6bc044de333f501949d9c364a8c7f76
+  # Only stdio reads PLANE_API_KEY; the image's default http transport wants per-request auth headers.
+  transport: stdio
+  args: ["stdio"]
+  groupRef:
+    name: all
+  env:
+    - name: PLANE_BASE_URL
+      value: http://plane-api.default.svc.cluster.local:8000
+    - name: PLANE_WORKSPACE_SLUG
+      value: home
+  # Token of a non-admin Plane user, so admin actions fail server-side.
+  secrets:
+    - name: toolhive-secrets
+      key: PLANE_API_KEY
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
