@@ -1,0 +1,103 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app orbit
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      # Orbit drains for up to 30s after SIGTERM.
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+
+    controllers:
+      orbit:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/coollabsio/orbit
+              tag: 0.4.1
+            # SQLite and attachments stay on the image's default paths under /var/lib/orbit.
+            env:
+              ORBIT_PUBLIC_ORIGIN: https://orbit.${SECRET_DOMAIN}
+              # Envoy connects from the pod network (networkpolicy.yaml keeps other pods out); loopback is the readiness exec.
+              ORBIT_TRUSTED_PROXIES: 127.0.0.1/32,${POD_CIDR}
+              ORBIT_OPEN_REGISTRATION: "false"
+              ORBIT_SMTP_HOST: smtp-relay.network.svc.cluster.local
+              ORBIT_SMTP_SECURITY: none
+              ORBIT_SMTP_FROM: orbit@${SECRET_DOMAIN}
+            envFrom:
+              - secretRef:
+                  name: orbit-secret
+            probes:
+              liveness:
+                enabled: true
+              # Orbit answers 400 https_required to plain HTTP from the kubelet, health paths included.
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["/orbit", "healthcheck"]
+                  timeoutSeconds: 5
+              # Orbit binds only after migrations and the pre-migration backup.
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 512Mi
+
+    service:
+      app:
+        ports:
+          http:
+            port: 8080
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /var/lib/orbit
+            subPath: data
+          # Pre-migration backups and workspace exports.
+          - path: /var/backups/orbit
+            subPath: backups
+      tmp:
+        type: emptyDir
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Orbit
+          gethomepage.dev/description: Tasks, docs & chat
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: mdi-orbit
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
