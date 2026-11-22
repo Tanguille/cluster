@@ -103,6 +103,31 @@ cmp() {
     [ -n "$1" ] && awk -v a="$1" -v b="$3" "BEGIN{exit !(a $2 b)}"
 }
 
+# KFD holds a GFXOFF-disable request on GFX12 while a compute context exists, so a resident model
+# keeps the card at ~11W instead of ~1W (kernel fix 6a1dbb006056, first in 7.4; delete this then).
+# Writing 1 to amdgpu_gfxoff drops one request. The request count is unreadable, so write only
+# after two idle ticks that still report GFXOFF off (state 0), the held signature. KFD retakes the
+# request when the engine restarts, hence the check every tick.
+gfxoff_idle=0
+allow_gfxoff() {
+    dbg=/host-sys/kernel/debug/dri/$(basename "$(readlink -f "$card")")/amdgpu_gfxoff
+    [ -w "$dbg" ] || return 0
+    state=$(dd if="$dbg" bs=4 count=1 2>/dev/null | od -An -tu4 | tr -d ' ') || state=
+    if [ "$(cat "$card/gpu_busy_percent" 2>/dev/null)" != 0 ] || [ "$state" != 0 ]; then
+        gfxoff_idle=0
+        return 0
+    fi
+    gfxoff_idle=$((gfxoff_idle + 1))
+    [ "$gfxoff_idle" -ge 2 ] || return 0
+    # A write that does not take is retried after 20 ticks (10 min), not every tick.
+    gfxoff_idle=-20
+    printf '\001\000\000\000' >"$dbg" || {
+        log "write amdgpu_gfxoff=1 failed"
+        return 0
+    }
+    log "allowed GFXOFF while a model is resident"
+}
+
 # A malformed value would only fail inside the loop under set -u; refuse it up front instead.
 for w in "$EFFICIENCY_WATTS" "$BALANCED_WATTS"; do
     if ! echo "$w" | grep -Eq '^[0-9]+$'; then
@@ -165,6 +190,8 @@ while sleep 30; do
     if [ "$force" = 0 ] && [ -n "$(find /tmp/hold -mmin -60 2>/dev/null)" ]; then
         continue
     fi
+
+    allow_gfxoff
 
     want=efficiency
     [ "$solar" = 1 ] && [ "$ups_block" = 0 ] && want=balanced
