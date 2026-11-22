@@ -146,12 +146,13 @@ spec:
                       ) >= bool 4294967296
                     )
                   )
-                  # UPS stage 1: xmrig stops at 75 % tech cave UPS load while pearl-miner runs, before its own 85 % stop, so xmrig sheds first.
-                  # While pearl is off the ceiling drops to 57 %, 6 points (one xmrig node's step) under pearl's 63 % start level,
-                  # so xmrig re-entering can never push the 5m max to pearl's start level and lock pearl out.
+                  # UPS stage 1 (5m max): xmrig sheds before pearl-miner's 85 % stop. Ceiling 57 % while pearl is off (6 under its 63 % start,
+                  # so xmrig cannot lock it out); 66 % to start / 75 % to keep once pearl has run the whole 5m, so its own step is in the max first.
                   # llmkube/models/ups-load-shed.yaml is the last resort.
                   unless on() max(max_over_time(network_ups_tools_ups_load[5m]))
-                    >= 57 + 18 * (sum(kube_deployment_status_replicas{namespace="web3",deployment="pearl-miner"}) or vector(0))
+                    >= 57 + 9
+                      * (min(min_over_time(kube_deployment_status_replicas{namespace="web3",deployment="pearl-miner"}[5m])) or vector(0))
+                      * (1 + (sum(kube_deployment_status_replicas{namespace="web3",deployment="xmrig-<< inputs.node >>"}) or vector(0)))
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
               # half a miner's draw
