@@ -62,7 +62,7 @@ spec:
                   capabilities:
                     drop:
                       - ALL
-          # The entrypoint's own steps plus a cap: celery otherwise forks one process per node core.
+          # Chart sets no --concurrency, so celery forks one process per node core. Re-check this copy of the entrypoint on chart bumps.
           - target:
               kind: Deployment
               name: plane-worker-wl
@@ -104,7 +104,8 @@ spec:
       local_setup: false
     rabbitmq:
       storageClass: ceph-block
-      volumeSize: 1Gi
+      # Broker queues are small and mostly transient.
+      volumeSize: 100Mi
       assign_cluster_ip: true
     env:
       requireExplicitSecrets: true
