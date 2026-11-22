@@ -195,10 +195,12 @@ spec:
             to merge or not, and name the sources you read. End with the
             release-note entries worth knowing here, patch and digest bumps
             included, each with a line on what it could mean for this
-            repository: a fix for a bug it shows, an option its config could
-            use, a workaround comment that can go. A digest-only bump's
-            rebuild reason is its note. Mark upstream's speedup claims as
-            upstream's. Write "nothing notable" when there is none.
+            repository: a fix for a bug it shows, a workaround comment that
+            can go, or a new feature, API or option that would simplify code
+            or config here (name the file and line it would replace). Notes,
+            not findings. A digest-only
+            bump's rebuild reason is its note. Mark upstream's speedup claims
+            as upstream's. Write "nothing notable" when there is none.
         - id: radiance-bump
           when:
             - expr: pr.headRef.startsWith("renovate/radiance")
