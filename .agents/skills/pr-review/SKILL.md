@@ -51,6 +51,9 @@ and a `!` on a major update should agree with the title. Open
   was rebuilt. On `ghcr.io/home-operations/*` images the revision is a
   `home-operations/containers` commit, not the app's: its diff says what
   changed in the build.
+- `revenz/fileflows` has no source label and no public repository. Its
+  notes are on `https://fileflows.com/docs/versions` per month, not per
+  build: a rebuild inside the month stays unverified, so say so.
 - A note that says "see #2785", on an entry that matters here, is read with
   `gh issue view` or `gh pr view`; take an issue to the merged PR that
   closed it (`gh pr list -R <repo> --search "#<n>" --state merged`).
@@ -82,16 +85,10 @@ something here depends on it.
 
 ### What it means for us
 
-On every update, patch and digest included, end the summary with the
-release-note entries worth knowing here, from the text already read, each
-with one line on what it could mean for this deployment: a fix for a bug the
-app shows here, a new flag, value, metric or feature the config could use, a
-performance or security change on the code path we run. For a digest-only
-update the rebuild reason is the note. Search `kubernetes/` once for
-comments citing the upstream repository's issues: a release that fixes one
-means the workaround can go, so say which line. Mark speedups and quality
-claims as upstream's, not measured here. These are notes, not findings.
-Write "nothing notable" when the release has nothing for us.
+The `renovate` rule asks for the notable release-note entries at the end of
+the summary. Search `kubernetes/` once for comments that cite the upstream
+repository's issues: a release that fixes one means the workaround can go,
+so say which line. These are notes, not findings.
 
 ## A change under `kubernetes/`
 
