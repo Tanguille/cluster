@@ -98,6 +98,31 @@ flux resume ks cloudnative-pg-cluster -n database
 
 ---
 
+## Orbit: first run and MCP
+
+LAN-only (`envoy-internal`). Data is in the `orbit` database on CNPG, attachments and Orbit's pre-migration backups on the `orbit` PVC (kopiur); a restore needs both from the same point in time. Upstream reference: [operations](https://github.com/coollabsio/orbit/blob/main/docs/operations.md), [MCP](https://github.com/coollabsio/orbit/blob/main/docs/mcp.md).
+
+1. Claim the root account right after the first deploy. The one-time setup URL is logged once, by the first pod, and whoever opens it becomes root:
+
+   ```bash
+   kubectl -n default logs deploy/orbit | grep "Initial setup URL"
+   ```
+
+   The token lasts 30 minutes. Missed it: restart the pod after that (`kubectl -n default rollout restart deploy/orbit`) and a new URL is logged.
+
+2. Registration is closed (`ORBIT_OPEN_REGISTRATION=false`); people join by invitation from **Admin → Users**.
+3. Outgoing mail goes through `smtp-relay` (`ORBIT_SMTP_*`), so **Admin → Email** is read-only. Check it there with **Send test email**.
+4. `ORBIT_APP_KEY` (`orbit-secret`) encrypts saved secrets, 2FA and Orbit's own backups. Never rotate it; keep a copy in Vaultwarden.
+5. MCP: clients use `https://orbit.${SECRET_DOMAIN}/mcp` (Streamable HTTP). The URL must be the public origin, Orbit checks `Host`.
+   - Interactive clients: OAuth, for example `claude mcp add --scope user --transport http orbit https://orbit.<domain>/mcp`, then authenticate in `/mcp`.
+   - Headless agents: create a token in **Settings → API tokens** and send `Authorization: Bearer <token>`. Service-account tokens cover tasks only; docs and chat need a personal token.
+
+Postgres: Orbit connects straight to `postgres16-rw` without TLS, because 0.4.1 is built without Postgres TLS and the poolers require it. A `hostnossl ... reject` rule in `pg_hba` would lock it out, and Orbit exits (the pod restarts) when its lock connection drops, for example on a failover. The `orbit` database is its own `Database` manifest: Orbit only accepts builtin `C.UTF-8`.
+
+Every request must arrive through Envoy: Orbit answers `400 https_required` to plain HTTP on the Service, so a `kubectl port-forward` does not work. `orbit-ingress-deny` also blocks every pod but `envoy-internal` from port 8080, in-cluster agents included: they use the public URL.
+
+---
+
 ## Talos: network interface speeds
 
 ```bash
