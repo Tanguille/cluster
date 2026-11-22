@@ -1,0 +1,164 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: plane
+spec:
+  # First install pulls seven images and waits for the migrator Job.
+  timeout: 15m
+  interval: 30m
+  chart:
+    spec:
+      chart: plane-ce
+      version: 1.9.1
+      sourceRef:
+        kind: HelmRepository
+        name: plane
+  # The chart has no knobs for pod labels, security context or the service account token.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: ServiceAccount
+              name: plane-srv-account
+            patch: |-
+              - op: add
+                path: /automountServiceAccountToken
+                value: false
+          # Client grants for the database and dragonfly label gates.
+          - target:
+              name: plane-(api|worker|beat-worker)-wl|plane-api-migrate-.*
+            patch: |-
+              - op: add
+                path: /spec/template/metadata/labels/egress.home.arpa~1postgres
+                value: allow
+              - op: add
+                path: /spec/template/metadata/labels/egress.home.arpa~1dragonfly
+                value: allow
+          - target:
+              kind: Deployment
+              name: plane-live-wl
+            patch: |-
+              - op: add
+                path: /spec/template/metadata/labels/egress.home.arpa~1dragonfly
+                value: allow
+          - target:
+              name: plane-.*-wl|plane-api-migrate-.*
+            patch: |-
+              - op: add
+                path: /spec/template/spec/securityContext
+                value:
+                  seccompProfile:
+                    type: RuntimeDefault
+          # Not rabbitmq: its entrypoint starts as root and needs CHOWN, SETUID and SETGID to drop.
+          - target:
+              name: plane-(web|space|admin|live|api|worker|beat-worker)-wl|plane-api-migrate-.*
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/securityContext
+                value:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                      - ALL
+          # The entrypoint's own steps plus a cap: celery otherwise forks one process per node core.
+          - target:
+              kind: Deployment
+              name: plane-worker-wl
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/command
+                value:
+                  - /bin/bash
+                  - -c
+                  - python manage.py wait_for_db && python manage.py wait_for_migrations && exec celery -A plane worker -l info --concurrency=2
+          - target:
+              kind: StatefulSet
+              name: plane-rabbitmq-wl
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/securityContext
+                value:
+                  allowPrivilegeEscalation: false
+              - op: add
+                path: /spec/template/spec/containers/0/resources
+                value:
+                  requests:
+                    cpu: 50m
+                    memory: 256Mi
+                  limits:
+                    memory: 512Mi
+  values:
+    ingress:
+      enabled: false
+      appHost: plane.${SECRET_DOMAIN}
+    ssl:
+      # Makes WEB_URL and the CORS origin https.
+      externalTermination: true
+    postgres:
+      local_setup: false
+    redis:
+      local_setup: false
+    minio:
+      local_setup: false
+    rabbitmq:
+      storageClass: ceph-block
+      volumeSize: 1Gi
+      assign_cluster_ip: true
+    env:
+      requireExplicitSecrets: true
+      # Browser and pods use this one URL for presigned requests; /plane-uploads routes to the Ceph object store.
+      aws_s3_endpoint_url: https://plane.${SECRET_DOMAIN}
+      aws_region: us-east-1
+      docstore_bucket: plane-uploads
+      api_key_rate_limit: 300/minute
+    external_secrets:
+      # REDIS_URL carries db 13: Plane flushes its Redis database on every api start.
+      app_env_existingSecret: plane-app-env
+      # SECRET_KEY encrypts the instance configuration: never rotate it.
+      app_keys_existingSecret: plane-app-keys
+      live_env_existingSecret: plane-live-env
+      rabbitmq_existingSecret: plane-rabbitmq
+      # Written by the plane-uploads ObjectBucketClaim.
+      storage:
+        secretName: plane-uploads
+        accessKeyIdKey: AWS_ACCESS_KEY_ID
+        secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+    web: &static
+      pullPolicy: IfNotPresent
+      assign_cluster_ip: true
+      cpuRequest: 10m
+      memoryRequest: 32Mi
+      memoryLimit: 128Mi
+    space: *static
+    admin: *static
+    live:
+      pullPolicy: IfNotPresent
+      assign_cluster_ip: true
+      annotations: &reload
+        reloader.stakater.com/auto: "true"
+      cpuRequest: 10m
+      memoryRequest: 128Mi
+      memoryLimit: 512Mi
+    api:
+      pullPolicy: IfNotPresent
+      assign_cluster_ip: true
+      annotations: *reload
+      cpuRequest: 50m
+      cpuLimit: "2"
+      memoryRequest: 512Mi
+      memoryLimit: 1Gi
+    worker:
+      pullPolicy: IfNotPresent
+      annotations: *reload
+      cpuRequest: 50m
+      cpuLimit: "2"
+      memoryRequest: 512Mi
+      memoryLimit: 2Gi
+    beatworker:
+      pullPolicy: IfNotPresent
+      annotations: *reload
+      cpuRequest: 10m
+      memoryRequest: 128Mi
+      memoryLimit: 512Mi

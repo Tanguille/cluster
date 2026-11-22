@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+# Paths from the chart's Ingress. /plane-uploads is served by the Ceph object store's route on this hostname.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: plane
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Plane
+    gethomepage.dev/description: Project management
+    gethomepage.dev/group: Utilities
+    gethomepage.dev/icon: plane.png
+spec:
+  hostnames:
+    - plane.${SECRET_DOMAIN}
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+        - path:
+            type: PathPrefix
+            value: /auth
+        - path:
+            type: PathPrefix
+            value: /static
+      backendRefs:
+        - name: plane-api
+          port: 8000
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /live
+      backendRefs:
+        - name: plane-live
+          port: 3000
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /spaces
+      backendRefs:
+        - name: plane-space
+          port: 3000
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /god-mode
+      backendRefs:
+        - name: plane-admin
+          port: 3000
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: plane-web
+          port: 3000
