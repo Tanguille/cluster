@@ -180,8 +180,10 @@ spec:
             &page=2 when the old version is not in the first 100. When every
             commit is a release (tags like b12627) or the bodies are mostly
             asset lists, read the commit titles once instead (gh api
-            repos/OWNER/REPO/compare/OLD...NEW --jq '.commits[].commit.message
-            | split("\n")[0]'). With no GitHub upstream, try the project's
+            repos/OWNER/REPO/compare/OLD...NEW --jq '.total_commits,
+            (.commits[].commit.message | split("\n")[0])'). The compare lists
+            at most 250 commits: when the first line is larger, name how many
+            titles you did not read. With no GitHub upstream, try the project's
             changelog page and say when none is reachable. Then search this
             repository for uses of the package, including the comments in
             those files, and report each breaking change, deprecation, rename

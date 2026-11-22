@@ -86,9 +86,11 @@ something here depends on it.
 ### What it means for us
 
 The `renovate` rule asks for the notable release-note entries at the end of
-the summary. Search `kubernetes/` once for comments that cite the upstream
-repository's issues: a release that fixes one means the workaround can go,
-so say which line. These are notes, not findings.
+the summary. Do the same on a dependency update that is not a `renovate/` PR,
+and in a local review: each entry with a line on what it could mean here, or
+"nothing notable". Search `kubernetes/` once for comments that cite the
+upstream repository's issues: a release that fixes one means the workaround
+can go, so say which line. These are notes, not findings.
 
 ## A change under `kubernetes/`
 
