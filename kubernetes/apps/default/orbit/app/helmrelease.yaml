@@ -35,7 +35,7 @@ spec:
               tag: 0.4.1
             # Attachments stay on the image's default path under /var/lib/orbit.
             env:
-              # Direct to postgres16-rw without TLS (the URL is in orbit-db-secret): Orbit 0.4.1 is built without
+              # Direct to postgres16-rw without TLS (ORBIT_DATABASE_URL is in orbit-secret): Orbit 0.4.1 is built without
               # Postgres TLS, which the poolers require, and needs session state (advisory locks, LISTEN).
               # Two pools of this size plus one lock connection: 11 backends at most.
               ORBIT_DATABASE_MAX_CONNECTIONS: "5"
@@ -49,8 +49,6 @@ spec:
             envFrom:
               - secretRef:
                   name: orbit-secret
-              - secretRef:
-                  name: orbit-db-secret
             probes:
               liveness:
                 enabled: true
