@@ -106,14 +106,16 @@ cmp() {
 # KFD holds a GFXOFF-disable request on GFX12 while a compute context exists, so a resident model
 # keeps the card at ~11W instead of ~1W (kernel fix 6a1dbb006056, first in 7.4; delete this then).
 # Writing 1 to amdgpu_gfxoff drops one request. The request count is unreadable, so write only
-# after two idle ticks that still report GFXOFF off (state 0), the held signature. KFD retakes the
-# request when the engine restarts, hence the check every tick.
+# after two idle ticks (busy under 10%: a held, resident engine idles at ~3%, not 0) that still
+# report GFXOFF off (state 0), the held signature. KFD retakes the request when the engine
+# restarts, hence the check every tick.
 gfxoff_idle=0
 allow_gfxoff() {
     dbg=/host-sys/kernel/debug/dri/$(basename "$(readlink -f "$card")")/amdgpu_gfxoff
     [ -w "$dbg" ] || return 0
     state=$(dd if="$dbg" bs=4 count=1 2>/dev/null | od -An -tu4 | tr -d ' ') || state=
-    if [ "$(cat "$card/gpu_busy_percent" 2>/dev/null)" != 0 ] || [ "$state" != 0 ]; then
+    busy=$(cat "$card/gpu_busy_percent" 2>/dev/null) || busy=100
+    if ! [ "${busy:-100}" -lt 10 ] || [ "$state" != 0 ]; then
         gfxoff_idle=0
         return 0
     fi
