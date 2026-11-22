@@ -98,6 +98,27 @@ flux resume ks cloudnative-pg-cluster -n database
 
 ---
 
+## Plane
+
+`kubernetes/apps/default/plane` (chart `plane-ce`), MCP server in `kubernetes/apps/ai/toolhive/mcp/plane.yaml`.
+
+- Uploads go to the Ceph object store bucket `plane-uploads`, served same-origin under
+  `https://plane.${SECRET_DOMAIN}/plane-uploads` by the route in the rook-ceph cluster HelmRelease.
+  The object store has no backup.
+- Redis is Dragonfly db 13. Plane flushes its Redis database on every api start, so never point
+  `REDIS_URL` at a shared index.
+- Mail, sign-up and telemetry are set by hand in `/god-mode/` and live only in the `plane` database.
+  SMTP: `smtp-relay.network.svc.cluster.local`, port 25, no auth, no TLS.
+- `SECRET_KEY` in `plane-app-keys` encrypts that configuration: never rotate it.
+
+```bash
+# Route to the object store: expect 403 and an x-amz-request-id header (envoy rewrites error bodies)
+curl -si https://plane.${SECRET_DOMAIN}/plane-uploads/ | grep -iE '^HTTP|x-amz-request-id'
+
+# Remove the bucket (after Plane is gone, before the object store is)
+kubectl -n rook-ceph exec deploy/rook-ceph-tools -- radosgw-admin bucket rm --bucket=plane-uploads --purge-objects
+```
+
 ## Talos: network interface speeds
 
 ```bash
