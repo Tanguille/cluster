@@ -230,4 +230,49 @@ spec:
       enabled: true
       name: csi-ceph-filesystem
       isDefault: false
-    cephObjectStores: []
+    cephObjectStores:
+      - name: ceph-objectstore
+        spec:
+          # Size 2 like the other pools: the chart's 2+1 erasure coding stops serving I/O with one host down.
+          metadataPool:
+            failureDomain: host
+            replicated:
+              size: 2
+          dataPool:
+            failureDomain: host
+            replicated:
+              size: 2
+            parameters:
+              compression_mode: aggressive
+              compression_algorithm: zstd
+          preservePoolsOnDelete: true
+          gateway:
+            # Host network (network.provider), so an unprivileged port. Only S3 credentials gate it.
+            port: 8080
+            instances: 1
+            priorityClassName: homelab-optional
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+        storageClass:
+          enabled: true
+          name: ceph-bucket
+          # Pruning a claim must not delete its bucket.
+          reclaimPolicy: Retain
+          parameters:
+            region: us-east-1
+        # Plane's bucket on Plane's hostname: presigned uploads stay same-origin, so no CORS.
+        route:
+          enabled: true
+          annotations:
+            gatus.home-operations.com/enabled: "false"
+          host:
+            name: plane.${SECRET_DOMAIN}
+            path: /plane-uploads
+            pathType: PathPrefix
+          parentRefs:
+            - name: envoy-internal
+              namespace: network
