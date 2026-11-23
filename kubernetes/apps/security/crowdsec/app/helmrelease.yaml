@@ -89,14 +89,6 @@ spec:
               - meta: target_fqdn
                 expression: evt.Parsed.target_fqdn
         s02-enrich:
-          envoy-418-whitelist.yaml: |-
-            name: hydaz/envoy-418-whitelist
-            description: "Whitelist 418 responses from the envoy bouncer to prevent processing already banned IPs"
-            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
-            whitelist:
-              reason: "envoy bouncer response to already banned ips"
-              expression:
-                - "evt.Meta.http_status == '418'"
           # s02-enrich runs in filename order; this must sort after http-logs.yaml
           spa-api-requests.yaml: |-
             name: hydaz/spa-api-requests
@@ -144,7 +136,7 @@ spec:
           port: 5432
           flush:
             # Cert clients register per pod IP (CN@IP) and every restart leaves a stale row;
-            # cert only: the appsec key bouncer (api-key) never pulls, so an api_key timeout would drop it
+            # cert only: the API-key bouncer registration is reused and must survive gateway downtime
             bouncers_autodelete:
               cert: 24h
             agents_autodelete:
@@ -191,6 +183,11 @@ spec:
         # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
         - name: AGENTS_ALLOWED_OU
           value: agent-ou,appsec-ou
+        - name: BOUNCER_KEY_envoy_wasm
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-wasm
+              key: api-key
       envFrom:
         - secretRef:
             name: crowdsec-secret
@@ -221,7 +218,7 @@ spec:
       # K8s API (pods + pods/log) instead of file-tailing containerd log files, so
       # log capture no longer depends on the host /var/log layout the chart renders.
       additionalAcquisition:
-        # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
+        # Only the gateway the crowdsec-wasm EnvoyExtensionPolicy enforces on; envoy-internal/-tls have no
         # bouncer, so their alerts would ban at the external gateway only.
         # owning-gateway-name is per-gateway (app.kubernetes.io/name is 'envoy' for
         # every gateway), which keeps envoy-external-probe-* out.
