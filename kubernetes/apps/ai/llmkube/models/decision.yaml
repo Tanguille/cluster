@@ -1,9 +1,11 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+# The served decision model (Perplexity Decider Flash v1.3). Swap the model here; the d3-nano Service follows modelRef.
+# Rollback: d3-nano.yaml modelRef -> d3-nano.
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
-  name: pplx-decider-flash-v1-3
+  name: decision
 spec:
   source: https://huggingface.co/fxoz/pplx-decider-flash-v1.3-GGUF/resolve/6ff75cda62a1cbbceda5d0a24b81dab874a28b85/pplx-decider-flash-v1.3-Q4_K_M.gguf
   sha256: be71648b53548959a995f5a4404264d9edefeab775ff51d3b6a14b3b882c7600
