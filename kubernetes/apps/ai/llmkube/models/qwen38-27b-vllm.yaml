@@ -145,6 +145,8 @@ metadata:
   name: qwen38-27b-vllm
 spec:
   modelRef: qwen38-swift-27b-vllm
+  # Kept suspended as the rollback for inkling2-mini.yaml (docs/llm-hosting/inkling2-mini-2026-11.md): the card holds one engine.
+  suspend: true
   # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
   command: [radiance]

@@ -42,11 +42,11 @@ spec:
     - name: cuda-cache
       mountPath: /cuda-cache
       subPath: cuda-cache/d3-nano
-  parallelSlots: 2 # qwen-3.8-auto and eightball can ask at the same time
-  # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
+  parallelSlots: 2 # inkling-2-mini-auto and eightball can ask at the same time
+  # Split across the slots; inkling-2-mini-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
   # vllm-d3 evaluates the whole prompt in one ubatch (default 512; batch already defaults to 2048). A
-  # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
+  # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and inkling-2-mini-auto falls back.
   uBatchSize: 2048
 
   # uid/group choice: see bge-reranker-v2-m3.

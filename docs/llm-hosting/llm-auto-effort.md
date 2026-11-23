@@ -1,14 +1,14 @@
-# Effort routing for `qwen-3.8-auto`
+# Effort routing for `inkling-2-mini-auto`
 
-[`qwen-3.8-auto.yaml`](../../kubernetes/apps/ai/agentgateway/app/models/qwen-3.8-auto.yaml) is a virtual model whose
-`callout` (agentgateway v1.7) asks D3-nano, a decision model, a `choice` question (low, medium or xhigh) at
-llama.cpp's `/v1/systemone`. A `low` below 0.95 counts as `medium`. A surer `low` goes to `qwen-3.8-fast` (thinking
-off, instruct sampling) unless the request has tools, which stays on `qwen-3.8` at `low`; `medium` and `xhigh` go to
-`qwen-3.8`. The effort is merged into the client's `chat_template_kwargs` (`none` when fast), since radiance lets the
-kwargs win over a top-level `reasoning_effort`. D3 answers with per-option probabilities in one forward pass instead
+[`inkling-2-mini-auto.yaml`](../../kubernetes/apps/ai/agentgateway/app/models/inkling-2-mini-auto.yaml) is a virtual
+model whose `callout` (agentgateway v1.7) asks D3-nano, a decision model, a `choice` question (low, medium or xhigh) at
+llama.cpp's `/v1/systemone`. A `low` below 0.95 counts as `medium`; a surer `low` becomes `none` (thinking off) unless
+the request has tools, which stays at `low`. Every request goes to `inkling-2-mini`; the effort is merged into the
+client's `chat_template_kwargs`, since radiance lets the kwargs win over a top-level `reasoning_effort`. Written for
+qwen-3.8 (its former `-fast` split and the measurements below are qwen's). D3 answers with per-option probabilities in one forward pass instead
 of generating text. The decision reads the first user message, minus Hermes's appended `<memory-context>` block, and
-is cached on it for 24 hours, so a conversation keeps one effort and the 27B's prefix cache stays warm. If the callout
-fails, plain `qwen-3.8` answers with the client's effort.
+is cached on it for 24 hours, so a conversation keeps one effort and the model's prefix cache stays warm. If the callout
+fails, plain `inkling-2-mini` answers with the client's effort.
 
 D3-nano runs on llama.cpp directly, not under the vLLM Semantic Router it ships with (#5879): the router's
 golden-reference check needs AVX-512 BF16, which no node has, and it requires a runtime contract llama.cpp does
