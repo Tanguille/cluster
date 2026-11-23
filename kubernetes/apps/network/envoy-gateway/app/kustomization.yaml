@@ -5,22 +5,8 @@ kind: Kustomization
 
 resources:
   - certificate.yaml
-  - crowdsec-wasm-probe.yaml
-  - eep.yaml
+  - extensions.yaml
   - envoy.yaml
   - grafanadashboard.yaml
   - helmrelease.yaml
   - observability.yaml
-
-# The listener policy takes precedence over the gateway-wide error page.
-replacements:
-  - source:
-      kind: EnvoyExtensionPolicy
-      name: eep
-      fieldPath: spec.wasm.[name=eep]
-    targets:
-      - select:
-          kind: EnvoyExtensionPolicy
-          name: crowdsec-wasm-probe
-        fieldPaths:
-          - spec.wasm.[name=eep]

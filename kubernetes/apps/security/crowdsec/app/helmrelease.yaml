@@ -89,14 +89,6 @@ spec:
               - meta: target_fqdn
                 expression: evt.Parsed.target_fqdn
         s02-enrich:
-          envoy-418-whitelist.yaml: |-
-            name: hydaz/envoy-418-whitelist
-            description: "Whitelist 418 responses from the envoy bouncer to prevent processing already banned IPs"
-            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
-            whitelist:
-              reason: "envoy bouncer response to already banned ips"
-              expression:
-                - "evt.Meta.http_status == '418'"
           # s02-enrich runs in filename order; this must sort after http-logs.yaml
           spa-api-requests.yaml: |-
             name: hydaz/spa-api-requests
@@ -144,7 +136,7 @@ spec:
           port: 5432
           flush:
             # Cert clients register per pod IP (CN@IP) and every restart leaves a stale row;
-            # cert only: the appsec key bouncer (api-key) never pulls, so an api_key timeout would drop it
+            # Limit cleanup to certificates so reusable API-key registrations survive gateway downtime.
             bouncers_autodelete:
               cert: 24h
             agents_autodelete:
@@ -191,10 +183,10 @@ spec:
         # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
         - name: AGENTS_ALLOWED_OU
           value: agent-ou,appsec-ou
-        - name: BOUNCER_KEY_envoy_wasm_probe
+        - name: BOUNCER_KEY_envoy_wasm
           valueFrom:
             secretKeyRef:
-              name: crowdsec-wasm-probe
+              name: crowdsec-wasm
               key: api-key
       envFrom:
         - secretRef:
