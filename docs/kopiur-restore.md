@@ -34,6 +34,30 @@ Check `volumeMounts`/`volumes` first for the real PVC `claimName` and mount path
 mount more than one PVC (e.g. nextcloud has a second, unrelated 500Gi NFS volume at the
 "obvious" `/var/www/data` path; the migrated one is elsewhere).
 
+## Verify a Hermes snapshot on a separate claim
+
+For a recovery drill, keep the production claim mounted and the gateway running.
+
+1. Record the production PVC, PV and pod identities. Select a recent `Succeeded` Snapshot
+   with a recorded Kopia snapshot id. Pin its Kubernetes name in a new Restore's
+   `spec.source.snapshotRef.name`. Set `target.populator: {}` and `policy.onMissingSnapshot: Fail`
+   so an empty volume cannot pass the drill. Use the mover uid and gid from the Hermes policy.
+2. Create a separate claim with the production class, access mode and capacity. Its
+   `dataSourceRef` must name the **drill** Restore. Wait for the claim to bind and for the
+   Restore to report both `Completed` and `Ready=True`.
+3. Mount the claim read-only in an isolated helper with the same uid, an empty scratch volume,
+   no service-account token and no network access. Override the image entrypoint so restored
+   cron jobs and messaging adapters never start. Check ownership and private-key permissions
+   without displaying file contents.
+4. Copy each SQLite database and its WAL/SHM companions together to scratch and run
+   `PRAGMA integrity_check` on the copy. Parse the profile settings and schedules, resolve
+   each job's script beneath its owning profile, and validate syntax without executing it.
+   Check the [backup exclusions](../kubernetes/apps/ai/hermes/ks.yaml) separately:
+   a restored lockfile proves dependency metadata survived; rebuilding the excluded runtime
+   or packages on clean scratch verifies that they can actually be recovered.
+5. Remove the drill helper, claim, Restore and network policy. Check that the drill PV and
+   populator staging resources disappear and that the recorded production identities still match.
+
 ## Proper Restore Workflow
 
 ### Step 1: Suspend Kustomization AND HelmRelease
