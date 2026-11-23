@@ -191,6 +191,11 @@ spec:
         # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
         - name: AGENTS_ALLOWED_OU
           value: agent-ou,appsec-ou
+        - name: BOUNCER_KEY_envoy_wasm_probe
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-wasm-probe
+              key: api-key
       envFrom:
         - secretRef:
             name: crowdsec-secret

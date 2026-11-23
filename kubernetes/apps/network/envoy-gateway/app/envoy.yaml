@@ -99,6 +99,10 @@ metadata:
 spec:
   gatewayClassName: envoy
   infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: crowdsec-wasm-probe
     annotations:
       coredns.io/hostname: gatus-probe.${SECRET_DOMAIN}
       lbipam.cilium.io/ips: ${ENVOY_GATUS_PROBE_IP}

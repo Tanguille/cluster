@@ -6,6 +6,8 @@ metadata:
   name: crowdsec
   namespace: &namespace security
 spec:
+  components:
+    - ../../../../components/crowdsec-wasm-probe
   dependsOn:
     - name: cloudnative-pg-databases
       namespace: database

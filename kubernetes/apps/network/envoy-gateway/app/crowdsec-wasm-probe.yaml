@@ -1,0 +1,85 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/envoyproxy_v1alpha1.json
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: crowdsec-wasm-probe
+spec:
+  # Inherit the shared DaemonSet, resources, worker count and probe settings.
+  mergeType: StrategicMerge
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDaemonSet:
+        container:
+          env:
+            - name: CROWDSEC_LAPI_KEY
+              valueFrom: &credential
+                secretKeyRef:
+                  name: crowdsec-wasm-probe
+                  key: api-key
+            - name: CROWDSEC_APPSEC_KEY
+              valueFrom: *credential
+  bootstrap:
+    type: Merge
+    value: |
+      layered_runtime:
+        layers:
+          - name: crowdsec-lapi
+            static_layer:
+              http.async_response_buffer_limit: 67108864
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/envoyextensionpolicy_v1alpha1.json
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: crowdsec-wasm-probe
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-external-probe
+      sectionName: https
+  backends:
+    - name: lapi
+      backendRef:
+        name: crowdsec-service
+        namespace: security
+        port: 8080
+    - name: appsec
+      backendRef:
+        name: crowdsec-appsec-service
+        namespace: security
+        port: 7422
+  wasm:
+    - name: eep # Filled from eep.yaml by Kustomize.
+    - name: crowdsec
+      rootID: crowdsec-http
+      code:
+        type: Image
+        image:
+          # Pin the 0.11.0 child manifest digest verified by the Gateway WASM puller.
+          url: oci://ghcr.io/kariton/crowdsec-wasm-bouncer@sha256:aa36ace04ccf8560c8cb34bad9d4e5750d4edadd34195ed89890c80fa2186b43
+      env:
+        hostKeys:
+          - CROWDSEC_LAPI_KEY
+          - CROWDSEC_APPSEC_KEY
+      failOpen: true
+      config:
+        crowdsec:
+          trusted_ips: ["${POD_CIDR}"]
+          # A background LAPI sync has no route metadata from which to resolve a backend alias.
+          lapi:
+            enabled: true
+            cluster: envoyextensionpolicy/network/crowdsec-wasm-probe/backend/lapi/gateway/network/envoy-external-probe/0
+            host: crowdsec-service.security.svc.cluster.local:8080
+            # The startup stream also carries deletions. Match the bootstrap response buffer.
+            max_body_size_kb: 65536
+            fail_open: true
+          appsec:
+            enabled: true
+            cluster: envoyextensionpolicy/network/crowdsec-wasm-probe/backend/appsec/gateway/network/envoy-external-probe/0
+            host: crowdsec-appsec-service.security.svc.cluster.local:7422
+            async_mode: false
+            fail_open: true
+            forward_body: true

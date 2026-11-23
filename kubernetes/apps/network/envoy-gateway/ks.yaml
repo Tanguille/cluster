@@ -6,6 +6,8 @@ metadata:
   name: envoy-gateway
   namespace: &namespace network
 spec:
+  components:
+    - ../../../../components/crowdsec-wasm-probe
   dependsOn:
     - name: cert-manager
       namespace: cert-manager

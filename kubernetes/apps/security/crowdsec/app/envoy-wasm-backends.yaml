@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/referencegrant_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: ReferenceGrant
+metadata:
+  name: crowdsec-wasm-probe
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: EnvoyExtensionPolicy
+      namespace: network
+  to:
+    - group: ""
+      kind: Service
+      name: crowdsec-service
+    - group: ""
+      kind: Service
+      name: crowdsec-appsec-service
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/backendtlspolicy_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: crowdsec-lapi
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: crowdsec-service
+      sectionName: lapi
+  validation:
+    hostname: crowdsec-service.security.svc.cluster.local
+    # Envoy Gateway reads ca.crt from the leaf Secret on certificate renewal.
+    caCertificateRefs:
+      - group: ""
+        kind: Secret
+        name: crowdsec-lapi-tls
