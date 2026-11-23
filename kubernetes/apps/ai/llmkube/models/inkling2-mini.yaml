@@ -49,7 +49,7 @@ spec:
   # Our own build until radiance ships Inkling (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
   # bench/qualitygate.py (needles with --chat-needles) and prodshape.py --levels 8 (0 preemptions); never an agent or kanban task: the
   # card holds one engine, so a bench means stopping production.
-  image: ghcr.io/tanguille/radiance:inkling2-perf-d847982a@sha256:054d06cb2b194a689eae7d43bc1a7551cfeec41b685c9bcc2e3bfe9846fc2245
+  image: ghcr.io/tanguille/radiance:inkling2-perf608-0602bd10@sha256:f688516b8003ace9144726d866a26664353b796d0f4db3d353902b205db4ee14
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
     waitForIdle: true
