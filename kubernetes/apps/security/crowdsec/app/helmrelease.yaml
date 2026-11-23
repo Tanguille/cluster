@@ -203,6 +203,8 @@ spec:
       priorityClassName: homelab-critical
       # Reads envoy-external pod logs through the K8s API (see rbac.yaml)
       serviceAccountName: crowdsec-agent
+      # Acquisition goes through the K8s API, so the host /var/log hostPath is unused
+      hostVarLog: false
       daemonsetAnnotations:
         reloader.stakater.com/auto: "true"
       startupProbe:
@@ -220,6 +222,8 @@ spec:
         # bouncer, so their alerts would ban at the external gateway only.
         # owning-gateway-name is per-gateway (app.kubernetes.io/name is 'envoy' for
         # every gateway), which keeps envoy-external-probe-* out.
+        # No per-node scoping: every agent tails every matching pod, so API log streams and
+        # events multiply by node count (bans are per-IP, so the duplicates are harmless).
         - source: kubernetes
           namespace: network
           selector: "gateway.envoyproxy.io/owning-gateway-name=envoy-external"
