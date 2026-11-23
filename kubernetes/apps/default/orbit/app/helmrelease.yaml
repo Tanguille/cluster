@@ -107,12 +107,13 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-      # GitHub delivers App webhooks to the origin the app was registered on; Cloudflare skips its blocks for this path (dashboard rule).
+      # Own hostname: a route on both gateways makes k8s-gateway answer the UI host with both IPs, and envoy-external 404s the UI.
+      # Set this host as the GitHub App's webhook URL; Cloudflare skips its blocks for it (dashboard rule).
       webhook:
         annotations:
           gatus.home-operations.com/enabled: "false"
         hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          - "{{ .Release.Name }}-webhook.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-external
             namespace: network
