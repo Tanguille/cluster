@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Test inside the existing KEDA-owned Deployment, never a second worker.
+resources:
+  - ../../app
+
+patches:
+  - patch: |-
+      apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      metadata:
+        name: pearl-miner
+      spec:
+        values:
+          controllers:
+            pearl-miner:
+              containers:
+                app:
+                  image:
+                    tag: sm75-const64-5431ae6d210a6c386fc717782f02cc41f37b8f72@sha256:1f458ac3277f6820077e4d8e269999f9038bb736a6bed09549dbc079f06f6b76
+                  env:
+                    CP_CUDA_CONST64: "0"
+  - target:
+      group: helm.toolkit.fluxcd.io
+      version: v2
+      kind: HelmRelease
+      name: pearl-miner
+    patch: |-
+      - op: add
+        path: /spec/values/controllers/pearl-miner/containers/app/args/-
+        value: --verify
