@@ -18,11 +18,15 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 | surplus (15 m net export, miner and xmrig draw added back), or | 200 W | 100 W |
 | tech cave temperature, 15 m average | under 18 C | under 18 C |
 | UPS load max, 5 m | under 65 % (85 % stop minus its ~15 point step and a margin) | under 85 % |
-| 2070 free VRAM | 2560 MiB | 1024 MiB |
+| 2070 free VRAM | 1776 MiB | 96 MiB |
 | 2070 temperature | under 80 C | under 80 C |
 | R9700 junction, 5 m max | under 85 C | under 90 C |
 | control-1 guard (`xmrig_guard_safe`) | safe and under 120 s old | same |
 | control-1 memory | 64Mi request fits, 2Gi `MemAvailable` | same |
+
+With Flash fully on the GPU, the board had 1787 MiB free with Pearl paused. Starting requires room
+for Pearl’s measured 1668 MiB allocation plus the 96 MiB keep threshold and 12 MiB of margin.
+That leaves an estimated 119 MiB while mining, only 23 MiB above the keep threshold.
 
 DCGM is disabled in the cluster, so the gate uses `nvidia_smi_*`. A cold room replaces only the
 surplus test (the heat is wanted, so grid power is fine); every other factor still applies, and a

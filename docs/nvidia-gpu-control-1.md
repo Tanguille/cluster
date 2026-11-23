@@ -114,8 +114,9 @@ below for comparison; rolling back means pinning that image again.
 
 ### Decider Flash v1.3, 2026-11-23
 
-Both models ran through 8-ball on this RTX 2070 with two slots. Each cell gives correct / wrong / unsure verdicts
-at the default thresholds. The 60 plugin cases cover ad hoc requests, GitOps, model radar and jobs. The 48 external
+Both models ran through 8-ball on this RTX 2070 with two slots. Flash kept its output tensor in host RAM for this first trial.
+The table gives correct / wrong / unsure verdicts at the default thresholds. The 60 plugin cases cover ad hoc requests,
+GitOps, model radar and jobs. The 48 external
 cases use public, teacher-labeled agent traces and incidents. All 108 final Flash requests succeeded with learning
 and escalation off.
 
@@ -127,11 +128,24 @@ and escalation off.
 Flash corrected three wrong plugin decisions and deferred the fourth. Five of its seven external errors were
 urgency or severity ratings. All six synthetic effort-routing probes passed. The Qwen fallback was already suspended.
 
-llama.cpp b12648 keeps the Flash output tensor in system RAM with `--override-tensor output.weight=CPU --load-mode none`.
-The GPU process used 2,836 MiB, up from 2,394 MiB for Nano. With Pearl mining, the lowest observed free VRAM was
-1,367 MiB, 343 MiB above its keep-running threshold. The pod reached its 3 GiB host limit with zero OOM kills.
+We then tested the same Q4_K_M GGUF with the output tensor on the CPU or GPU, using llama.cpp b12648 and
+`--load-mode none`. Pearl was paused for all four passes over the 108 cases (CPU, GPU, GPU, CPU). Every verdict
+matched across passes. The table pools the two passes for each mode.
+
+| Cases | CPU output p50 / p95 | GPU output p50 / p95 |
+| --- | --- | --- |
+| Plugin (60) | 142 / 212 ms | 78 / 135 ms |
+| External (48) | 213 / 270 ms | 149 / 210 ms |
+| All (108) | 179 / 265 ms | 115 / 198 ms |
+
+Flash now runs fully on the GPU. Its process used 4088 MiB after warm-up, up from 2828–2838 MiB with CPU output.
+The board had 1787 MiB free with the miner paused. After rollout, one overlapping request to each of Flash,
+EmbeddingGemma and BGE succeeded. The lowest of 50 GPU readings was 1793 MiB free. Pearl stayed idle because
+UPS load and the R9700 junction temperature blocked startup. See [Pearl's gate](pearl-solar-mining.md#gate) for the mining margin.
+
 With the default HTTP startup check, the first typed request exceeded 8-ball's 20-second timeout. The startup
-probe now posts a typed question before Kubernetes sends traffic. On the cached restart the first plugin request took 312 ms.
+probe now posts a typed question before Kubernetes sends traffic. On a cached restart with CPU output the first
+plugin request took 312 ms.
 
 ### Original D3-nano deployment
 
@@ -159,7 +173,8 @@ the same order, d3 picks the same effort with probabilities within 0.011.
 
 Each process also holds ~110 MiB of CUDA context and ~1 GiB of host RSS (0.3-0.4 GiB anonymous,
 the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM is flat under load.
-`NvidiaVramLow` fires below 512 MiB free: time-slicing gives no VRAM isolation between pods.
+`NvidiaVramLow` fires when total minus used stays below 512 MiB for 10 minutes. Pearl uses the driver's reported
+free memory, which excludes reserved VRAM.
 
 Turing is built only as PTX, so the driver JIT-compiles the kernels: with an empty cache the
 embedder took 59 s to load and 27 s for its first request; with a warm cache 1.3 s and 0.08 s.
@@ -186,7 +201,7 @@ vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
 
 `web3/pearl-miner` is an optional workload: a Deployment at 0 replicas that KEDA raises to 1 on
 solar surplus ([gate and thresholds](pearl-solar-mining.md)). It needs about 1.6 GiB of VRAM beside
-the three services, starts only with 2560 MiB free, stops below 1024 MiB, and has no toleration
+the three services, starts with at least 1776 MiB free, stops below 96 MiB, and has no toleration
 (control-1 has no taint). The UPS shed query does not see the 2070's draw, so the gate reads the UPS
 itself. Metrics come from `nvidia_smi_*`; DCGM is disabled.
 

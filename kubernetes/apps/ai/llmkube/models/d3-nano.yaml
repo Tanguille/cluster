@@ -49,10 +49,7 @@ spec:
   # Flash evaluates each prompt in one physical batch. A 2000-character log plus the question
   # typically fits in 1300 tokens. Above 2048 tokens the effort router falls back.
   uBatchSize: 2048
-  # Keeping the output tensor in host RAM leaves space on the shared 2070 for Pearl.
   extraArgs:
-    - --override-tensor
-    - output.weight=CPU
     - --load-mode
     - none
   # The first typed decision can compile CUDA kernels after the HTTP health check passes.
@@ -91,6 +88,6 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m"
-    # The CPU output tensor and model loading use host RAM alongside the GPU buffers.
+    # Loading the weights also uses host RAM.
     memory: 1536Mi
     memoryLimit: 3Gi
