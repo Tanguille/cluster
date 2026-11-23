@@ -157,6 +157,16 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
+      # Keep the existing job path. A single-file mount leaves the other scripts and the rollback copy on the PVC.
+      cron-health:
+        type: configMap
+        name: hermes-cron-health
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data/scripts/cron_health_export.py
+                subPath: cron_health_export.py
+                readOnly: true
       google-digest:
         type: configMap
         name: hermes-google-digest
