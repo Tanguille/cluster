@@ -1,13 +1,8 @@
 ---
-# ServiceAccount + least-privilege RBAC for the CrowdSec agent's native
-# `source: kubernetes` acquisition: it tails the envoy-external pods' logs in
-# `network` through the K8s API (get/list/watch pods, get pods/log). The agent
-# is a cluster-wide DaemonSet, so the role is scoped to `network` only.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: crowdsec-agent
----
+# Least-privilege RBAC for the CrowdSec agent's native `source: kubernetes` acquisition: it
+# tails the envoy-external pods' logs in `network` through the K8s API (get/list/watch pods,
+# get pods/log). Applied by a Kustomization without targetNamespace, which would otherwise
+# rewrite these to `security`.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

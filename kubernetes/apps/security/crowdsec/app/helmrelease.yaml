@@ -204,7 +204,7 @@ spec:
           enabled: true
     agent:
       priorityClassName: homelab-critical
-      # Reads envoy-external pod logs through the K8s API (see rbac.yaml)
+      # Reads envoy-external pod logs through the K8s API (Role in agent-rbac)
       serviceAccountName: crowdsec-agent
       # Acquisition goes through the K8s API, so the host /var/log hostPath is unused
       hostVarLog: false
@@ -231,8 +231,8 @@ spec:
           namespace: network
           selector: "gateway.envoyproxy.io/owning-gateway-name=envoy-external"
           labels:
-            type: kubernetes
-            program: envoy
+            # The non-syslog parser sets Parsed.program from type; hydaz/envoy-logs needs 'envoy*'
+            type: envoy
       env:
         - name: COLLECTIONS
           value: >-
