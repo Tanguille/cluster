@@ -167,3 +167,18 @@ solar surplus ([gate and thresholds](pearl-solar-mining.md)). It needs about 1.6
 the three services, starts only with 2560 MiB free, stops below 1024 MiB, and has no toleration
 (control-1 has no taint). The UPS shed query does not see the 2070's draw, so the gate reads the UPS
 itself. Metrics come from `nvidia_smi_*`; DCGM is disabled.
+
+## Undervolt (`kube-system/nvidia-undervolt`)
+
+A DaemonSet caps the 2070 at 1500 MHz and applies a +200 MHz GPC clock offset (a lower voltage at the same
+clock; NVML has no direct voltage control) through `libnvidia-ml` from a privileged pod. The settings live
+in the driver, so it reapplies every minute (reboot, driver reload, GPU reset) and clears both on SIGTERM.
+The offset is only stable with the cap: on 2026-11-22 +400 at 1400 MHz was clean, +500 gave Xid 31 and
+crashed the miner, and +300 with the cap lifted to 1560 faulted too. Caps of 1500, 1600 and 1700 MHz with
++100, +150 and +200 were all clean (5/5 miner self-tests, no Xid, identical embedder, reranker and d3-nano
+outputs). At 1500/+200 the miner drew 146 W for 47 TMAC/s against 167 W and 45 TMAC/s at stock, and the
+services stayed near stock latency (rerank of 15 documents p50 323 ms against 302 ms, miner running).
+
+After a crash read `talosctl -n 192.168.0.11 dmesg | grep Xid` (Xid 31 in `cppminer` is the undervolt-too-deep signature). To change the value
+re-run a sweep first: `nvidia-smi -lgc` plus `nvmlDeviceSetGpcClkVfOffset`, raising the offset in 50 MHz
+steps, watching Xids and the miner's hashrate.

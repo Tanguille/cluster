@@ -8,6 +8,7 @@ components:
   - ../../components/psa-privileged
 resources:
   - ./amdgpu-undervolt.yaml
+  - ./nvidia-undervolt.yaml
   - ./priorityclass.yaml
   - ./runtimeclass.yaml
   - ./cilium/ks.yaml
@@ -27,4 +28,10 @@ configMapGenerator:
     options:
       annotations:
         # Shell script, not a flux template: keep postBuild envsubst off it.
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  - name: nvidia-undervolt-scripts
+    files:
+      - nvidia-undervolt.py
+    options:
+      annotations:
         kustomize.toolkit.fluxcd.io/substitute: disabled

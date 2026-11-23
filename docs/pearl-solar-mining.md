@@ -4,7 +4,7 @@
 surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/web3/pearl-miner/app/scaledobject.yaml`)
 raises it to 1. Pearl outranks xmrig: the gate counts running xmrig draw as available, and xmrig sheds
 once the miner's draw shows on the meter. On UPS load xmrig stops first (75 %, Pearl at 85 %).
-Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built daily by the `Tanguille/CPPminer` fork (`cluster-image` branch) from upstream's `cuda` branch
+Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built weekly by the `Tanguille/CPPminer` fork (`cluster-image` branch) from upstream's `cuda` branch
 (`main` and the `vX.Y` tags lack the tensor-core kernels: 13 vs 46 TMAC/s on the 2070) with the 1% dev fee disabled (MIT),
 pushed as `ghcr.io/tanguille/cppminer:<commit date YYYYMMDD.HHMM>`; Renovate bumps the tag.
 
