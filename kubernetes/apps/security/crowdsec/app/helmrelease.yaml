@@ -12,6 +12,10 @@ spec:
         tag: 0.24.3
       url: oci://ghcr.io/crowdsecurity/helm-charts/crowdsec
   interval: 1h
+  # The chart's values.schema.json only knows the k8s-audit webhook for `source: kubernetes`;
+  # the native pod-log kubernetes source is valid CrowdSec config the schema would reject.
+  # The chart renders additionalAcquisition verbatim, so the schema check is dead weight here.
+  disableSchemaValidation: true
   # Chart's CA renews with the leaves (day 60) and cert-manager >=1.18 rotates its key, so leaves
   # signed by the old key break lapi (unknown certificate authority); keep the key, renew rarely.
   postRenderers:
@@ -195,6 +199,8 @@ spec:
           enabled: true
     agent:
       priorityClassName: homelab-critical
+      # Reads envoy-external pod logs through the K8s API (see rbac.yaml)
+      serviceAccountName: crowdsec-agent
       daemonsetAnnotations:
         reloader.stakater.com/auto: "true"
       startupProbe:
@@ -204,14 +210,20 @@ spec:
         requests:
           cpu: 100m
           memory: 128Mi
-      acquisition:
+      # Native kubernetes source: the agent tails the envoy-external pods over the
+      # K8s API (pods + pods/log) instead of file-tailing containerd log files, so
+      # log capture no longer depends on the host /var/log layout the chart renders.
+      additionalAcquisition:
         # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
         # bouncer, so their alerts would ban at the external gateway only.
-        # ????? is the DaemonSet pod suffix, which keeps envoy-external-probe-* out
-        - namespace: network
-          podName: envoy-external-?????
-          program: envoy
-          poll_without_inotify: true
+        # owning-gateway-name is per-gateway (app.kubernetes.io/name is 'envoy' for
+        # every gateway), which keeps envoy-external-probe-* out.
+        - source: kubernetes
+          namespace: network
+          selector: "gateway.envoyproxy.io/owning-gateway-name=envoy-external"
+          labels:
+            type: kubernetes
+            program: envoy
       env:
         - name: COLLECTIONS
           value: >-

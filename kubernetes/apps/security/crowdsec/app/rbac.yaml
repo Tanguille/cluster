@@ -1,0 +1,33 @@
+---
+# ServiceAccount + least-privilege RBAC for the CrowdSec agent's native
+# `source: kubernetes` acquisition: it tails the envoy-external pods' logs in
+# `network` through the K8s API (get/list/watch pods, get pods/log). The agent
+# is a cluster-wide DaemonSet, so the role is scoped to `network` only.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crowdsec-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: crowdsec-agent
+  namespace: network
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crowdsec-agent
+  namespace: network
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: crowdsec-agent
+subjects:
+  - kind: ServiceAccount
+    name: crowdsec-agent
+    namespace: security
