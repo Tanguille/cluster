@@ -76,7 +76,8 @@ class DwellPolicy:
         if not isinstance(value, (int, float)) or not math.isfinite(value) or not isinstance(source_time, datetime):
             self.invalidate()
             return False
-        # Even when a peer repeats its sample, a fresh hot drive trips without dwell.
+        # Dwell-free third state: 3C from the rating, a 60s dwell would spend most of the margin.
+        # Checked before the repeat-sample gate so a stale peer cannot mask a hot drive.
         if self.panic_limit is not None and value >= self.panic_limit:
             self.invalidate()
             return False

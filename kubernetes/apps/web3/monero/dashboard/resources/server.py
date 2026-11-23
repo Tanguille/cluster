@@ -460,9 +460,8 @@ def log_loop():
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
                 price_future = pool_executor.submit(get_xmr_price)
 
-                # KEDA can scale xmrig to 0 replicas, so a
-                # gated-off miner really is 0 H/s. The network and the pool did
-                # not stop when their read blipped, so those carry forward.
+                # KEDA can scale xmrig to 0 replicas, so a gated-off miner really is 0 H/s.
+                # The network and the pool did not stop when their read blipped, so those carry forward.
                 miners = fetch_or(miners_future.result, [])
                 _miners.update(ts=time.time(), list=miners)
                 myHash = sum(m["hashrate"] for m in miners)
