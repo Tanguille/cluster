@@ -9,3 +9,13 @@ resources:
   - ohmgraphite.yaml
   - scrapeconfig.yaml
   - secret.sops.yaml
+
+configMapGenerator:
+  - name: ohmgraphite-dashboard
+    files:
+      - dashboard/ohmgraphite.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
