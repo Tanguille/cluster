@@ -46,7 +46,7 @@ spec:
                 import datetime, json, os, urllib.error, urllib.request
 
                 base = "http://seerr.media.svc.cluster.local:5055/api/v1"
-                dry = os.environ["DRY_RUN"] == "true"
+                dry = os.environ.get("DRY_RUN") != "false"
                 cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=int(os.environ["MAX_AGE_DAYS"]))
 
                 def call(method, path):
@@ -86,11 +86,11 @@ spec:
                         print(f"deleted {label}", flush=True)
                         deleted += 1
                     except urllib.error.HTTPError as err:
-                        # One failure (e.g. a 404 for a request removed meanwhile) must not end the run.
                         print(f"failed {label}: HTTP {err.code}", flush=True)
                         failed += 1
                 summary = "(dry run)" if dry else f"deleted {deleted}, skipped {skipped}, failed {failed}"
                 print(f"{len(stale)} pending requests older than {os.environ['MAX_AGE_DAYS']} days: {summary}", flush=True)
+                raise SystemExit(bool(failed))
             resources:
               requests:
                 cpu: 10m

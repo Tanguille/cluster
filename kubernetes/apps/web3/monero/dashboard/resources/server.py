@@ -67,8 +67,6 @@ XMRIG_MINERS_HOST = os.getenv("XMRIG_MINERS_HOST", "xmrig-miners.web3.svc.cluste
 XMRIG_API_PORT = 42000
 MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.local:18089/json_rpc")
 
-os.makedirs(DATA_DIR, exist_ok=True)
-
 def num(v):
     """Coerce a series value to a finite float.
 
@@ -123,13 +121,8 @@ def get_xmr_price():
         try:
             data = _fetch_json(url)
             if name == "Bitfinex+FX":
-                usd_to_eur = 1.0
-                try:
-                    fx_data = _fetch_json("https://api.frankfurter.app/latest?from=USD&to=EUR")
-                    usd_to_eur = float(fx_data["rates"]["EUR"])
-                except Exception:
-                    pass
-                price = float(data[6]) * usd_to_eur
+                fx_data = _fetch_json("https://api.frankfurter.app/latest?from=USD&to=EUR")
+                price = float(data[6]) * float(fx_data["rates"]["EUR"])
             else:
                 price = parser_func(data)
             if price > 0:
@@ -271,6 +264,7 @@ def load_tier(path, target, keep_missing=False):
 
 def load_log_disk():
     """Load both retention tiers at startup, back-filling the rollup if it is new."""
+    os.makedirs(DATA_DIR, exist_ok=True)
     with log_lock:
         load_tier(LOG_FILE, log)
         load_tier(ROLLUP_FILE, rollup, keep_missing=True)
@@ -466,9 +460,8 @@ def log_loop():
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
                 price_future = pool_executor.submit(get_xmr_price)
 
-                # KEDA scales xmrig to 0 replicas without excess solar, so a
-                # gated-off miner really is 0 H/s. The network and the pool did
-                # not stop when their read blipped, so those carry forward.
+                # KEDA can scale xmrig to 0 replicas, so a gated-off miner really is 0 H/s.
+                # The network and the pool did not stop when their read blipped, so those carry forward.
                 miners = fetch_or(miners_future.result, [])
                 _miners.update(ts=time.time(), list=miners)
                 myHash = sum(m["hashrate"] for m in miners)
@@ -478,11 +471,13 @@ def log_loop():
 
                 price = price_future.result()
 
-                append_log(myHash, poolHash, netHash, price)
-
-                if time.time() - last_save > 300:
-                    save_log_disk()
-                    last_save = time.time()
+                with writer_lock:
+                    if shutdown_event.is_set():
+                        break
+                    append_log(myHash, poolHash, netHash, price)
+                    if time.time() - last_save > 300:
+                        save_log_disk()
+                        last_save = time.time()
 
             except Exception as e:
                 if not shutdown_event.is_set():
@@ -490,6 +485,8 @@ def log_loop():
 
             shutdown_event.wait(10)
 
+# Shutdown waits only for a write already in progress, never for upstream HTTP calls.
+writer_lock = threading.Lock()
 shutdown_event = threading.Event()
 
 class Server(http.server.ThreadingHTTPServer):
@@ -506,19 +503,19 @@ def _sigterm(*_):
 def main():
     # Load old logs before appending new info to prevent the log being overwritten
     load_log_disk()
-    threading.Thread(target=log_loop, daemon=True).start()
     signal.signal(signal.SIGTERM, _sigterm)
-
     print(f"Serving HTTP on 0.0.0.0:{PORT}")
-    try:
-        with Server(("", PORT), Handler) as httpd:
+    with Server(("", PORT), Handler) as httpd:
+        try:
+            threading.Thread(target=log_loop, daemon=True).start()
             httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nCTRL+C received, shutting down cleanly...")
-    finally:
-        shutdown_event.set()
-        save_log_disk()
-        print("Server stopped cleanly.")
+        except KeyboardInterrupt:
+            print("Shutting down cleanly...")
+        finally:
+            shutdown_event.set()
+            with writer_lock:
+                save_log_disk()
+    print("Server stopped cleanly.")
 
 if __name__ == "__main__":
     main()
