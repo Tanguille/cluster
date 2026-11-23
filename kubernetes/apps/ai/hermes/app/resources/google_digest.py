@@ -152,7 +152,6 @@ if __name__ == "__main__":
         except DigestFailure as error:
             print(f"google-digest failed: {error}")
             sys.exit(2)
-        sys.exit(0)
-
-    # Loopback only: the pod's containers share it, nothing outside the pod can reach it.
-    ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+    else:
+        # Loopback only: the pod's containers share it, nothing outside the pod can reach it.
+        ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()

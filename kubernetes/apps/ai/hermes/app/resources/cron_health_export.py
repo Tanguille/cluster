@@ -19,8 +19,7 @@ def load_jobs(home):
     jobs = []
     for profile, path in stores:
         data = json.loads(path.read_bytes())
-        for job in data["jobs"] if isinstance(data, dict) else data:
-            jobs.append((profile, job))
+        jobs += [(profile, job) for job in (data["jobs"] if isinstance(data, dict) else data)]
     return jobs
 
 
@@ -75,15 +74,9 @@ def render(jobs, now):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--print", action="store_true", help="render the current stores without pushing")
-    parser.add_argument("--demo", action="store_true", help="render a synthetic job without reading live state")
     args = parser.parse_args()
-    now = int(time.time())
-    if args.demo:
-        jobs = [("default", {"id": "demo", "last_run_at": now, "last_status": "delivery_failed"})]
-    else:
-        jobs = load_jobs(Path(os.environ.get("HERMES_HOME", "/opt/data")))
-    body = render(jobs, now)
-    if args.print or args.demo:
+    body = render(load_jobs(Path(os.environ.get("HERMES_HOME", "/opt/data"))), int(time.time()))
+    if args.print:
         print(body, end="")
         return
     base = os.environ.get("VM_URL", "http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428")

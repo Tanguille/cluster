@@ -157,7 +157,7 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
-      # Keep the existing job path. A single-file mount leaves the other scripts and the rollback copy on the PVC.
+      # Overlays the job's PVC script path; the PVC copy stays as the rollback.
       cron-health:
         type: configMap
         name: hermes-cron-health
