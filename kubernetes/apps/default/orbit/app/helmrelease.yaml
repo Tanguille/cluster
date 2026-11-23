@@ -107,3 +107,19 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+      # GitHub delivers App webhooks to the origin the app was registered on; Cloudflare skips its blocks for this path (dashboard rule).
+      webhook:
+        annotations:
+          gatus.home-operations.com/enabled: "false"
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+        rules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: /api/v1/integrations/github/webhook
+            backendRefs:
+              - identifier: app
