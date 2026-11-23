@@ -32,7 +32,8 @@ missing room sensor counts as warm. The room was under 18 C 21 % of the time ove
 ## Expected behaviour
 
 Measured offline on the 2070 with `--mock`: 44 to 47 TH/s at about 168 W, 70 C, 1.6 GiB VRAM.
-d3-nano latency goes from about 75 ms to 175 ms while mining (accepted). A 14-day replay of the
+Mining raised the former D3-nano model’s latency from about 75 ms to 175 ms. See the
+[Flash v1.3 measurements](nvidia-gpu-control-1.md#decider-flash-v13-2026-11-23) for the current setup. A 14-day replay of the
 surplus-only gate (2026-11-05 to 2026-11-18, 30 s steps) opens about 0.33 h/day with 19 starts and 7
 cycles in one window, so it can flap. The replay predates Pearl-first priority (it still reserved
 xmrig slots) and the cold-room path, which adds up to the

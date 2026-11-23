@@ -104,18 +104,40 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 
 ## llama.cpp services on the 2070
 
-d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
+Perplexity Decider Flash v1.3 (Service `d3-nano`), bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
 llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
-`server-cuda13` (CUDA 13.4). Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
+`server-cuda13`. Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
 image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
 ([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run v1.19.1 and all
 three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
 below for comparison; rolling back means pinning that image again.
 
-Per process in production after the merge (`nvidia-smi --query-compute-apps` in each pod) and in the
-first CUDA 12.8 pods:
+### Decider Flash v1.3, 2026-11-23
 
-| Service | Flags | VRAM MiB, CUDA 13 (production) | CUDA 12.8 |
+Both models ran through 8-ball on this RTX 2070 with two slots. Each cell gives correct / wrong / unsure verdicts
+at the default thresholds. The 60 plugin cases cover ad hoc requests, GitOps, model radar and jobs. The 48 external
+cases use public, teacher-labeled agent traces and incidents. All 108 final Flash requests succeeded with learning
+and escalation off.
+
+| Cases | D3-nano Q8_0 | Flash Q4_K_M | Nano p50 / p95 | Flash p50 / p95 |
+| --- | --- | --- | --- | --- |
+| Plugin (60) | 42 / 4 / 14 | 51 / 0 / 9 | 52 / 125 ms | 204 / 309 ms |
+| External (48) | 11 / 5 / 32 | 24 / 7 / 17 | 80 / 105 ms | 343 / 478 ms |
+
+Flash corrected three wrong plugin decisions and deferred the fourth. Five of its seven external errors were
+urgency or severity ratings. All six synthetic effort-routing probes passed. The Qwen fallback was already suspended.
+
+llama.cpp b12648 keeps the Flash output tensor in system RAM with `--override-tensor output.weight=CPU --load-mode none`.
+The GPU process used 2,836 MiB, up from 2,394 MiB for Nano. With Pearl mining, the lowest observed free VRAM was
+1,367 MiB, 343 MiB above its keep-running threshold. The pod reached its 3 GiB host limit with zero OOM kills.
+With the default HTTP startup check, the first typed request exceeded 8-ball's 20-second timeout. The startup
+probe now posts a typed question before Kubernetes sends traffic. On the cached restart the first plugin request took 312 ms.
+
+### Original D3-nano deployment
+
+Per-process measurements after the CUDA 13 migration (`nvidia-smi --query-compute-apps` in each pod) and in the first CUDA 12.8 pods:
+
+| Service | Flags | VRAM MiB, CUDA 13 | CUDA 12.8 |
 | --- | --- | --- | --- |
 | embeddinggemma-2 Q8_0 | 8 slots, ubatch 8192, `-fa on` | 1344 | 1388 (weights 144, compute 1088) |
 | bge-reranker-v2-m3 Q8_0 | 4 slots x 2048, `-fa on` | 500 | 510 |
