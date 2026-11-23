@@ -136,7 +136,7 @@ spec:
           port: 5432
           flush:
             # Cert clients register per pod IP (CN@IP) and every restart leaves a stale row;
-            # Limit cleanup to certificates so reusable API-key registrations survive gateway downtime.
+            # cert only: the API-key bouncer registration is reused and must survive gateway downtime
             bouncers_autodelete:
               cert: 24h
             agents_autodelete:
@@ -218,7 +218,7 @@ spec:
       # K8s API (pods + pods/log) instead of file-tailing containerd log files, so
       # log capture no longer depends on the host /var/log layout the chart renders.
       additionalAcquisition:
-        # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
+        # Only the gateway the crowdsec-wasm EnvoyExtensionPolicy enforces on; envoy-internal/-tls have no
         # bouncer, so their alerts would ban at the external gateway only.
         # owning-gateway-name is per-gateway (app.kubernetes.io/name is 'envoy' for
         # every gateway), which keeps envoy-external-probe-* out.
