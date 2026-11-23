@@ -6,7 +6,7 @@ metadata:
   name: orbit-ingress-deny
 spec:
   # ORBIT_TRUSTED_PROXIES is the whole pod CIDR (Envoy pod IPs are not stable), so any pod reaching 8080 could forge X-Forwarded-For/-Proto.
-  # Deny every namespace the default allowlist admits, except envoy-internal (allow rules union, a deny wins).
+  # Deny every namespace the default allowlist admits, except envoy-internal and envoy-external (allow rules union, a deny wins). envoy-external only routes the GitHub webhook path.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: orbit
@@ -26,6 +26,7 @@ spec:
               operator: NotIn
               values:
                 - envoy-internal
+                - envoy-external
       toPorts:
         - ports:
             - port: "8080"
