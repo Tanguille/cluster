@@ -1,0 +1,28 @@
+---
+# Least-privilege RBAC for the CrowdSec agent's native `source: kubernetes` acquisition: it
+# tails the envoy-external pods' logs in `network` through the K8s API (get/list/watch pods,
+# get pods/log). Applied by a Kustomization without targetNamespace, which would otherwise
+# rewrite these to `security`.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: crowdsec-agent
+  namespace: network
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crowdsec-agent
+  namespace: network
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: crowdsec-agent
+subjects:
+  - kind: ServiceAccount
+    name: crowdsec-agent
+    namespace: security
