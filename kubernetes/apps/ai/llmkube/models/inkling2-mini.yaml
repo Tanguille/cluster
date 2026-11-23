@@ -47,7 +47,7 @@ spec:
   runtime: vllm
   command: [radiance]
   # Our own build until radiance ships Inkling (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
-  # bench/qualitygate.py (needles with --chat-needles) and prodshape.py --levels 12; never an agent or kanban task: the
+  # bench/qualitygate.py (needles with --chat-needles) and prodshape.py --levels 8 (0 preemptions); never an agent or kanban task: the
   # card holds one engine, so a bench means stopping production.
   image: ghcr.io/tanguille/radiance:inkling2-perf-d847982a@sha256:054d06cb2b194a689eae7d43bc1a7551cfeec41b685c9bcc2e3bfe9846fc2245
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
@@ -62,10 +62,9 @@ spec:
     - /models/ca0a4e72e626e73f/inkling2-mini-i8-vl-dspark.rad
     - --served-model-name
     - inkling-2-mini
-    # 12 x ~52K production sessions (~624K) overflow the ~483K pool; the rest waits in the host tier and
-    # re-prefills at ~5,000 tok/s.
+    # 12 x ~52K production sessions (~624K) overflow the ~483K pool: prodshape preempted 15 times, TTFT 19-28 s.
     - --max-num-seqs
-    - "12"
+    - "8"
     - --max-model-len
     - "262144"
     # bf16 cannot hold one 262K sequence beside the experts on 32 GB; i8 passes the needles through the chat template.
@@ -74,7 +73,7 @@ spec:
     # Leaves 2 GiB VRAM free for Jellyfin and FileFlows (DgpuVramLow watches it); the engine sizes the KV pool from the rest.
     - --gpu-headroom-mib
     - "2048"
-    # The DSpark block drafter is 7 or off; adaptive verifies only what pays. +20% at 12 sessions, +35% single stream.
+    # The DSpark block drafter is 7 or off; adaptive verifies only what pays. +35% single stream.
     - --num-speculative-tokens
     - "7"
     - --draft-window
