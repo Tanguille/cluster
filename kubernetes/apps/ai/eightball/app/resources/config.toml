@@ -7,9 +7,9 @@ default = "d3"
 url = "http://d3-nano.ai.svc.cluster.local:8080"
 kind = "systemone"
 
-# An unsure answer is re-asked once on the local model with thinking off (one token, logprob bands); not via
-# inkling-2-mini-auto, which may think. In the kwargs, which radiance lets win over a top-level effort.
-# A failed, slow or over-budget escalation keeps the unsure answer.
+# An unsure answer is re-asked once on the local model (one token, logprob bands). Inkling still thinks ~45 tokens
+# at effort none, so that token is reasoning and the escalation fails; kept as is on purpose
+# (docs/llm-hosting/inkling2-mini-2026-11.md). A failed, slow or over-budget escalation keeps the unsure answer.
 [endpoints.local]
 url = "http://agentgateway.ai.svc.cluster.local:4000"
 kind = "logprob"
