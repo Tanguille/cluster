@@ -3,7 +3,7 @@
 `web3/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
 surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/web3/pearl-miner/app/scaledobject.yaml`)
 raises it to 1. Pearl outranks xmrig: the gate counts running xmrig draw as available, and xmrig sheds
-once the miner's draw shows on the meter. On UPS load xmrig stops first (75 %, Pearl at 85 %).
+once the miner's draw shows on the meter. On UPS load xmrig stops first (80 %, Pearl at 85 %).
 Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built weekly by the `Tanguille/CPPminer` fork (`cluster-image` branch) from upstream's `cuda` branch
 (`main` and the `vX.Y` tags lack the tensor-core kernels: 13 vs 46 TMAC/s on the 2070) with the 1% dev fee disabled (MIT),
 pushed as `ghcr.io/tanguille/cppminer:<commit date YYYYMMDD.HHMM>`; Renovate bumps the tag.
@@ -17,7 +17,7 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 | --- | --- | --- |
 | surplus (15 m net export, miner and xmrig draw added back), or | 200 W | 100 W |
 | tech cave temperature, 15 m average | under 18 C | under 18 C |
-| UPS load max, 5 m | under 63 % (85 % stop minus the miner's ~22 points) | under 85 % |
+| UPS load max, 5 m | under 65 % (85 % stop minus its ~15 point step and a margin) | under 85 % |
 | 2070 free VRAM | 2560 MiB | 1024 MiB |
 | 2070 temperature | under 80 C | under 80 C |
 | R9700 junction, 5 m max | under 85 C | under 90 C |

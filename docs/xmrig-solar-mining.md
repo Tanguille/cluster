@@ -87,11 +87,10 @@ removing three hardcoded numbers that had to stay consistent with `threshold: 50
 The gate itself is a separate factor in the same query: cardinality must be exactly 1 and the
 sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
-A last `unless` drops every miner once the tech cave UPS load has peaked in the past 5 minutes at a
-ceiling of 57-75 %: 57 % while Pearl is off or pearl-miner is younger than 5 m (6 points under Pearl's 63 % start, so
-xmrig re-entering cannot lock Pearl out), else 66 % to start and 75 % to keep, once Pearl's own load step is in the
-max. Pearl's 63 % start is its 85 % stop minus a conservative 22-point step; the step measured after the merge is
-about 15, which leaves about 7 points of margin. Missing UPS data leaves the other factors in charge. It is the first stage
+A last `unless` drops every miner once the tech cave UPS load has peaked at 80 % or more in the past 5
+minutes, before Pearl's 85 % stop. Pearl starts below 65 % (its ~15 point step plus a margin), so xmrig can only
+lock Pearl out while the base load plus all xmrig nodes (about 15 points) stays at or above 65 %, i.e. a base of
+about 50 % or more. Missing UPS data leaves the other factors in charge. It is the first stage
 of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`, together with the
 R9700 dropping to its efficiency power profile at 85 % (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
 
@@ -102,7 +101,7 @@ own gate is open mines without surplus: the heat is wanted. A missing room senso
 
 `web3/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export and comes
 first: its query counts running xmrig draw as available, and `resourceset.yaml` has no add-back for
-the miner, so xmrig sheds while it runs. xmrig also stops first on UPS load, at 75 % against Pearl's 85 % (66 % to start) once pearl-miner has run the whole 5m window, and at 57 % while Pearl is off or in its first 5m.
+the miner, so xmrig sheds while it runs. xmrig also stops first on UPS load, at 80 % against Pearl's 85 %.
 
 ## Measured
 
