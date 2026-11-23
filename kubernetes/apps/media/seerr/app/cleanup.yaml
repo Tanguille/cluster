@@ -86,11 +86,6 @@ spec:
                         print(f"deleted {label}", flush=True)
                         deleted += 1
                     except urllib.error.HTTPError as err:
-                        # Another client may have removed the request since listing.
-                        if err.code == 404:
-                            print(f"skip {label}: already absent", flush=True)
-                            skipped += 1
-                            continue
                         print(f"failed {label}: HTTP {err.code}", flush=True)
                         failed += 1
                 summary = "(dry run)" if dry else f"deleted {deleted}, skipped {skipped}, failed {failed}"

@@ -357,7 +357,7 @@
       "id": 7,
       "type": "stat",
       "title": "Unhealthy backends",
-      "description": "Gateway, Headroom, cache and inference deployments below their desired replicas.",
+      "description": "Configured deployments below their desired replicas. No data means at least one of the eight deployments in the backend list lacks available or desired replica telemetry.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -369,7 +369,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"} < bool kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})",
+          "expr": "sum(\n  max by (deployment) (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"})\n  < bool\n  max by (deployment) (kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})\n)\nand\n(count(\n  group by (deployment) (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"})\n  and\n  group by (deployment) (kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})\n) == 8)",
           "legendFormat": "",
           "instant": true
         }
