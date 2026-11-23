@@ -358,7 +358,8 @@ spec:
       cronjob:
         # 10/5 so a window of silent skips (e.g. a rollout over the 02:xx slot)
         # stays visible in job history long enough to diagnose.
-        failedJobsHistoryLimit: 5
+        # failedJobsHistoryLimit stays at the chart default of 5: setting it
+        # explicitly is flagged redundant by deadvalues.
         successfulJobsHistoryLimit: 10
         affinity:
           podAffinity:
