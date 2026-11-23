@@ -32,10 +32,10 @@ spec:
               - op: add
                 path: /spec/jobTemplate/spec/template/spec/automountServiceAccountToken
                 value: false
-              # Chart has no TTL value; a failed run otherwise keeps KubeJobFailed firing until the next failure.
+              # Chart has no TTL value. 24h keeps finished jobs past a multi-hour outage; a failed run keeps KubeJobFailed up to a day.
               - op: add
                 path: /spec/jobTemplate/spec/ttlSecondsAfterFinished
-                value: 3600
+                value: 86400
 
   values:
     prometheus:
@@ -356,8 +356,9 @@ spec:
       enabled: true
       type: cronjob
       cronjob:
-        failedJobsHistoryLimit: 1
-        successfulJobsHistoryLimit: 2
+        # Keeps a window of silent skips visible; failedJobsHistoryLimit stays at the
+        # chart default (5), an explicit value is flagged redundant by deadvalues.
+        successfulJobsHistoryLimit: 10
         affinity:
           podAffinity:
             requiredDuringSchedulingIgnoredDuringExecution:

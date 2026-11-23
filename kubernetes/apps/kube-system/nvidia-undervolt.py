@@ -28,14 +28,18 @@ def call(fn, *args):
         raise RuntimeError(f"{fn} rc={rc}")
 
 
-def apply():
+def check_gpu():
     if not gpu:
         call("nvmlInit_v2")
         call("nvmlDeviceGetHandleByIndex_v2", 0, ctypes.byref(gpu))
     name = ctypes.create_string_buffer(96)
     call("nvmlDeviceGetName", gpu, name, 96)
     if EXPECT_NAME not in name.value.decode():
-        raise RuntimeError(f"unexpected GPU {name.value.decode()!r}, not applying")
+        raise RuntimeError(f"unexpected GPU {name.value.decode()!r}")
+
+
+def apply():
+    check_gpu()
     # same as nvidia-smi -lgc 0,<max>; it has no getter, so it is reapplied every loop
     call("nvmlDeviceSetGpuLockedClocks", gpu, 0, CLOCK_MAX_MHZ)
     offset = ctypes.c_int()
@@ -47,6 +51,7 @@ def apply():
 
 def clear(*_):
     try:
+        check_gpu()
         call("nvmlDeviceSetGpcClkVfOffset", gpu, 0)
         call("nvmlDeviceResetGpuLockedClocks", gpu)
         log("cleared offset and clock cap")

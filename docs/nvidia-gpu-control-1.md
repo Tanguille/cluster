@@ -209,7 +209,8 @@ itself. Metrics come from `nvidia_smi_*`; DCGM is disabled.
 
 A DaemonSet caps the 2070 at 1500 MHz and applies a +200 MHz GPC clock offset (a lower voltage at the same
 clock; NVML has no direct voltage control) through `libnvidia-ml` from a privileged pod. The settings live
-in the driver, so it reapplies every minute (reboot, driver reload, GPU reset) and clears both on SIGTERM.
+in the driver, so it reapplies every minute (reboot, driver reload, GPU reset) and clears both on SIGTERM,
+offset first, after checking the GPU name again.
 The offset is only stable with the cap: on 2026-11-22 +400 at 1400 MHz was clean, +500 gave Xid 31 and
 crashed the miner, and +300 with the cap lifted to 1560 faulted too. Caps of 1500, 1600 and 1700 MHz with
 +100, +150 and +200 were all clean (5/5 miner self-tests, no Xid, identical embedder, reranker and d3-nano

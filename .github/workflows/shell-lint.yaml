@@ -6,11 +6,19 @@ on:
   push:
     branches: ["main"]
     paths:
-      ["**.sh", ".github/workflows/shell-lint.yaml", ".mise.toml", "mise.lock"]
+      - "**.sh"
+      - shuck.toml
+      - .github/workflows/shell-lint.yaml
+      - .mise.toml
+      - mise.lock
   pull_request:
     branches: ["main"]
     paths:
-      ["**.sh", ".github/workflows/shell-lint.yaml", ".mise.toml", "mise.lock"]
+      - "**.sh"
+      - shuck.toml
+      - .github/workflows/shell-lint.yaml
+      - .mise.toml
+      - mise.lock
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
