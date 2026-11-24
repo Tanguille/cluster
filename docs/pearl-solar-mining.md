@@ -80,3 +80,17 @@ To remove it for good, revert the commit; Flux prunes it.
 
 Go if no tenant restarts, no `NvidiaVramLow`, R9700 junction under 90 C, UPS under 90 % and no
 control-1 reset while mining. Otherwise pause and revert.
+
+## RTX 2070 constant-64 mode
+
+The normal deployment uses the pinned [SM75 image](https://github.com/Tanguille/CPPminer/actions/runs/45275354432)
+with `CP_CUDA_CONST64=1`. It retains upstream fee handling and the existing KEDA safety
+gates. Confirm `sm_75 -> packed` and `constant-64 job B cached` in the pod log; a share
+is accepted only after a successful pool submit response.
+
+In a single same-image 90-second comparison, constant-64 measured 0.33282 TMAC/J
+versus 0.32771 for zero-B (+1.56%). Sparse power samples and differing scan coverage
+make this an exploratory result, not a proven efficiency gain. Constant-64 produced
+three locally verified cert-v3 proofs in that window; neither leg recorded a pool
+acceptance. An earlier constant-64 canary recorded one verified proof and one pool
+acceptance. Monitor pool acceptance, GPU tenants, temperatures and the existing alerts.
