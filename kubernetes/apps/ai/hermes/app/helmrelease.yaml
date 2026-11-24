@@ -157,6 +157,16 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
+      # Overlays the job's PVC script path; the PVC copy stays as the rollback.
+      cron-health:
+        type: configMap
+        name: hermes-cron-health
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data/scripts/cron_health_export.py
+                subPath: cron_health_export.py
+                readOnly: true
       google-digest:
         type: configMap
         name: hermes-google-digest
