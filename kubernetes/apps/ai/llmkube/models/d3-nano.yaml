@@ -52,6 +52,9 @@ spec:
   extraArgs:
     - --load-mode
     - none
+    # Preserve the served id when modelRef switches between decision models.
+    - --alias
+    - d3-nano
   # The first typed decision can compile CUDA kernels after the HTTP health check passes.
   probeOverrides:
     startup:
