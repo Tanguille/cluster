@@ -25,7 +25,7 @@
 - BetterBench 0.6.1 vs qwen 1.17.0: single stream 20-60% faster by category, cold prefill ~5,000 vs ~2,100 tok/s; aggregate C1/2/4/8 119/165/197/245 vs 89/161/218/254.
 - Quality: GSM8K 143-147/150, tools 12/12, vision 2/2, needles 9/9 at 20K/60K/200K through `/v1/chat/completions`. Raw `/v1/completions` without the chat template invents the code: always serve through the chat API.
 - prodshape (production-shaped agent sessions, ~52K-token prefixes), aggregate tok/s at 1/4/8 sessions: 50 / 80 / 72 (#608 build at 8: 72.1, 0 preemptions, TTFT p50 2.6 s, ITL p50 83 ms), against qwen 1.17.0's 50 / 96 / 99. At 12: 47-53 tok/s, TTFT p50 19-28 s, 11-15 preemptions. BetterBench's short prompts favour Inkling (275 vs 254 at 8); long sessions favour qwen by ~27%. Chosen anyway for the faster single stream and prefill.
-- Thinking cannot be turned off: `reasoning_effort: none`, top level or in `chat_template_kwargs`, still gives ~45 reasoning tokens before the answer; `enable_thinking: false` is ignored. Quality harnesses leave it room (`qualitygate.py --chat-needles` uses 1,024 tokens), and a one-token request (eightball's logprob escalation) gets no answer.
+- Thinking cannot be turned off: `reasoning_effort: none`, top level or in `chat_template_kwargs`, still gives ~45 reasoning tokens before the answer; `enable_thinking: false` is ignored. From `docs/llm-hosting`, run `python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles` to use the chat template with a 1,024-token output budget. 8-ball escalation is disabled because a one-token request gets no answer.
 - At the card's own 32K/4,096 conditions we measure 102 tok/s with the drafter and 64 without (card: 217 and 87). Our R9700 runs a 210 W cap (default 300 W), which the engine reports as the binding clock limit; the card's power setting is unknown.
 - Raw logs: `~/.local/state/radiance-tune/{2026-11-23,next-inkling,gate-inkling}/` on the owner's laptop.
 
@@ -34,7 +34,7 @@
 Clients configured on PVCs or in apps name the model themselves; switch them with the cutover:
 
 - Hermes root and profiles, OpenCode: `qwen-3.8-auto` -> `inkling-2-mini-auto`.
-- Home Assistant's assist agent: `qwen-3.8-fast` -> `inkling-2-mini-auto` (its API key may only call that name, `agentgateway/app/clients.yaml`). There is no `-fast` route: `-auto` turns thinking off for easy requests itself.
+- Home Assistant's assist agent: `qwen-3.8-fast` -> `inkling-2-mini-auto` (its API key may only call that name, `agentgateway/app/clients.yaml`). The `-auto` route selects the lowest supported effort for easy requests.
 
 ## Rollback
 

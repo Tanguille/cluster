@@ -47,8 +47,8 @@ spec:
   runtime: vllm
   command: [radiance]
   # Our own build until radiance ships Inkling (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
-  # bench/qualitygate.py (needles with --chat-needles) and prodshape.py --levels 8 (0 preemptions); never an agent or kanban task: the
-  # card holds one engine, so a bench means stopping production.
+  # from docs/llm-hosting: python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles
+  # and prodshape.py --levels 8 (0 preemptions). The card holds one engine, so a bench means stopping production.
   image: ghcr.io/tanguille/radiance:inkling2-perf608-0602bd10@sha256:f688516b8003ace9144726d866a26664353b796d0f4db3d353902b205db4ee14
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
@@ -93,6 +93,9 @@ spec:
     # The Inkling plugin's kernels live in libr4d; the others only add host fallbacks.
     - --kernels
     - libr4d
+    # Leave room for Jellyfin and FileFlows on the shared card.
+    - --weight-prefetch
+    - off
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:

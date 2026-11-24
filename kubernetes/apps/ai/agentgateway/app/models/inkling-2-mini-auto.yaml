@@ -35,8 +35,8 @@ spec:
           callout.body.answers.effort.choice in ["low", "medium", "xhigh"] ? duration("24h") : null
         maxEntries: 1024
       # In chat_template_kwargs, not top-level: radiance lets the kwargs win, and Hermes sends an effort on every turn.
-      # Merged over the client's kwargs, so only the effort changes. Whether "none" stops Inkling thinking is unverified
-      # (docs/llm-hosting/inkling2-mini-2026-11.md).
+      # Merged over the client's kwargs, so only the effort changes. Inkling still uses about 45 reasoning tokens
+      # at "none" (docs/llm-hosting/inkling2-mini-2026-11.md).
       transformation:
         model: '"inkling-2-mini"'
         chat_template_kwargs: >-
