@@ -41,7 +41,7 @@ spec:
                       value: '"pii-masker"'
               http:
                 # Omniroute's own waits (15s queue, 60s cooldown, 120s per target) plus margin, under kritika's 300s step
-                # timeout. Only kritika uses this route (owner, 2026-11-15) and it falls back to qwen-3.8 itself, so no
+                # timeout. Only kritika uses this route (owner, 2026-11-15) and it falls back to inkling-2-mini itself, so no
                 # second group or eviction here: with one provider an eviction would only answer 503.
                 requestTimeout: 240s
 ---

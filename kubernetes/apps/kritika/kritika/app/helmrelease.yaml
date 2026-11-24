@@ -144,8 +144,8 @@ spec:
           concurrency: 3
       review:
         model: llm/omniroute
-        # The only qwen-3.8 fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
-        fallback: local/qwen-3.8
+        # The only inkling-2-mini fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
+        fallback: local/inkling-2-mini
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.

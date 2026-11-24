@@ -16,13 +16,12 @@ spec:
     routing: Model
     sectionName: models
   backends:
-    # Also served by qwen-3.8-fast. The engine (radiance) serves Anthropic Messages
-    # and Responses itself, so nothing is translated. No reasoning_effort default: the sharp chat
-    # template already defaults to medium, the better quality/latency point for most turns.
-    - name: qwen38
-      displayName: qwen-3.8
+    # Also served by inkling-2-mini-auto. The engine (radiance) serves Anthropic Messages
+    # and Responses itself, so nothing is translated.
+    - name: inkling2
+      displayName: inkling-2-mini
       inferenceServiceRef:
-        name: qwen38-27b-vllm
+        name: inkling2-mini
 ---
 # Copies the body's model into x-gateway-model before routing: the omniroute and
 # embeddinggemma-2 routes match on it, and agentgateway-metrics labels every request with it.
@@ -72,7 +71,7 @@ spec:
 # error whatever `codes` says); Headroom's request timeout and the http listener's cut the replay
 # short. Every model gets it, omniroute too (see the 64 KiB note in controller/helmrelease.yaml; kritika retries
 # itself). The timeout covers the longest call, a
-# 100K+ token prefill on qwen-3.8 under GPU contention.
+# 100K+ token prefill on inkling-2-mini under GPU contention.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy

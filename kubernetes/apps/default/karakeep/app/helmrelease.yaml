@@ -73,12 +73,12 @@ spec:
               # OpenAI-compatible endpoint (via agentgateway); must match /v1/models ids.
               OPENAI_BASE_URL: http://agentgateway.ai.svc.cluster.local:4000/v1
               OPENAI_API_KEY: ${LLM_API_KEY}
-              INFERENCE_TEXT_MODEL: qwen-3.8-fast
-              INFERENCE_IMAGE_MODEL: qwen-3.8-fast
+              INFERENCE_TEXT_MODEL: inkling-2-mini-auto
+              INFERENCE_IMAGE_MODEL: inkling-2-mini-auto
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
-              # Bound background bookmark prefill on the shared 27B backend.
+              # Bound background bookmark prefill on the shared Inkling backend.
               INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
               OCR_USE_LLM: "true"
