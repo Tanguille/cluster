@@ -1287,7 +1287,7 @@ function renderMiners(miners) {
     "minersList",
     miners.length
       ? miners.map((m) => `${m.name} ${scaleHashrate(m.hashrate)}`).join("\n")
-      : "Surplus solar or a cold room can trigger mining"
+      : "Surplus solar can trigger mining"
   );
 }
 
