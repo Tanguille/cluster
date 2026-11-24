@@ -219,8 +219,11 @@
       automerge: false
     },
     {
-      description: "timescaledb build base is the rolling tag of the PG_MAJOR build arg",
-      matchFileNames: ["docker/timescaledb/Dockerfile"],
+      description: "extension image build bases are the rolling tag of the PG_MAJOR build arg",
+      matchFileNames: [
+        "docker/timescaledb/Dockerfile",
+        "docker/vchord/Dockerfile"
+      ],
       matchDatasources: ["docker"],
       enabled: false
     },
