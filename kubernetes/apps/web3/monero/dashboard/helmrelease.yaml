@@ -14,16 +14,15 @@ spec:
       dashboard:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
         containers:
           web:
             image:
               repository: nginx
-              tag: 1.31-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
+              tag: 1.31-alpine@sha256:b50897d5c7b1aa08067c3d90c5e8b3e47ec4e3c91c91446f67820228f7b41e34
             resources:
               requests:
                 cpu: 10m
-                memory: 32Mi
+                memory: 8Mi
               limits:
                 cpu: 100m
                 memory: 64Mi
@@ -43,7 +42,7 @@ spec:
           dashboard-server:
             image:
               repository: python
-              tag: 3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
+              tag: 3.15.2-slim-trixie@sha256:1c670c3568107e243bfd05457ad9ca0b11c35a855c985af73e4452db9a714e70
             command:
               - python3
               - -u
@@ -76,7 +75,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 64Mi
+                memory: 32Mi
               limits:
                 cpu: 100m
                 memory: 256Mi

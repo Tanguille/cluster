@@ -63,8 +63,8 @@ spec:
     # RWX on CephFS: the controller and the GPU services land on different nodes; read
     # once at load. inkling2-mini (and the suspended qwen38-27b-vllm) have their own node-local caches.
     modelCache:
-      # embeddinggemma-2 0.31Gi + d3-nano 2.4Gi + bge-reranker-v2-m3 + the CUDA JIT cache (~0.15Gi); 16Gi after 91% at 8Gi:
-      # the operator never GCs old revisions.
+      # Flash 3.55Gi, rollback d3-nano 2.4Gi, embeddinggemma-2 0.31Gi, reranker and CUDA JIT cache.
+      # Raised to 16Gi after usage reached 91% at 8Gi. The operator keeps old revisions.
       size: 16Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany

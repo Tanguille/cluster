@@ -38,7 +38,7 @@ print(f"prompt={u['prompt_tokens']} gen={u['completion_tokens']} wall={el:.1f}s 
 # The throughput number is only meaningful if the model actually quoted back the
 # source. GEN=400 cannot cover all 13 handlers, so a correct run is normally a
 # clean prefix; only an actual mismatch invalidates the measurement.
-expect = "\n".join(CODE.split("\n\n")[:13]).strip()
+expect = "\n\n".join(CODE.split("\n\n")[:13]).strip()
 got = d["choices"][0]["text"].strip()
 if got and expect.startswith(got):
     state = "OK" if got == expect else "TRUNCATED"

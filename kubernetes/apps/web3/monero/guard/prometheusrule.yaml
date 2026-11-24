@@ -69,8 +69,7 @@ spec:
             severity: critical
         - alert: XmrigGuardAbsent
           expr: |-
-            count(xmrig_guard_safe{node=~"control-[123]"}) != 3
-            or absent(xmrig_guard_safe{node=~"control-[123]"})
+            (count(count by (node) (xmrig_guard_safe{node=~"control-[123]"}) == 1) or vector(0)) != 3
           for: 15m
           annotations:
             summary: >-

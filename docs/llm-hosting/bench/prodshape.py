@@ -172,6 +172,7 @@ class Poller(threading.Thread):
             try:
                 s = sample(self.port)
                 row = [time.perf_counter(), s.running, s.waiting, None]
+                self.rows.append(row)
                 n += 1
                 # Every 5th poll: VRAM_CMD is typically a kubectl exec, which takes seconds.
                 if self.vram_cmd and n % 5 == 0:
@@ -181,10 +182,16 @@ class Poller(threading.Thread):
                         row[3] = float(re.search(r"-?\d+(?:\.\d+)?", o).group())
                     except Exception:
                         pass
-                self.rows.append(row)
             except Exception:
-                pass
+                self.rows.append([time.perf_counter(), None, None, None])
             self.stop.wait(2)
+
+
+def any_contaminated(checks):
+    checks = list(checks)
+    if any(checks):
+        return True
+    return False if checks and None not in checks else None
 
 
 def plan_levels(args):
@@ -221,7 +228,7 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
     """level_idx only seeds the sessions: pass a distinct value per pass so no prefix is reused."""
     seed0 = args.seed * 1_000_003 + level_idx * 1009
     sessions = [Session(seed0 + i, p, args.tail, args.tpw) for i, p in enumerate(prefixes)]
-    row0 = len(poller.rows)
+    level_start = time.perf_counter()
     cold, live, errors = [], [], 0
     for s in sessions:                                    # serial warmups: clean cold prefill
         if stop.is_set():
@@ -267,8 +274,8 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
                   if r["ts"][-1] > r["ts"][0]]
     ttfts = [r["ttft"] for r in ok]
     # Contamination counts the whole level (warmups too); waiting/VRAM only the steady window.
-    rows = poller.rows[row0:]
-    steady = [x for x in rows if t_start <= x[0] <= t_end]
+    rows = [x for x in poller.rows if level_start <= x[0] <= t_end]
+    steady = [x for x in rows if t_start <= x[0]]
     vram = [x[3] for x in steady if x[3] is not None]
     d = {k: after[k] - before[k] for k in after}
     hit, comp = d["local_cache_hit"], d["local_compute"]
@@ -289,8 +296,9 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
         **{f"{t.split(':')[1].replace('_seconds', '')}_mean_s":
            r2(d[f"{t}_sum"] / d[f"{t}_count"]) if d[f"{t}_count"] else 0.0 for t in TIMERS},
         "lookup_stall_events": d["vllm:kv_offload_lookup_async_delay_seconds_count"],
-        "max_waiting": max((x[2] for x in steady), default=None),
-        "contaminated": any(x[1] > c for x in rows),
+        "max_waiting": max(x[2] for x in steady)
+                       if steady and all(x[2] is not None for x in steady) else None,
+        "contaminated": any_contaminated(x[1] > c if x[1] is not None else None for x in rows),
         "min_free_vram": min(vram) if vram else None,
         "window_s": r2(window),
     }
@@ -308,7 +316,7 @@ def print_summary(results):
         rs = [r for r in results if r["conc"] == c]
         out = {"conc": c, "runs": len(rs), "errors": sum(r["errors"] for r in rs),
                "d_preemptions": sum(r["d_preemptions"] for r in rs),
-               "contaminated": any(r["contaminated"] for r in rs)}
+               "contaminated": any_contaminated(r["contaminated"] for r in rs)}
         for k in SUMMARY:
             v = [r[k] for r in rs if r.get(k) is not None]
             out[k] = {"median": r2(statistics.median(v)), "spread": r2(max(v) - min(v))} if v else None
