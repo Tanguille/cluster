@@ -140,7 +140,7 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
   provisional.
 - Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
   so both move in one `radiance` PR, opened as soon as the release appears; merging stays manual.
-- Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
+- Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`; radiance 2.x takes only `--config`, see `inkling2-mini.yaml`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
 - Engine or checkpoint bump: no manual step. The Job `qwen38-27b-rad-convert` reruns when the image or the Model `source`

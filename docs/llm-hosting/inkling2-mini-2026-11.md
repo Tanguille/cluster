@@ -13,6 +13,8 @@
 
 ## Config and why
 
+The engine takes only `--config`: these are keys of `kubernetes/apps/ai/llmkube/models/resources/inkling2-mini-radiance.yaml` (shown here as the flags they were), mounted from a ConfigMap. A change does not roll the pod; restart it.
+
 | Flag | Value | Reason |
 | --- | --- | --- |
 | `--max-num-seqs` | 8 | ~483K-token pool; 12 production sessions (~624K) preempt (prodshape below) |

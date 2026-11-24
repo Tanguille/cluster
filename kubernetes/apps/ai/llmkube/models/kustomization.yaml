@@ -71,8 +71,12 @@ replacements:
           delimiter: "."
           index: 2
 # No hash suffix: referenced by name, and kustomize only rewrites built-in types.
-# Editing the chat template does not roll the pod; restart it.
+# Editing the chat template or the radiance config does not roll the pod; restart it.
 configMapGenerator:
+  # radiance config of inkling2-mini.
+  - name: inkling2-mini-radiance-config
+    files:
+      - config.yaml=./resources/inkling2-mini-radiance.yaml
   # Qwen Sharp v22.5.0, from peculiar-ragdoll/Qwen-Sharp-Chat-Templates.
   - name: qwen38-sharp-chat-template
     files:
