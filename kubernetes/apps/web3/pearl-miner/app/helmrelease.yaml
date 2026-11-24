@@ -32,7 +32,9 @@ spec:
           app:
             image:
               repository: ghcr.io/tanguille/cppminer
-              tag: 20261120.0209@sha256:fd77e5ef82742669d542dba507134d313cc4067fa47d81c66f5a25fcdf7a1eb4
+              tag: sm75-const64-5431ae6d210a6c386fc717782f02cc41f37b8f72@sha256:1f458ac3277f6820077e4d8e269999f9038bb736a6bed09549dbc079f06f6b76
+            env:
+              CP_CUDA_CONST64: "1"
             args:
               - --backend
               - cuda
