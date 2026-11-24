@@ -36,19 +36,22 @@ spec:
               - -ec
               - |
                 config_file=/opt/printer_data/config/moonraker-obico.cfg
-                token="`awk '
-                  /^\[server\]/ { in_server=1; next }
-                  /^\[/ { in_server=0 }
-                  in_server {
-                    line=$0
-                    sub(/^[[:space:]]*/, "", line)
-                    if (line ~ /^auth_token[[:space:]]*=/) {
-                      sub(/^auth_token[[:space:]]*=[[:space:]]*/, "", line)
-                      print line
-                      exit
+                token=""
+                if [ -e "$config_file" ] || [ -L "$config_file" ]; then
+                  token="`awk '
+                    /^\[server\]/ { in_server=1; next }
+                    /^\[/ { in_server=0 }
+                    in_server {
+                      line=$0
+                      sub(/^[[:space:]]*/, "", line)
+                      if (line ~ /^auth_token[[:space:]]*=/) {
+                        sub(/^auth_token[[:space:]]*=[[:space:]]*/, "", line)
+                        print line
+                        exit
+                      }
                     }
-                  }
-                ' "$config_file" 2>/dev/null || true`"
+                  ' "$config_file"`"
+                fi
 
                 awk -v token="$token" '
                   { print }
@@ -85,13 +88,13 @@ spec:
             resources:
               requests:
                 cpu: 25m
-                memory: 128Mi
+                memory: 32Mi
               limits:
                 memory: 512Mi
           moonraker-proxy:
             image:
               repository: nginx
-              tag: 1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
+              tag: 1.31.10-alpine@sha256:aceb952b920393b7d0bc7b978927fc283370bea89fb082c6fef0ce18c60f96a9
             command:
               - nginx
             args:
@@ -108,7 +111,7 @@ spec:
             resources:
               requests:
                 cpu: 5m
-                memory: 16Mi
+                memory: 8Mi
               limits:
                 memory: 64Mi
 
