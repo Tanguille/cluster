@@ -64,6 +64,8 @@ class CronHealthTests(unittest.TestCase):
             for profile in ("default", "team"):
                 self.assertIn('hermes_cron_last_run_timestamp{profile="' + profile +
                               r'",id="shared",name="a\"b\\c\nd"} 1767225600', output)
+            (home / "cron/jobs.json").unlink()
+            self.assertEqual(cron.load_jobs(home), [("team", job)])
             path.write_text("{")
             with self.assertRaises(json.JSONDecodeError):
                 cron.load_jobs(home)
@@ -103,6 +105,21 @@ class CronHealthTests(unittest.TestCase):
                 "promql_expr_test": [
                     {"expr": f'ALERTS{{alertname="HermesCron{kind}Failed",alertstate="firing"}}',
                      "eval_time": age, "exp_samples": []} for kind, age in (("Job", "61m"), ("Delivery", "361m"))]})
+            # The old name's paused sample is still in the lookback when the new name starts firing.
+            renamed = []
+            for name, state, samples in (("old", "paused", "{value} _ _"), ("new", "scheduled", "_ {value} {value}")):
+                job = {"id": "job", "name": name, "state": state, "last_status": "error",
+                       "last_run_at": 1, "last_delivery_error": "failed"}
+                for line in cron.render([("rename", job)], 0).splitlines():
+                    key, value = line.split()
+                    if not key.startswith("hermes_cron_export_timestamp"):
+                        renamed.append({"series": key, "values": samples.format(value=value)})
+            fixture["tests"].append({
+                "interval": "10m", "input_series": renamed,
+                "promql_expr_test": [
+                    {"expr": f'sum by(name) (ALERTS{{alertname="HermesCron{kind}Failed",alertstate="firing"}})',
+                     "eval_time": "25m", "exp_samples": [{"labels": '{name="new"}', "value": 1}]}
+                    for kind in ("Job", "Delivery")]})
             (tmp / "test.json").write_text(json.dumps(fixture))
             subprocess.run([os.environ["PROMTOOL"], "test", "rules", str(tmp / "test.json")], check=True)
 

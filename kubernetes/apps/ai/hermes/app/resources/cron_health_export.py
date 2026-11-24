@@ -18,7 +18,11 @@ def load_jobs(home):
     # A broken store must fail the export before the heartbeat can claim it succeeded.
     jobs = []
     for profile, path in stores:
-        data = json.loads(path.read_bytes())
+        try:
+            raw = path.read_bytes()
+        except FileNotFoundError:
+            continue
+        data = json.loads(raw)
         jobs += [(profile, job) for job in (data["jobs"] if isinstance(data, dict) else data)]
     return jobs
 

@@ -54,7 +54,10 @@ For a recovery drill, keep the production claim mounted and the gateway running.
    each job's script beneath its owning profile, and validate syntax without executing it.
    Check the [backup exclusions](../kubernetes/apps/ai/hermes/ks.yaml) separately:
    a restored lockfile proves dependency metadata survived; rebuilding the excluded runtime
-   or packages on clean scratch verifies that they can actually be recovered.
+   or packages on clean scratch verifies that they can actually be recovered. In a separate
+   controlled environment with registry access, download the runtime artifacts and package
+   files required by the restored version and lockfiles. Mount them read-only in the helper
+   and rebuild on scratch using the package manager's offline mode.
 5. Remove the drill helper, claim, Restore and network policy. Check that the drill PV and
    populator staging resources disappear and that the recorded production identities still match.
 
