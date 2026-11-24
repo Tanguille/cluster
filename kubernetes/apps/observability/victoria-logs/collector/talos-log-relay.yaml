@@ -65,14 +65,15 @@ spec:
                   svc = ."talos-service"
                   msg = string(.msg) ?? ""
                   svc != "dns-resolve-cache" && !(svc == "machined" && contains(msg, "match with service \"dashboard\""))
-              # Kernel lines end in a newline; VictoriaLogs has level, not talos-level.
+              # Kernel lines end in a newline; VictoriaLogs has level, not talos-level (an app-supplied level wins).
               tidy:
                 type: remap
                 inputs:
                   - drop_noise
                 source: |
                   if is_string(.msg) { .msg = replace(string!(.msg), r'\n$', "") }
-                  if exists(."talos-level") { .level = del(."talos-level") }
+                  tl = del(."talos-level")
+                  if tl != null && !exists(.level) { .level = tl }
             sinks:
               victoria_logs:
                 type: http
