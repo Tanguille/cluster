@@ -7,19 +7,15 @@ default = "d3"
 url = "http://d3-nano.ai.svc.cluster.local:8080"
 kind = "systemone"
 
-# An unsure answer is re-asked once on the 27B with thinking off (one token, logprob bands).
-# qwen-3.8-fast is the non-thinking alias; qwen-3.8-auto would call d3-nano for its effort and may think.
-# A failed, slow or over-budget escalation keeps the unsure answer.
-[endpoints.qwen]
+# Keep unsure answers until a local model can answer a one-token logprob request.
+# Inkling spends the token on reasoning (docs/llm-hosting/inkling2-mini-2026-11.md).
+[endpoints.local]
 url = "http://agentgateway.ai.svc.cluster.local:4000"
 kind = "logprob"
-model = "qwen-3.8-fast"
+model = "inkling-2-mini"
+extra_body = { chat_template_kwargs = { reasoning_effort = "none" } }
 api_key_env = "LLM_API_KEY"
 concurrency = 8
-
-[escalation]
-endpoint = "qwen"
-per_minute = 30
 
 [specs.gitops-investigate]
 type = "noul"
@@ -29,7 +25,7 @@ instructions = "Does this candidate warrant investigating for this homelab? The 
 type = "noul"
 instructions = "Does this radar candidate (a new model, engine release or deployment change) warrant a Now or Engine Swap recommendation for this homelab's local LLM stack? The state is JSON data with context (the deployed stack and recent radar entries) and item (the candidate). Judge only the supplied evidence. Routine version bumps, models that do not fit our hardware and things we already run do not warrant one."
 
-# career-ops job eligibility (Hermes scripts/eligibility.mjs); unsure jobs go to a full qwen read.
+# career-ops job eligibility (Hermes scripts/eligibility.mjs).
 # Rules source: career-ops config/eligibility.yml; keep these in step with it by hand.
 [specs.job-location]
 type = "noul"

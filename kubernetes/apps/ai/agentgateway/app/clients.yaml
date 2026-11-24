@@ -125,7 +125,7 @@ spec:
       action: Require
       policy:
         matchExpressions:
-          - '!has(apiKey.user_id) || apiKey.user_id != "home-assistant" || request.method == "GET" || json(request.body).model == "qwen-3.8-fast"'
+          - '!has(apiKey.user_id) || apiKey.user_id != "home-assistant" || request.method == "GET" || json(request.body).model == "inkling-2-mini-auto"'
     rateLimit:
       conditional:
         - condition: 'has(apiKey.user_id) && apiKey.user_id == "home-assistant"'
@@ -154,7 +154,7 @@ spec:
               name: Authorization
               prefix: "Bearer "
     http:
-      # Past the longest inner chain (the models listener's 1800s qwen-3.8 call), so the
+      # Past the longest inner chain (the models listener's 1800s inkling-2-mini call), so the
       # models listener or Headroom always answers first. A timeout here has no status code and
       # would replay the whole call uncompressed.
       requestTimeout: 2100s

@@ -23,7 +23,7 @@ spec:
         - operator: Exists
       containers:
         - name: app
-          image: docker.io/library/python:3.15.2-slim-trixie@sha256:2c879838405817bd51e53c75ab78f613f446c448070c2d70e2e99639705bd409
+          image: library/python:3.15.2-slim-trixie@sha256:63bb298d2b7b88f176f51b5189f54ce6535c997682ea70885d2132f5d473a8a5
           env:
             # 2026-11-22 sweep on the 2070: with the cap at 1400 MHz, +400 was clean, +500 gave Xid 31 and crashed the
             # miner; +300 with the cap lifted to 1560 also faulted, so the offset only holds together with the cap.
