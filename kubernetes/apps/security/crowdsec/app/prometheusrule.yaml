@@ -27,7 +27,7 @@ spec:
         # Per pod, not summed: every agent tails every matching pod, so one below the threshold is an anomaly.
         - alert: CrowdsecAcquisitionSilent
           expr: |-
-            (max by (pod) (rate(cs_kubernetessource_hits_total{job="crowdsec-agent-service"}[15m])) or vector(0)) < 0.01
+            (max by (pod) (rate(cs_kubernetessource_hits_total{job="crowdsec-agent-service"}[15m])) or on() vector(0)) < 0.01
           for: 30m
           annotations:
             summary: >-
