@@ -22,15 +22,16 @@ spec:
               while the agent, lapi and bouncer all report healthy
           labels:
             severity: critical
-        # Every agent tails every matching pod, so all agents see the same traffic and a single
-        # agent below the threshold is an anomaly, not a quiet node. Hence per pod, not summed.
+        # Reading nothing at all (agent down, acquisition selector no longer matching) leaves
+        # CrowdsecEnvoyParserYieldZero quiet, since it only fires while lines are read.
+        # Per pod, not summed: every agent tails every matching pod, so one below the threshold is an anomaly.
         - alert: CrowdsecAcquisitionSilent
           expr: |-
             (max by (pod) (rate(cs_kubernetessource_hits_total{job="crowdsec-agent-service"}[15m])) or vector(0)) < 0.01
           for: 30m
           annotations:
             summary: >-
-              Crowdsec agent {{ $labels.pod }} acquisition for envoy-external has stayed below 0.01 lines/s for 30m
+              Crowdsec acquisition for envoy-external {{ $labels.pod }} has stayed below 0.01 lines/s for 30m
           labels:
             severity: critical
         # Each Envoy pod polls LAPI independently. The owner metric also covers pods that never synced.
