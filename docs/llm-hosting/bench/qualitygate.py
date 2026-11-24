@@ -17,7 +17,7 @@ nll uses prompt_logprobs (teacher forced). vLLM materialises logits for each sch
 prefill chunk, so it can allocate GPU memory beyond what boot profiled: watch free VRAM
 the first time.
 """
-import argparse, json, os, random, re, statistics, struct, sys, time, urllib.request, zlib
+import argparse, json, os, random, re, statistics, struct, subprocess, sys, time, urllib.request, zlib
 import base64
 from concurrent.futures import ThreadPoolExecutor
 
@@ -287,6 +287,8 @@ def needle_prompt(rng, nwords):
 
 
 def ask(prompt, salt):
+    if A.chat_needles:
+        return chat([{"role": "user", "content": prompt}], 1024, salt=salt)["choices"][0]["message"]["content"] or ""
     return complete(prompt, 24, salt=salt)["choices"][0]["text"]
 
 
@@ -315,9 +317,13 @@ def cache_probe(rng, label, counter, salt, between=lambda: None):
 def mode_needle():
     out = []
     for w in (15000, 45000, 150000):                               # 17.5K / 52.5K / 175K tokens
-        p = os.popen(f"{sys.executable} {HERE}/needle.py {A.port} {w}").read()
+        command = [sys.executable, os.path.join(HERE, "needle.py"), str(A.port), str(w), "--model", A.model]
+        if A.chat_needles:
+            command.append("--chat-needles")
+        run = subprocess.run(command, stdout=subprocess.PIPE, text=True)
+        p = run.stdout
         print(p.strip() or "needle.py no output")
-        ok = "needle 3/3" in p
+        ok = run.returncode == 0 and "needle 3/3" in p
         out.append({"check": f"needle-{w}w", "pass": ok})
     rng = random.Random(time.time_ns())
     out.append(cache_probe(rng, "cached-prefix", "local_cache_hit", f"{SALT}-warm"))
@@ -376,6 +382,7 @@ def main():
     ap.add_argument("--compare")
     ap.add_argument("--port", type=int, default=18000)
     ap.add_argument("--model", default="qwen-3.8")
+    ap.add_argument("--chat-needles", action="store_true", help="use chat completions for needle checks")
     ap.add_argument("--conc", type=int, default=4, help="gsm8k threads")
     A = ap.parse_args()
     A.base = f"http://127.0.0.1:{A.port}"
