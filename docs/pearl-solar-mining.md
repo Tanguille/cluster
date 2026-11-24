@@ -76,21 +76,16 @@ To remove it for good, revert the commit; Flux prunes it.
 Go if no tenant restarts, no `NvidiaVramLow`, R9700 junction under 90 C, UPS under 90 % and no
 control-1 reset while mining. Otherwise pause and revert.
 
-## RTX 2070 constant-64 comparison
+## RTX 2070 constant-64 mode
 
-The optional [control](../kubernetes/apps/web3/pearl-miner/trial/control/kustomization.yaml)
-and [constant-64](../kubernetes/apps/web3/pearl-miner/trial/constant64/kustomization.yaml)
-overlays run the same [SM75 image](https://github.com/Tanguille/CPPminer/actions/runs/45275354432)
-on the existing miner. Both enable local proof verification. Only `CP_CUDA_CONST64`
-differs: `0` uses zero-B, `1` uses constant-64. This test image retains upstream fee
-handling. The normal Flux path is still `pearl-miner/app`.
+The normal deployment uses the pinned [SM75 image](https://github.com/Tanguille/CPPminer/actions/runs/45275354432)
+with `CP_CUDA_CONST64=1`. It retains upstream fee handling and the existing KEDA safety
+gates. Confirm `sm_75 -> packed` and `constant-64 job B cached` in the pod log; a share
+is accepted only after a successful pool submit response.
 
-For a trial, wait for a normal KEDA window and point only `Kustomization/web3/pearl-miner`
-at the chosen overlay in a pinned test source. Do not scale the Deployment. Confirm the
-running image digest, `sm_75` packed kernel, and `constant-64 job B cached` or
-`zero-B job B cached` in the pod log. A `verify OK` is local; count a share as accepted
-only after a successful pool `submit response`. Compare work and `nvidia_smi_power_draw_watts`
-over the same warmed-up intervals, and note any change in GPU tenant load. A short or
-interrupted window can establish compatibility without establishing an efficiency gain.
-After the bounded trial, restore the original Flux source and `pearl-miner/app` path
-and verify the stock image, even if no share was found.
+In a single same-image 90-second comparison, constant-64 measured 0.33282 TMAC/J
+versus 0.32771 for zero-B (+1.56%). Sparse power samples and differing scan coverage
+make this an exploratory result, not a proven efficiency gain. Constant-64 produced
+three locally verified cert-v3 proofs in that window; neither leg recorded a pool
+acceptance. An earlier constant-64 canary recorded one verified proof and one pool
+acceptance. Monitor pool acceptance, GPU tenants, temperatures and the existing alerts.
