@@ -23,8 +23,9 @@ kind: InferenceService
 metadata:
   name: d3-nano
 spec:
-  modelRef: d3-nano
-  # CUDA 13.4 image: its PTX loads on Turing because toolkit >= 1.19.1 injects the image's compat libcuda
+  # Keep the Service address used by 8-ball and the Qwen effort router.
+  modelRef: decision
+  # CUDA 13 image: its PTX loads on Turing because toolkit >= 1.19.1 injects the image's compat libcuda
   # (llama.cpp #31503); measured on the 2070 in docs/nvidia-gpu-control-1.md.
   image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:1ce4930520e570dd6f543e526a38f3d8ef29739b47c70f7ad39c3399df06bfc2
   # Only control-1 advertises nvidia.com/gpu (RTX 2070, time-sliced, no VRAM isolation between pods).
@@ -45,9 +46,40 @@ spec:
   parallelSlots: 2 # qwen-3.8-auto and eightball can ask at the same time
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
-  # vllm-d3 evaluates the whole prompt in one ubatch (default 512; batch already defaults to 2048). A
-  # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
+  # Flash evaluates each prompt in one physical batch. A 2000-character log plus the question
+  # typically fits in 1300 tokens. Above 2048 tokens the effort router falls back.
   uBatchSize: 2048
+  extraArgs:
+    - --load-mode
+    - none
+    # Preserve the served id when modelRef switches between decision models.
+    - --alias
+    - d3-nano
+  # The first typed decision can compile CUDA kernels after the HTTP health check passes.
+  probeOverrides:
+    startup:
+      exec:
+        command:
+          - curl
+          - --fail
+          - --silent
+          - --show-error
+          - --output
+          - /dev/null
+          - --max-time
+          - "75"
+          - --header
+          - "Content-Type: application/json"
+          - --data
+          - >-
+            {"state":"Repeated checks after the service update return HTTP 503. User requests are failing and
+            there is no successful recovery yet. The operator needs to decide whether to investigate
+            now.","questions":{"investigate":{"type":"noul","instructions":"Does the evidence describe an active
+            failure requiring investigation?"}}}
+          - http://127.0.0.1:8080/v1/systemone
+      periodSeconds: 5
+      timeoutSeconds: 80
+      failureThreshold: 180
 
   # uid/group choice: see bge-reranker-v2-m3.
   podSecurityContext:
@@ -58,7 +90,7 @@ spec:
   # GPU allocation comes from Model.hardware.gpu.count; resources.gpu/gpuMemory
   # are dead fields here.
   resources:
-    cpu: "500m" # inference is on the GPU; CPU only tokenises/schedules
-    # 0.3Gi anonymous plus the mmapped token embeddings (0.5Gi, page cache) on the 2070.
-    memory: 512Mi
-    memoryLimit: 2Gi
+    cpu: "500m"
+    # Loading the weights also uses host RAM.
+    memory: 1536Mi
+    memoryLimit: 3Gi

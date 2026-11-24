@@ -104,18 +104,54 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 
 ## llama.cpp services on the 2070
 
-d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
+Perplexity Decider Flash v1.3 (Service `d3-nano`), bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
 llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
-`server-cuda13` (CUDA 13.4). Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
+`server-cuda13`. Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
 image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
 ([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run v1.19.1 and all
 three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
 below for comparison; rolling back means pinning that image again.
 
-Per process in production after the merge (`nvidia-smi --query-compute-apps` in each pod) and in the
-first CUDA 12.8 pods:
+### Decider Flash v1.3, 2026-11-23
 
-| Service | Flags | VRAM MiB, CUDA 13 (production) | CUDA 12.8 |
+Both models ran through 8-ball on this RTX 2070 with two slots. Flash kept its output tensor in host RAM for this first trial.
+The table gives correct / wrong / unsure verdicts at the default thresholds. The 60 plugin cases cover ad hoc requests,
+GitOps, model radar and jobs. The 48 external
+cases use public, teacher-labeled agent traces and incidents. All 108 final Flash requests succeeded with learning
+and escalation off.
+
+| Cases | D3-nano Q8_0 | Flash Q4_K_M | Nano p50 / p95 | Flash p50 / p95 |
+| --- | --- | --- | --- | --- |
+| Plugin (60) | 42 / 4 / 14 | 51 / 0 / 9 | 52 / 125 ms | 204 / 309 ms |
+| External (48) | 11 / 5 / 32 | 24 / 7 / 17 | 80 / 105 ms | 343 / 478 ms |
+
+Flash corrected three wrong plugin decisions and deferred the fourth. Five of its seven external errors were
+urgency or severity ratings. All six synthetic effort-routing probes passed. The Qwen fallback was already suspended.
+
+We then tested the same Q4_K_M GGUF with the output tensor on the CPU or GPU, using llama.cpp b12648 and
+`--load-mode none`. Pearl was paused for all four passes over the 108 cases (CPU, GPU, GPU, CPU). Every verdict
+matched across passes. The table pools the two passes for each mode.
+
+| Cases | CPU output p50 / p95 | GPU output p50 / p95 |
+| --- | --- | --- |
+| Plugin (60) | 142 / 212 ms | 78 / 135 ms |
+| External (48) | 213 / 270 ms | 149 / 210 ms |
+| All (108) | 179 / 265 ms | 115 / 198 ms |
+
+Flash now runs fully on the GPU. Its process used 4088 MiB after warm-up, up from 2828–2838 MiB with CPU output.
+The board had 1787 MiB free with the miner paused. After rollout, one overlapping request to each of Flash,
+EmbeddingGemma and BGE succeeded. The lowest of 50 GPU readings was 1793 MiB free. Pearl stayed idle because
+UPS load and the R9700 junction temperature blocked startup. See [Pearl's gate](pearl-solar-mining.md#gate) for the mining margin.
+
+With the default HTTP startup check, the first typed request exceeded 8-ball's 20-second timeout. The startup
+probe now posts a typed question before Kubernetes sends traffic. On a cached restart with CPU output the first
+plugin request took 312 ms.
+
+### Original D3-nano deployment
+
+Per-process measurements after the CUDA 13 migration (`nvidia-smi --query-compute-apps` in each pod) and in the first CUDA 12.8 pods:
+
+| Service | Flags | VRAM MiB, CUDA 13 | CUDA 12.8 |
 | --- | --- | --- | --- |
 | embeddinggemma-2 Q8_0 | 8 slots, ubatch 8192, `-fa on` | 1344 | 1388 (weights 144, compute 1088) |
 | bge-reranker-v2-m3 Q8_0 | 4 slots x 2048, `-fa on` | 500 | 510 |
@@ -137,7 +173,8 @@ the same order, d3 picks the same effort with probabilities within 0.011.
 
 Each process also holds ~110 MiB of CUDA context and ~1 GiB of host RSS (0.3-0.4 GiB anonymous,
 the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM is flat under load.
-`NvidiaVramLow` fires below 512 MiB free: time-slicing gives no VRAM isolation between pods.
+`NvidiaVramLow` fires when total minus used stays below 512 MiB for 10 minutes. Pearl uses the driver's reported
+free memory, which excludes reserved VRAM.
 
 Turing is built only as PTX, so the driver JIT-compiles the kernels: with an empty cache the
 embedder took 59 s to load and 27 s for its first request; with a warm cache 1.3 s and 0.08 s.
@@ -164,7 +201,7 @@ vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
 
 `web3/pearl-miner` is an optional workload: a Deployment at 0 replicas that KEDA raises to 1 on
 solar surplus ([gate and thresholds](pearl-solar-mining.md)). It needs about 1.6 GiB of VRAM beside
-the three services, starts only with 2560 MiB free, stops below 1024 MiB, and has no toleration
+the three services, starts with at least 1776 MiB free, stops below 96 MiB, and has no toleration
 (control-1 has no taint). The UPS shed query does not see the 2070's draw, so the gate reads the UPS
 itself. Metrics come from `nvidia_smi_*`; DCGM is disabled.
 
