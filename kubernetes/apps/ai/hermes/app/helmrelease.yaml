@@ -15,16 +15,6 @@ spec:
   values:
     defaultPodOptions:
       priorityClassName: homelab-important
-      # A control-1 outage held the RWO claim for four hours. Keep the VM available as a fallback.
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: NotIn
-                    values: [control-1]
       terminationGracePeriodSeconds: 90
       # Terminal tool and headless Chromium run model-directed code.
       runtimeClassName: gvisor
