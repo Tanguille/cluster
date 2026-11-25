@@ -5,9 +5,9 @@
 ## Engine and model
 
 - Image: `ghcr.io/tanguille/radiance:attnrel-<sha>`, our own build. Upstream support is radiance PR [#584](https://codeberg.org/StillDeadcode/radiance/pulls/584) (merged) and [#608](https://codeberg.org/StillDeadcode/radiance/pulls/608) (open; it replaced #585/#586). The build is the #608 branch plus two local changes:
-  - host tests off: the branch's `r4d_emu` does not compile;
+  - host tests on, minus six that fail only inside BuildKit (`TEST_EXCLUDE`: `avx_check` needs io_uring, plus `dashboard_test`, `gbnf_test_shard2`, `quant_ggml_test`, `shipped_plugins_test`, `artifact_sums`);
   - the `inkling-perf` patch: NVFP4 MoE takes the prefill tiles only from 16 routed rows an expert (`RADIANCE_NVFP4_PF_ROWS` overrides), and the sort writes `moe_gather_inv`'s slot table. +10% aggregate at 8 sessions in one run; upstream as [#613](https://codeberg.org/StillDeadcode/radiance/pulls/613), stacked on #608.
-  - local engine work, not upstream (private branches, no source in this repo): the replay-audit fix (relative attention declares live prefill splits; without it a mixed step could stop the engine), a short-verify band so 8-row verifies take the packed kernel, a Markov score grid that shares fold tiles, a compact packed-verify workgroup with more KV splits, a direct-from-memory relative-attention kernel (`RADIANCE_REL_VARIANT=2`), and a draft policy that skips the proposal below 4 decode rows only when a plain step wins.
+  - local engine work, not upstream (private branches, no source in this repo): the replay-audit fix (relative attention declares live prefill splits; without it a mixed step could stop the engine), a short-verify band so 8-row verifies take the packed kernel, a Markov score grid that shares fold tiles, a compact packed-verify workgroup with more KV splits, a direct-from-memory relative-attention kernel (`RADIANCE_REL_VARIANT=2`), and a draft policy that skips the proposal below 4 decode rows only when a plain step wins. On top, spizzerp's [Tangenius/radiance#1](https://codeberg.org/Tangenius/radiance/pulls/1): `RADIANCE_REL_COMPACT_MIN=1` sends one or two sessions' long verifies to the compact band.
   - Built with rootless BuildKit from the upstream Dockerfile (ccache mount). Move to the upstream image once the PRs merge.
 - Model: [gostar77/inkling2-mini-i8-dspark-radiance](https://huggingface.co/gostar77/inkling2-mini-i8-dspark-radiance), a ready `.rad` (int8 trunk, NVFP4 experts, DSpark drafter, vision tower). Its layout follows the engine build, so the revision is pinned and moves with the image.
 
@@ -41,6 +41,19 @@ Code and JSON generation (8 prompts, greedy, thinking off), aggregate tok/s, qwe
 Quality against the #608 build: drafter-off greedy output identical token for token on 60 samples (100%, and 100% between two #608 runs); GSM8K 146/150 (#608 145/150); tools 12/12 alone and 5 at once; vision 2/2; needles 9/9 plus cached prefix. KLD does not exercise the decode kernels (64-token prefill batches). Drafter-on greedy agreement between any two builds, or warm against cold on one build, is only 35-80%: speculative decoding changes tokens on long generations.
 
 12 slots stay worse (49-52 tok/s, TTFT 27-35 s, 5-7 preemptions): the ~483K-token pool, not the engine, is the limit.
+
+## Measurements (2026-11-25, compact-min, same card, 210 W cap)
+
+`attnrel-d34cc357`, `RADIANCE_REL_VARIANT=2` in every arm; baseline u2 vs `RADIANCE_REL_COMPACT_MIN=1` arms c1 and c2 (u1 lost to a port clash).
+
+| Workload | Baseline | Compact-min | Change |
+| --- | --- | --- | --- |
+| Code context, 1 session at 101K (run 1 / run 2) | 131.4 / 63.2 | 141.6 / 81.4 | +8% / +29% |
+| Code context, 2 sessions at 30K | 156.9 / 128.7 | 172.3 / 140.6 | +10% / +9% |
+| Code context, 4 sessions at 43K | 206.8 / 195.8 | 210.3 / 183.9 | neutral |
+| prodshape aggregate, 1 / 2 / 4 sessions | 53.9 / 70.3 / 93.8 | 54.4 / 80.9 / 97.0 | +1% / +15% / +3% |
+
+Gates with compact-min on: drafter-off agreement 100% (0/60, warm vs cold 20/20), GSM8K 146/150, tools 12/12 single and concurrent, vision 2/2, needles pass at 200K.
 
 ## Outside git
 
