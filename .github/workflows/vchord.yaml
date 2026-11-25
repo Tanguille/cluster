@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: VectorChord
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - docker/vchord/**
+      - .github/workflows/vchord.yaml
+  # Rebuilds the same tag.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        # PG19 only: the cluster stays on tensorchord vchord-scratch until the PG19 upgrade.
+        pg: ["19"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The tag comes from the Renovate-managed Dockerfile ARG, so the two cannot disagree.
+      - name: Build and push
+        env:
+          PG_MAJOR: ${{ matrix.pg }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^ARG VCHORD_VERSION=//p' docker/vchord/Dockerfile)"
+          [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad VCHORD_VERSION '${version}'" >&2; exit 1; }
+          image="ghcr.io/${OWNER,,}/vchord:${version}-${PG_MAJOR}-trixie"
+          docker buildx build --push --build-arg "PG_MAJOR=${PG_MAJOR}" --tag "${image}" docker/vchord
+          echo "Published \`${image}\`" >> "${GITHUB_STEP_SUMMARY}"
