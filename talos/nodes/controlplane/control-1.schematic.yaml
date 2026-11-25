@@ -12,7 +12,8 @@ customization:
     - -selinux
     - cpufreq.default_governor=performance
     - amd_pstate=active
-    - amdgpu.ppfeaturemask=0xffffffff
+    # Kernel default plus OVERDRIVE (undervolt needs it); GFX_DCS stays off.
+    - amdgpu.ppfeaturemask=0xfff7ffff
     - amdgpu.runpm=0
     # Explicit 0, not absent: GECC persists in PSP firmware state once armed, so
     # dropping the flag leaves it on. It costs exactly 2GiB of VRAM (6.25% carve-out)
