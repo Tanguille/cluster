@@ -34,6 +34,56 @@ Check `volumeMounts`/`volumes` first for the real PVC `claimName` and mount path
 mount more than one PVC (e.g. nextcloud has a second, unrelated 500Gi NFS volume at the
 "obvious" `/var/www/data` path; the migrated one is elsewhere).
 
+## Recover Hermes when its RBD volume is still attached to an unavailable node
+
+Hermes normally resumes on its existing `ai/hermes` claim. On 25 November 2026 the TrueNAS
+host rebooted at 05:15 UTC. Its `control-1` guest lost Kubernetes readiness at 05:16. The
+scheduler placed the replacement pod on `control-3` at 05:21. The old pod still held the
+ReadWriteOnce volume on `control-1`, and the replacement stayed in `ContainerCreating`. The
+attach/detach controller reported the volume in use on the old node. Attachment on the new node
+started when the old node recovered at 09:21, and Hermes became available at 09:23.
+
+Identify the old attachment, replacement node and backup age before choosing a recovery action:
+
+```bash
+kubectl -n ai get pods -l app.kubernetes.io/name=hermes -o wide
+kubectl -n ai get events --sort-by=.lastTimestamp --field-selector=reason=FailedAttachVolume
+pv=$(kubectl -n ai get pvc hermes -o jsonpath='{.spec.volumeName}')
+kubectl get volumeattachments.storage.k8s.io -o json | jq --arg pv "$pv" \
+  '.items[] | select(.spec.source.persistentVolumeName == $pv) | {node: .spec.nodeName, attached: .status.attached}'
+kubectl get nodes
+kubectl -n rook-ceph get cephcluster
+kubectl -n ai get snapshotpolicy hermes -o jsonpath='{.status.lastSuccessfulSnapshot}{"\n"}'
+```
+
+- **Planned maintenance.** While the original kubelet can still unmount the filesystem, cordon
+  and drain its node through the approved maintenance workflow. Review disruption budgets and
+  any `emptyDir` data before permitting its deletion. Wait for detachment, the replacement's
+  Ready condition and healthy Ceph quorum before shutting down the original node or its host.
+  The TrueNAS host supplies a Ceph OSD through `control-1` and the Kopia S3 repository.
+  Account for both when planning host maintenance. [Storage topology](drives.md)
+- **Node unreachable or restarting.** Recover the kubelet, guest or connectivity first. A
+  missing lease, failed ping, or paused VM can coexist with a live Ceph client. Keep the claim
+  and VolumeAttachment intact. Force-deleting the pod, attachment or RBD lock can expose
+  SQLite to two writers.
+- **Node independently confirmed powered off and kept off.** For `control-1`, verify the
+  `TALOS` VM is stopped in TrueNAS and cannot auto-start during handover. Identify every pod
+  and volume on that node and verify the remaining control plane and Ceph can serve I/O.
+  With operator approval, use the Kubernetes non-graceful shutdown procedure: cordon the node
+  and apply `node.kubernetes.io/out-of-service=nodeshutdown:NoExecute`. This affects all
+  non-tolerating pods there and permits their volumes to detach. After a full power cycle and
+  verified node/storage recovery, remove the taint and uncordon under the same maintenance
+  workflow. [Kubernetes node shutdown](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/#non-graceful-node-shutdown-handling)
+
+Verify one ready Hermes replica, the original PV bound to `ai/hermes`, one attached node
+matching the running pod, and two successive ten-minute exporter heartbeats in VictoriaMetrics.
+Use the separate-claim drill below if filesystem integrity is in doubt.
+
+The installed RBD driver has `enableFencing` and `deployCsiAddons` disabled. Enabling native
+Ceph fencing changes the shared driver for every RBD workload. It requires the separate
+CSI-Addons controller for automatic unfencing, a trustworthy decision that the old node is
+down, and a tested full power-cycle and unfence procedure. [Pinned Rook 1.21.3 fencing configuration](https://github.com/rook/rook/blob/v1.21.3/Documentation/Helm-Charts/csi-drivers-chart.md#network-fencing) · [RBD node loss and recovery](https://github.com/rook/rook/blob/v1.21.3/Documentation/Storage-Configuration/Block-Storage-RBD/block-storage.md#node-loss)
+
 ## Verify a Hermes snapshot on a separate claim
 
 For a recovery drill, keep the production claim mounted and the gateway running.
