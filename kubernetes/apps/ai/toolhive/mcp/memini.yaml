@@ -9,9 +9,12 @@ spec:
   transport: streamable-http
   groupRef:
     name: all
-  # Same namespace and home as the hermes memini plugin (MEMINI_NAMESPACE/MEMINI_HOME), so memories
-  # written through the vMCP and by hermes share one read set instead of landing in "default".
+  # Only forward the home namespace (shared across profiles). Each Hermes profile
+  # sets its own MEMINI_NAMESPACE via its .env/profile config — do NOT pin the
+  # namespace here, or every project on the machine shares the "tanguille" pool
+  # (the global-namespace-pin warning from memini itself). Removing this header
+  # forward lets each profile resolve its own namespace via the MCP client
+  # headers the plugin already sends.
   headerForward:
     addPlaintextHeaders:
-      X-Memini-Namespace: tanguille
       X-Memini-Home: cluster
