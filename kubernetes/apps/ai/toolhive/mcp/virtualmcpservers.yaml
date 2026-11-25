@@ -67,8 +67,8 @@ spec:
   telemetryConfigRef:
     name: prometheus
   config:
-    # Keep shared filters here: MCPServerEntry has no toolConfigRef, and older proxy
-    # versions stripped resultType from MCP 2026-07-28 responses (stacklok/toolhive#6684).
+    # Filters live here, not on the proxy: proxy toolConfigRef strips resultType on
+    # MCP 2026-07-28 backends (stacklok/toolhive#6684), and MCPServerEntry has no toolConfigRef field.
     aggregation:
       tools:
         - workload: flux-operator

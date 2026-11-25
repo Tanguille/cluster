@@ -115,7 +115,7 @@ flux resume ks cloudnative-pg-cluster -n database
 4. `ORBIT_APP_KEY` (`orbit-secret`) encrypts saved secrets, 2FA and Orbit's own backups. Never rotate it; keep a copy in Vaultwarden.
 5. MCP: clients use `https://orbit.<domain>/mcp` (Streamable HTTP). The URL must be the public origin, Orbit checks `Host`.
    - Cluster agents: the ToolHive `orbit` entry (`kubernetes/apps/ai/toolhive/mcp/orbit.yaml`) puts Orbit's tools (`orbit_*`) in the unified vMCP. `ORBIT_MCP_TOKEN` in `toolhive-secrets` holds the full `Bearer <token>` header of a personal API token (docs and chat need a personal token, service-account tokens cover tasks only). To rotate it, create a new token in **Settings → API tokens** and update the secret.
-   - Hermes daily task report: the [read-only ToolHive proxy](hermes-read-only-jobs.md) uses a dedicated project-scoped credential. Follow the activation and single-job cutover instructions before switching the report.
+   - Hermes daily task report: [orbit_report.py](../kubernetes/apps/ai/hermes/app/resources/orbit_report.py) reads tasks, statuses and replies through the same gateway. After the script is mounted and the live change is approved, set `script: orbit_report.py` and `enabled_toolsets: []` together on the existing `orbit-maintain` job. Keep its prompt, schedule and delivery. The model summarizes the script output with no callable tools. To roll back, restore the job's previous script and toolset values.
    - Interactive clients: OAuth, for example `claude mcp add --scope user --transport http orbit https://orbit.<domain>/mcp`, then authenticate in `/mcp`.
 
 ### GitHub integration
@@ -173,3 +173,22 @@ done
 
 - `speedMbit`: link speed in Mbps; `4294967295` usually means virtual/unknown.
 - Physical NICs show real speeds (for example, 1000, 2500, or 10000).
+
+## Hermes cron delivery failures
+
+Use the `profile` and `id` labels from `HermesCronDeliveryFailed`. Match the run time in the execution ledger, then check the same execution in the profile’s outbox:
+
+```bash
+read -rp 'Profile and job id: ' profile job
+home_dir=/opt/data
+[[ $profile == default ]] || home_dir="/opt/data/profiles/$profile"
+hermes_exec=(kubectl -n ai exec deploy/hermes -c app -- /command/s6-setuidgid hermes)
+"${hermes_exec[@]}" env HERMES_HOME="$home_dir" hermes cron runs "$job" --limit 5
+read -rp 'Execution id: ' execution
+"${hermes_exec[@]}" /opt/hermes/.venv/bin/python -c '
+import sqlite3, sys
+db = sqlite3.connect("file:" + sys.argv[1] + "/cron/deliveries.db?mode=ro", uri=True)
+print(db.execute("SELECT status FROM deliveries WHERE execution_id=? UNION ALL SELECT terminal_status FROM delivery_tombstones WHERE execution_id=?", (sys.argv[2], sys.argv[2])).fetchall())' "$home_dir" "$execution"
+```
+
+A completed execution can have a failed delivery. If the gateway reports `not configured/enabled`, check the connected Discord adapter, the profile route for the exact thread and parent, and the bot’s thread membership and **Send Messages in Threads** permission. An unknown delivery may already have reached Discord. Observe the next scheduled run to avoid posting a duplicate.
