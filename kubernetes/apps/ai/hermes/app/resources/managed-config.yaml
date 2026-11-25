@@ -1,0 +1,33 @@
+# Mounted at /etc/hermes/config.yaml: pins these leaves over root and every profile config (profiles never
+# inherit root). Per-profile keys (platform_toolsets, memini namespace) stay on the PVC.
+model:
+  default: inkling-2-mini-auto
+  provider: custom
+  base_url: http://agentgateway.ai.svc.cluster.local:4000/v1
+  # The engine's max-model-len; compaction fires at the default 0.5 of it.
+  context_length: 262144
+  max_tokens: 8192
+  supports_vision: true
+# Keyed by model.default: rename both together on a model cutover.
+model_overrides:
+  custom:
+    inkling-2-mini-auto:
+      context_window: 262144
+mcp_servers:
+  toolhive:
+    url: http://vmcp-unified.ai.svc.cluster.local:4483/mcp
+    timeout: 300
+    connect_timeout: 180
+memory:
+  provider: memini
+  # memini is the only long-term memory; the built-in MEMORY.md/USER.md stores stay off.
+  memory_enabled: false
+  user_profile_enabled: false
+  memini:
+    url: http://memini.ai.svc.cluster.local:8080
+sessions:
+  # Pinned because a whole-file config rewrite dropped it from every profile once.
+  auto_prune: true
+tools:
+  tool_search:
+    enabled: false
