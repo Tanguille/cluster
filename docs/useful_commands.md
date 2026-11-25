@@ -115,6 +115,7 @@ flux resume ks cloudnative-pg-cluster -n database
 4. `ORBIT_APP_KEY` (`orbit-secret`) encrypts saved secrets, 2FA and Orbit's own backups. Never rotate it; keep a copy in Vaultwarden.
 5. MCP: clients use `https://orbit.<domain>/mcp` (Streamable HTTP). The URL must be the public origin, Orbit checks `Host`.
    - Cluster agents: the ToolHive `orbit` entry (`kubernetes/apps/ai/toolhive/mcp/orbit.yaml`) puts Orbit's tools (`orbit_*`) in the unified vMCP. `ORBIT_MCP_TOKEN` in `toolhive-secrets` holds the full `Bearer <token>` header of a personal API token (docs and chat need a personal token, service-account tokens cover tasks only). To rotate it, create a new token in **Settings → API tokens** and update the secret.
+   - Hermes daily task report: the [read-only ToolHive proxy](hermes-read-only-jobs.md) uses a dedicated project-scoped credential. Follow the activation and single-job cutover instructions before switching the report.
    - Interactive clients: OAuth, for example `claude mcp add --scope user --transport http orbit https://orbit.<domain>/mcp`, then authenticate in `/mcp`.
 
 ### GitHub integration

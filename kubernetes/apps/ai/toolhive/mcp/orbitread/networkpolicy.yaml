@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: orbitread-hermes-ingress
+spec:
+  endpointSelector:
+    matchLabels:
+      app: mcpremoteproxy
+      toolhive-name: orbitread
+  # The namespace allows intra-cluster traffic. Fence only the MCP port.
+  ingressDeny:
+    - fromEndpoints:
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: Exists
+            - key: io.kubernetes.pod.namespace
+              operator: NotIn
+              values: [ai]
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: NotIn
+              values: [hermes]
+      toPorts: &mcpPort
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    # Node-local kubelet probes use the same listener. Keep the host identity available.
+    - fromEntities: [world, remote-node]
+      toPorts: *mcpPort

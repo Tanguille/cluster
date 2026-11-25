@@ -1,27 +1,31 @@
-# A read-only Orbit report in Hermes
+# A read-only Orbit report through ToolHive
 
-The daily 10:00 Orbit report explicitly prohibits changes to tasks and comments. Its November 25 run made six Orbit calls across three operations. Two local code/shell calls processed JSON spill files. The model currently inherits its profile's tools. This cutover gives Orbit responsibility for denying writes and limits the report's model to the three reads it used. Versions verified were Orbit 0.4.1 and Hermes 0.23.4.
+The daily 10:00 Hermes report used six Orbit calls across three operations on November 25. Configure its model to call the dedicated ToolHive `orbitread` MCP proxy. The proxy filters both tool discovery and calls to `list_tasks`, `get_task` and `list_task_statuses`. Orbit independently checks project membership and `tasks:read` on each call. The shared `unified` gateway serves jobs that need broader access. Its `call_tool` accepts a target name as an argument, so allowing it would give this report a path to other operations. [ToolHive v0.69.1 tool filtering](https://github.com/stacklok/toolhive/blob/v0.69.1/pkg/mcp/tool_filter.go) · [Orbit token permissions](https://github.com/coollabsio/orbit/blob/v0.4.1/docs/mcp.md#api-token-alternative)
 
-## Prepare the credential and configuration
+## Prepare ToolHive
 
-1. In Orbit **Settings → API tokens**, issue a dedicated service-account token with **Tasks → Read**, only the report's project(s), and an expiry. Keep docs, chat, export and write scopes off. Verify the grant in Orbit. Record its expiry and owner privately. Leave the operator's existing ToolHive credential and endpoint alone. [Orbit token setup and permissions](https://github.com/coollabsio/orbit/blob/v0.4.1/docs/mcp.md#api-token-alternative)
-2. Record a private backup of the owning profile's config and the target job's current `enabled_toolsets`, schedule, delivery and next run. The original job inherited its tools (`null`). Provide the raw token to **that profile only** as `ORBIT_READ_TOKEN`, using its secret source or protected `.env`. Keep credential values out of commands, Git and job records. The existing profiles share a Unix identity and data volume. This limits what the scheduled model can invoke. A separate workload, credential mount and storage are needed for filesystem isolation.
-3. In the owning profile's `config.yaml`, merge this entry under its existing `mcp_servers`. Replace the example URL with the verified Orbit HTTPS endpoint and retain TLS verification. Profile-level discovery also exposes a new endpoint to other interactive sessions and jobs that inherit MCP servers. Even a cron job selecting only a native toolset such as `web` can pick up that server automatically. Check whether those consumers already have access to the selected projects. If their access cannot be confirmed, use a separately scoped profile with local delivery for the trial. [Hermes MCP configuration](https://github.com/NousResearch/hermes-agent/blob/v0.23.4/website/docs/reference/mcp-config-reference.md)
+The [proxy manifests](../kubernetes/apps/ai/toolhive/mcp/orbitread/) are staged separately from the reconciled [ToolHive resource list](../kubernetes/apps/ai/toolhive/mcp/kustomization.yaml). Render them locally with `kubectl kustomize kubernetes/apps/ai/toolhive/mcp/orbitread`. Activation requires a separate approved change.
+
+1. In Orbit **Settings → API tokens**, issue a dedicated service-account token for the report's projects with **Tasks → Read** and an expiry. Record the owner and expiry privately.
+2. Store the full `Bearer <token>` header as `ORBIT_READ_MCP_TOKEN` in the existing SOPS-managed `ai/toolhive-secrets`. Only ToolHive injects it on the outbound request to Orbit's HTTPS `/mcp` route. Hermes needs only the internal proxy URL.
+3. Once the credential is available, add `orbitread` under `resources` in the ToolHive resource list. After reconciliation, confirm the proxy is Ready and its Service has a ready endpoint. The policy restricts its MCP port to Hermes pods among cluster workloads. Profiles inside the same Hermes pod share its network identity and filesystem.
+
+## Connect Hermes
+
+Back up the owning profile's config and the job's current toolset, schedule, delivery and next run. The existing job is in the default profile and inherited its tools (`null`). Other sessions can inherit MCP servers added to that profile. If their access to the selected projects is unconfirmed, start with a separate profile and local delivery.
+
+Merge this entry under the profile's existing `mcp_servers`, then reload its MCP configuration after approval. The proxy exposes Orbit's original tool names. Use `hermes mcp test orbitread` from that profile to verify the exact three-tool catalog. In a disposable project, verify that pagination reaches the last page and that a read-only identity cannot retrieve a task outside the grant. Use an offline fixture for write-denial checks. [Hermes MCP configuration](https://github.com/NousResearch/hermes-agent/blob/v0.23.4/website/docs/reference/mcp-config-reference.md)
 
 ```yaml
 mcp_servers:
   orbitread:
-    url: https://orbit.example.invalid/mcp
-    headers:
-      Authorization: "Bearer ${ORBIT_READ_TOKEN}"
+    url: http://mcp-orbitread-remote-proxy.ai.svc.cluster.local:8080/mcp
     trust: untrusted
     tools:
       include: [list_tasks, get_task, list_task_statuses]
       resources: false
       prompts: false
 ```
-
-With approval, reload the owning runtime's MCP configuration and verify the gateway sees `orbitread` in that profile. Use `hermes mcp test orbitread` there to inspect the endpoint's answer. Orbit's native catalog also exposes other reads in the granted projects. Separately inspect the **model's effective tool list** with the per-job selection below. The underlying callable tools must be exactly the three Orbit reads. Hermes can present native `tool_search`, `tool_describe` and `tool_call` wrappers when tools are deferred. Verify they cannot dispatch the general ToolHive endpoint, shell, code execution, files or delegation. Orbit marks its read tools with the read-only hint. [Hermes MCP test](https://github.com/NousResearch/hermes-agent/blob/v0.23.4/website/docs/user-guide/features/mcp.md) · [Orbit authorization at listing and dispatch](https://github.com/coollabsio/orbit/blob/v0.4.1/apps/server/src/mcp.rs#L608)
 
 ## Canary one job
 
@@ -48,7 +52,7 @@ if get_job(job_id).get("enabled_toolsets") != wanted:
 PY
 ```
 
-Observe the next ordinary run. Check execution, delivery outcome, allowed tool names and report completeness without logging task data. To roll back, re-read the job and check its toolset still equals `wanted`, then use the same updater to restore the saved value (`None` for the verified inherited setting). Confirm the restored field, remove the unused named entry and revoke its dedicated token after all users have transitioned. Reverting `enabled_toolsets` to inherited restores the previous broader authority.
+Observe the next ordinary run. Check execution, delivery outcome, allowed tool names and report completeness without logging task data. To roll back, re-read the job and check its toolset still equals `wanted`, then use the same updater to restore the saved value (`None` for the verified inherited setting). Confirm the restored field. Once no jobs use the proxy, remove the Hermes entry and ToolHive resource reference, revoke the Orbit token and remove its key from the encrypted ToolHive secret. Reverting `enabled_toolsets` to inherited restores the previous broader authority.
 
 ## Offline permission checks
 
@@ -84,4 +88,4 @@ assert _resolve_cron_enabled_toolsets(job, cfg) == ["mcp-orbitread"]
 PYTEST
 ```
 
-A separate network-disabled test in the digest-pinned Hermes image registered dummy Orbit reads and an unrelated general MCP. The actual deferred dispatcher rejected both the unrelated tool and an unregistered write. After removing the Orbit entry and deregistering its tools, the final registry returned zero callable tools for this job. Production still needs the dedicated token, the audience decision and a successful scheduled report. [Orbit regression](https://github.com/coollabsio/orbit/blob/v0.4.1/apps/server/tests/mcp_api.rs#L676) · [Hermes regression](https://github.com/NousResearch/hermes-agent/blob/v0.23.4/tests/cron/test_cron_mcp_toolset_allowlist.py)
+A separate network-disabled test in the digest-pinned Hermes image registered dummy Orbit reads and an unrelated general MCP. The actual deferred dispatcher rejected both the unrelated tool and an unregistered write. After removing the Orbit entry and deregistering its tools, the final registry returned zero callable tools for this job. Before production cutover, verify the live ToolHive catalog, profile access and one complete scheduled report. [Orbit regression](https://github.com/coollabsio/orbit/blob/v0.4.1/apps/server/tests/mcp_api.rs#L676) · [Hermes regression](https://github.com/NousResearch/hermes-agent/blob/v0.23.4/tests/cron/test_cron_mcp_toolset_allowlist.py)
