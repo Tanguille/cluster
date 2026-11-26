@@ -39,6 +39,11 @@ spec:
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
+        # Without it the image writes a key file into the root-owned /app, which fails as nonroot.
+        DJANGO_SECRET_KEY:
+          secretKeyRef:
+            name: obico-secret
+            key: DJANGO_SECRET_KEY
         # The map renders sorted, so REDIS_PASSWORD precedes the REDIS_URL that expands it.
         REDIS_PASSWORD:
           secretKeyRef:
