@@ -260,6 +260,11 @@ spec:
       # Benchmark output the default globs miss.
       ignore:
         - "**/*.out"
+      # The repo is public: a stranger's fork PR would otherwise take review slots.
+      trigger:
+        exclude:
+          - name: forks
+            expr: pr.fork
       embedding:
         model: embed/embeddinggemma-2
         dims: 768
