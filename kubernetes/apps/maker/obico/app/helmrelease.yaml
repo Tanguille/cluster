@@ -33,6 +33,7 @@ spec:
             allowPrivilegeEscalation: false
         migrate:
           securityContext: *nonroot-context
+      # Held back with ml-api: the next digest pair failed the rollout (#7356). Retest before taking that bump.
       image:
         repository: ghcr.io/gabe565/obico/web
         tag: release@sha256:e406cd78cdca13a92f0446353b259b8f823e585834290918a1e520bbbcadf2cf
