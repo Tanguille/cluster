@@ -18,10 +18,10 @@ spec:
             sum by (model) (
               increase(agentgateway_requests_total{namespace="ai", listener="models", model!="omniroute", status=~"5.."}[15m])
             ) > 2
-            # Mute inkling-2-mini* while it is at 0 on purpose (UPS shed or by hand) and 1h after: the window
-            # plus a slow engine start. A start that never finishes is AgentgatewayFallbackBackendDown.
+            # Mute inkling-2-mini* and qwen-3.8 (same pod) while it is at 0 on purpose (UPS shed or by hand) and 1h
+            # after: the window plus a slow engine start. A start that never finishes is AgentgatewayFallbackBackendDown.
             unless on(model) (
-              agentgateway_requests_total{model=~"inkling-2-mini.*"}
+              agentgateway_requests_total{model=~"inkling-2-mini.*|qwen-3\\.8"}
               and on() min_over_time(kube_deployment_spec_replicas{namespace="ai", deployment="inkling2-mini"}[1h]) == 0
             )
           for: 10m

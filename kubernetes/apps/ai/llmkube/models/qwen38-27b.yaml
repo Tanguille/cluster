@@ -1,0 +1,45 @@
+---
+# hostpath: size unenforced (real limit is control-1 free disk) and unraisable: any size change fails the dry-run and wedges llmkube-models.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      # The .rad is 16.5 GB.
+      storage: 20Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-27b
+spec:
+  # qwen-3.8 of the inkling2-mini fleet (docs/llm-hosting/inkling2-mini-2026-11.md). Its .rad path in
+  # resources/inkling2-mini-radiance.yaml names the cache dir, sha256 of this source (first 16 hex): bump both together.
+  source: hf://StillDeadcode/qwen3.8-27b-iqr-v4@e5f1b3ef70741d705a64a28b852acf3fcefcead7
+  format: custom
+  quantization: IQ4R-S-V4
+  files:
+    - qwen3.8-27b-iq4r-s-v4.rad
+  # No InferenceService of its own fetches it, so the operator does, into this claim on control-1.
+  prefetch: true
+  prefetchNodeSelector:
+    amd.com/gpu: "true"
+  modelCache:
+    claimName: qwen38-27b-model-cache
+---
+# Bench scratch, mounted by no manifest: trial .rads and the KL corpus (kld/).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: radiance-engine-rad
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 24Gi

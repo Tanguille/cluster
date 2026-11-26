@@ -1,6 +1,6 @@
 # Inkling 2 Mini on radiance (2026-11)
 
-`inkling-2-mini` replaced `qwen-3.8` as the local model on control-1's R9700 (gfx1201, 32 GB). The card holds one engine, so qwen's InferenceService stays in git with `suspend: true` as the rollback.
+`inkling-2-mini` replaced `qwen-3.8` as the local model on control-1's R9700 (gfx1201, 32 GB). The same radiance process serves `qwen-3.8` on demand: see [qwen-3.8 on demand](#qwen-38-on-demand).
 
 ## Engine and model
 
@@ -55,6 +55,17 @@ Quality against the #608 build: drafter-off greedy output identical token for to
 
 Gates with compact-min on: drafter-off agreement 100% (0/60, warm vs cold 20/20), GSM8K 146/150, tools 12/12 single and concurrent, vision 2/2, needles pass at 200K.
 
+## qwen-3.8 on demand
+
+radiance 2.x serves several models from one process (upstream `docs/MULTIMODEL.md`). `qwen-3.8` is the second entry of the fleet config; agentgateway sends it to the same Service (`agentgateway/app/models/qwen-3.8.yaml`). Started from JJGadgets/Biohazard's `qwen3.8-27b-radiance.yaml`.
+
+- Weights: upstream's [StillDeadcode/qwen3.8-27b-iqr-v4](https://huggingface.co/StillDeadcode/qwen3.8-27b-iqr-v4) IQ4R-S-V4 container, prefetched by the `qwen38-27b` Model. It is base Qwen3.8-27B, not Swift 1.5 (which thinks less), with a DFlash2 drafter; KL 0.0064 against bf16. 2.x refuses Swift's M2XFP4 and block-FP8 containers and the 1.17 `.rad`, and the W4A16 checkpoint is gated.
+- The two never fit on the card together. A request for the one not loaded takes the card once the other has served its quantum (5-30 s) and drained (30 s; open streams are then cut). The leaving model unloads (`park: ram: never`), so its sessions prefill again and the pod pins one model's host memory at a time. Under mixed traffic the two swap back and forth.
+- Equal priority, no `ttl`: on this build every `/metrics` scrape counts as a use, so a model never goes idle (fixed in upstream 2.3.0, where a qwen `ttl` could hand the card back).
+- `warm-up: false`: nothing loads at start. The pod is ready before Inkling is, and the first request waits for its load (up to `load-timeout`, 120 s).
+- Untested on the card: qwen's first load on this build is the first time `qwen35_w8a8` runs here, and a device fault during it ends Inkling too. Run it in a bench window: the qualitygate modes with `--model qwen-3.8`, prodshape `--levels 1,4,6`, and the `kv:` line for the pool. Settings carried over from 1.17 (Swift, k6_v4) are not re-measured; i8 KV and 6 slots replace k6_v4 and 8.
+- Do not send `qwen-3.8` before the Model reads Ready: a missing file fails only qwen's load, but the attempt can still reclaim Inkling's free KV.
+
 ## Outside git
 
 Clients configured on PVCs or in apps name the model themselves; switch them with the cutover:
@@ -64,4 +75,4 @@ Clients configured on PVCs or in apps name the model themselves; switch them wit
 
 ## Rollback
 
-Revert the cutover commit: it brings back qwen's routes, names, alerts and UPS shed and drops `suspend` from `qwen38-27b-vllm.yaml`, whose `.rad` and model cache stayed on their PVCs. Then switch the clients outside git back.
+Serve `qwen-3.8` as the main model again: point the clients outside git back at it; the gateway already routes it. To drop it, remove its entry from `resources/inkling2-mini-radiance.yaml`, `agentgateway/app/models/qwen-3.8.yaml`, its two `modelcatalog.yaml` rates and the `AgentgatewayRequestsFailing` mute regex, then restart the pod (config edits do not roll it). The Swift 1.5 stack (W4A16 Model, rad-convert Job, `qwen38-27b-vllm` InferenceService) is gone: bringing it back means reverting that commit and porting its flags to 2.x keys.
