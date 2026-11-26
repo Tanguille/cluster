@@ -13,14 +13,7 @@
 
 ## Config and why
 
-The engine takes only `--config`: these are keys of `kubernetes/apps/ai/llmkube/models/resources/inkling2-mini-radiance.yaml` (shown here as the flags they were), mounted from a ConfigMap. A change does not roll the pod; restart it.
-
-| Flag | Value | Reason |
-| --- | --- | --- |
-| `--max-num-seqs` | 8 | ~483K-token pool; 12 production sessions (~624K) preempt (prodshape below) |
-| `--kv-cache-dtype` | i8 | bf16 cannot hold one 262K sequence beside the experts; i8 passes the needles (below) |
-| `--num-speculative-tokens` / `--draft-window` | 7 / adaptive | DSpark is 7 or off; fixed window lost 7-14% |
-| `--reasoning-effort` | medium | default for requests without one; `inkling-2-mini-auto` picks per request |
+The engine takes only `--config`: `kubernetes/apps/ai/llmkube/models/resources/radiance.yaml`, mounted from a ConfigMap, with each key's reason beside it. A change does not roll the pod; restart it. The adaptive draft window beat a fixed one by 7-14%.
 
 ## Measurements (2026-11-23, 210 W cap)
 
@@ -63,7 +56,7 @@ radiance 2.x serves several models from one process (upstream `docs/MULTIMODEL.m
 - The two never fit on the card together. A request for the one not loaded takes the card once the other has served its quantum (5-30 s) and drained (30 s; open streams are then cut). The leaving model unloads (`park: ram: never`), so its sessions prefill again and the pod pins one model's host memory at a time. Under mixed traffic the two swap back and forth.
 - Equal priority, no `ttl`: on this build every `/metrics` scrape counts as a use, so a model never goes idle (fixed in upstream 2.3.0, where a qwen `ttl` could hand the card back).
 - `warm-up: false`: nothing loads at start. The pod is ready before Inkling is, and the first request waits for its load (up to `load-timeout`, 120 s).
-- Untested on the card: qwen's first load on this build is the first time `qwen35_w8a8` runs here, and a device fault during it ends Inkling too. Run it in a bench window: the qualitygate modes with `--model qwen-3.8`, prodshape `--levels 1,4,6`, and the `kv:` line for the pool. Settings carried over from 1.17 (Swift, k6_v4) are not re-measured; i8 KV and 6 slots replace k6_v4 and 8.
+- Untested on the card: qwen's first load on this build is the first time `qwen35_w8a8` runs here, and a device fault during it ends Inkling too. Run it in a bench window: the qualitygate modes with `--model qwen-3.8`, prodshape `--levels 1,4,6`, and the `kv:` line for the pool. Settings carried over from 1.17 (Swift, k6_v4) are not re-measured.
 - Do not send `qwen-3.8` before the Model reads Ready: a missing file fails only qwen's load, but the attempt can still reclaim Inkling's free KV.
 
 ## Outside git
@@ -75,4 +68,4 @@ Clients configured on PVCs or in apps name the model themselves; switch them wit
 
 ## Rollback
 
-Serve `qwen-3.8` as the main model again: point the clients outside git back at it; the gateway already routes it. To drop it, remove its entry from `resources/inkling2-mini-radiance.yaml`, `agentgateway/app/models/qwen-3.8.yaml`, its two `modelcatalog.yaml` rates and the `AgentgatewayRequestsFailing` mute regex, then restart the pod (config edits do not roll it). The Swift 1.5 stack (W4A16 Model, rad-convert Job, `qwen38-27b-vllm` InferenceService) is gone: bringing it back means reverting that commit and porting its flags to 2.x keys.
+Serve `qwen-3.8` as the main model again: point the clients outside git back at it; the gateway already routes it. To drop it, remove its entry from `resources/radiance.yaml`, `agentgateway/app/models/qwen-3.8.yaml`, its two `modelcatalog.yaml` rates and the `AgentgatewayRequestsFailing` mute regex, then restart the pod (config edits do not roll it). The Swift 1.5 stack (W4A16 Model, rad-convert Job, `qwen38-27b-vllm` InferenceService) is gone: bringing it back means reverting that commit and porting its flags to 2.x keys.

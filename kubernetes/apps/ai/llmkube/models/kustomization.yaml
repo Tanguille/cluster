@@ -16,9 +16,9 @@ resources:
 # Editing the chat template or the radiance config does not roll the pod; restart it.
 configMapGenerator:
   # radiance config of inkling2-mini, which also serves qwen-3.8.
-  - name: inkling2-mini-radiance-config
+  - name: radiance-config
     files:
-      - config.yaml=./resources/inkling2-mini-radiance.yaml
+      - config.yaml=./resources/radiance.yaml
   # Qwen Sharp v22.5.0 for qwen-3.8, from peculiar-ragdoll/Qwen-Sharp-Chat-Templates.
   - name: qwen38-sharp-chat-template
     files:
