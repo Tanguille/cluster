@@ -55,12 +55,15 @@ spec:
   # Our own build until radiance ships Inkling (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
   # from docs/llm-hosting: python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles
   # and prodshape.py --levels 8 (0 preemptions). The card holds one engine, so a bench means stopping production.
-  image: ghcr.io/tanguille/radiance:attnrel-57c02dfb@sha256:09c5dc3ee2199d8d0f57d8ae7b7cacf2ac6fedf66d673cb6ba4b1e6395bc3a93
+  image: ghcr.io/tanguille/radiance:attnrel-d34cc357@sha256:2257896e6239ff7f156d94ea7534c2d83b484ddc38e2ac6e0d51e2345330b237
   # Variant 2 of the relative-attention kernel (reads K and V straight from memory). Unset, the build runs the older
   # kernel: same output, ~12% slower at 8 sessions.
+  # COMPACT_MIN=1 lets one or two sessions' long verifies take the compact band too (default: 4 sessions and up).
   env:
     - name: RADIANCE_REL_VARIANT
       value: "2"
+    - name: RADIANCE_REL_COMPACT_MIN
+      value: "1"
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
     waitForIdle: true
