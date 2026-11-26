@@ -35,7 +35,7 @@ did not move.
 
 `bench/spectest.py` is the correctness check: the output must quote a long prompt back verbatim.
 
-Production since 2026-11-02: the bold row (flags in the manifest). Live idle-engine runs,
+Production since 2026-11-03: the bold row (flags in the manifest). Live idle-engine runs,
 `bench/prodshape.py --levels N --warmup --runs 2`, median agg tok/s, 0 preemptions unless noted:
 
 | Config | 1 | 4 | 8 | 8: TTFT p90 / itl p90 | KV pool (tokens) |
@@ -44,8 +44,8 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 | MTP, 8 slots (11-02 01:00Z, `--busy-prefill-chunk off`) | 54.4 | 99.0 | 10.6, 36 preemptions | 66.7 s / 631 ms | 453,408 |
 | MTP, 6 slots | 51.9 | contaminated | 95.0 | 10.3 s / 64.1 ms | 476,272 |
 | MTP, 7 slots | 45.4 | 104.5 | 92.4 | 6.9 s / 67.5 ms | 464,880 |
-| **MTP, 7 slots, 1.16.0** | 51.8 | contaminated | 96.1 | 8.4 s / 59.7 ms | 464,880 |
-| MTP, 8 slots, k6_v4 | contaminated | 104.4 | 104.2 | 7.5 s / 65.1 ms | 515,408 |
+| MTP, 7 slots, 1.16.0 | 51.8 | contaminated | 96.1 | 8.4 s / 59.7 ms | 464,880 |
+| **MTP, 8 slots, k6_v4** | contaminated | 104.4 | 104.2 | 7.5 s / 65.1 ms | 515,408 |
 
 - The 8-slot stall is KV pressure, not drafting: the MTP head takes ~124K tokens of pool and each slot ~0.29 GiB of
   recurrent state, so 8 long sessions preempt and re-prefill. A cap of 6-7 queues the extra session instead. No per-stream
@@ -140,7 +140,7 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
   provisional.
 - Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
   so both move in one `radiance` PR, opened as soon as the release appears; merging stays manual.
-- Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
+- Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`; radiance 2.x takes only `--config`, see `inkling2-mini.yaml`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
 - Engine or checkpoint bump: no manual step. The Job `qwen38-27b-rad-convert` reruns when the image or the Model `source`
@@ -157,3 +157,5 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
 No disk tier, no `prompt_logprobs` (so no NLL gate), no `vllm:request_queue_time`, `vllm:prefix_cache_*`,
 `vllm:prompt_tokens_cached_by_source` or `vllm:cache_config_info` series (the `radiance:` cache series above replace them), and a
 single maintainer shipping a release every 1-3 days.
+
+Alternatives evaluated on the same card: [alt-engines-2026-11.md](alt-engines-2026-11.md) (vllm-sly-radiance and saber-engine, both rejected).

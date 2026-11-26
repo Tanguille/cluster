@@ -74,6 +74,21 @@ spec:
     - targetLabel: job
       replacement: *app
 ---
+# OhmGraphite on the Windows desktop.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &app ohmgraphite
+spec:
+  staticConfigs:
+    - targets:
+        - ${DESKTOP_IP}:4445
+  scrapeInterval: 30s
+  relabelings:
+    - targetLabel: job
+      replacement: *app
+---
 # prometheus-klipper-exporter multi-target `/probe` scrape (modules per upstream README).
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/scrapeconfig_v1alpha1.json
 apiVersion: monitoring.coreos.com/v1alpha1

@@ -9,6 +9,7 @@ import logging
 import math
 import threading
 import time
+import types
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,7 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # carry no comparable rating, so including them gated a Composite threshold against
 # the wrong reading. Fewer series also means fewer chances for a single missing sample
 # to fail the identity check and latch a node closed.
-SENSORS = frozendict({
+SENSORS = types.MappingProxyType({
     # empty tuple = no NVMe sensors on this node (control-1 is a VM with a properly cooled NVMe); it is gated on CPU
     # headroom instead, which is what every `if sensors` branch below keys off.
     "control-1": (),
@@ -71,10 +72,17 @@ class DwellPolicy:
         self.safe = False
         self._last_source = self._pending = self._since = None
 
-    def observe(self, value, source_time, monotonic_now):
+    def observe(self, value, source_time, monotonic_now, *, sources_advanced=True):
         if not isinstance(value, (int, float)) or not math.isfinite(value) or not isinstance(source_time, datetime):
             self.invalidate()
             return False
+        # Dwell-free third state: 3C from the rating, a 60s dwell would spend most of the margin.
+        # Checked before the repeat-sample gate so a stale peer cannot mask a hot drive.
+        if self.panic_limit is not None and value >= self.panic_limit:
+            self.invalidate()
+            return False
+        if not sources_advanced:
+            return self.safe
         source_seconds = source_time.timestamp()
         if self._last_source is not None:
             gap = source_seconds - self._last_source
@@ -83,12 +91,6 @@ class DwellPolicy:
             if gap > self.max_gap:
                 self._pending = self._since = None
         self._last_source = source_seconds
-        # third, dwell-free state: 3C from the rating, confirming the reading over a 60s dwell
-        # would spend most of the margin. Clearing _pending forces a full recovery dwell after.
-        if self.panic_limit is not None and value >= self.panic_limit:
-            self.safe = False
-            self._pending = self._since = None
-            return False
         kind = "recover" if value <= self.recovery_limit else "trip" if value >= self.trip_limit else None
         if kind is None:
             self._pending = self._since = None
@@ -120,8 +122,6 @@ class CPUObservation:
 
 
 def cpu_value(observation):
-    if not isinstance(observation.host, Source):
-        raise ValueError("host source is required")
     xmrig = observation.xmrig.value if observation.xmrig else 0.0
     return max(0.0, min(100.0, observation.host.value - xmrig))
 
@@ -169,7 +169,7 @@ class VictoriaMetricsClient:
         rows = self._query(expression, evaluation)
         # timestamp() over an or-expression becomes a step-aligned subquery in VictoriaMetrics
         # (fake boundary stamps broke 60% of freshness checks); single selectors return raw stamps
-        timestamps = [*self._query("timestamp(" + part + ")", evaluation) for part in parts]
+        timestamps = [row for part in parts for row in self._query("timestamp(" + part + ")", evaluation)]
         key = lambda m: (m.get("chip"), m.get("sensor"))
         if any(row.get("metric", {}).get("kubernetes_node") != node for row in rows + timestamps):
             raise ValueError("NVMe node identity changed")
@@ -321,7 +321,7 @@ class GuardController:
                 policy = self.policies[node]
                 if not all(_fresh(item.timestamp, evaluation, policy.max_gap) for item in samples.values()):
                     self._evaluate_freshness(node, samples, evaluation)
-                safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
+                safe = policy.observe(value, stamp, now, sources_advanced=self._new_source_set(node, samples))
                 self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples.values()).timestamp())
                 self.metrics["safe"][node] = int(safe)
             except Exception as exc:

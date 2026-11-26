@@ -114,6 +114,10 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **OmniRoute**| LLM routing                                                |
 | **LLMKube**  | K8s-native LLM model management (radiance/llama.cpp)       |
 | **Memini**   | Long-term memory for agents                                |
+| **Paseo**    | Web UI to run and manage coding agents                     |
+| **PasteGuard** | Masks secrets in requests to free cloud models           |
+| **8-ball**   | Decisions with Decider Flash v1.3 and Qwen escalation      |
+| **Pearl miner** | Solar-gated miner on the RTX 2070                       |
 
 Tuning constraints and benchmark history for the inference stack live in
 [`docs/llm-hosting/`](docs/llm-hosting/).
@@ -124,8 +128,8 @@ Tuning constraints and benchmark history for the inference stack live in
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
-Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR ·
-Unpackerr · BRRPolice · FileFlows · Qui
+Wizarr · Bazarr · Recyclarr · Cleanrr · Unpackerr ·
+FlareSolverr · BRRPolice · FileFlows · Qui · Bitmagnet · Maintainerr · Tracearr
 
 </details>
 
@@ -133,7 +137,15 @@ Unpackerr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · DumbAssets · Satisfactory
+Ghostfolio · IT-Tools · PicoShare · DumbAssets · Forgejo · Mealie · Wakapi ·
+Continuwuity · Sable · rsume · family-blog
+
+</details>
+
+<details>
+<summary>🎮 <b>Games</b> (namespace <code>games/</code>)</summary>
+
+Satisfactory
 
 </details>
 
@@ -184,7 +196,8 @@ Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
 generic-device-plugin · AMD GPU undervolt · actions-runner-controller (self-hosted
 GitHub runners) · Flux · Konflate · Rook-Ceph · OpenEBS · cert-manager ·
-kopiur (backup machinery) · system-upgrade (Talos upgrades) · renovate-operator ·
+kopiur (backup machinery) · Kopia (backup browser) · system-upgrade (Talos upgrades) ·
+renovate-operator · NVIDIA GPU Operator · TrueNAS CSI ·
 Kritika (namespace kritika/) · Monero node + P2Pool (namespace web3/)
 
 </details>
@@ -275,7 +288,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | radiance runbook, vLLM-era tuning constraints + benchmark history |
-| [NVIDIA RTX 2070](docs/nvidia-gpu-control-1.md) | control-1 rollout and rollback runbook |
+| [NVIDIA RTX 2070](docs/nvidia-gpu-control-1.md) | control-1 setup, change checks and GPU workloads |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |

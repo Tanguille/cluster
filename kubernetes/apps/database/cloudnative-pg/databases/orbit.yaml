@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/database_v1.json
+# Not a resourceset.yaml input: Orbit refuses any database that is not builtin C.UTF-8 (code-point order, Unicode case folding), and the locale is create-time only.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: orbit
+  namespace: database
+spec:
+  cluster:
+    name: postgres16
+  name: orbit
+  owner: orbit
+  databaseReclaimPolicy: retain
+  template: template0
+  encoding: UTF8
+  localeProvider: builtin
+  builtinLocale: C.UTF-8
+  locale: C.UTF-8
+  extensions:
+    # Orbit's baseline migration runs CREATE EXTENSION IF NOT EXISTS unaccent.
+    - name: unaccent

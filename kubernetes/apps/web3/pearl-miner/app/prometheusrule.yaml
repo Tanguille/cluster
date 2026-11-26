@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pearl-miner-rules
+spec:
+  groups:
+    - name: pearl-miner.rules
+      rules:
+        - alert: PearlMinerEnforcementBypassed
+          # Mirrors the safety factors of the ScaledObject gate at their keep levels (docs/pearl-solar-mining.md):
+          # guard safe, single and under 120s old; UPS 5m max under 85 %; 2070 under 80 C with 96 MiB free; R9700
+          # junction 5m max under 90 C. The solar and memory factors are not mirrored. A missing series leaves the
+          # miner without a reason to run, so it fires (the gate is shut then too). Catches KEDA down, a wedged HPA
+          # and a manual scale.
+          expr: |-
+            kube_deployment_status_replicas{namespace="web3", deployment="pearl-miner"} > 0
+            unless on ()
+            (
+              (min(xmrig_guard_safe{node="control-1"}) == 1)
+              and (count(xmrig_guard_safe{node="control-1"}) == 1)
+              and (min(timestamp(xmrig_guard_safe{node="control-1"})) >= time() - 120)
+              and (max(max_over_time(network_ups_tools_ups_load[5m])) < 85)
+              and (max(nvidia_smi_temperature_gpu) < 80)
+              and (max(nvidia_smi_memory_free_bytes) / 1048576 >= 96)
+              and (max(max_over_time(drm_temperature_celsius{sensor="junction", node="control-1"}[5m])) < 90)
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              pearl-miner is running while its KEDA gate should be shut; the trip is not being
+              enforced (operator down, HPA wedged, or manual scale)
+          labels:
+            severity: critical
+        - alert: PearlMinerGpuHot
+          # The gate stops the miner at 80 C; the offline test held 70-71 C and the recorded maximum is 71 C.
+          expr: |-
+            max(nvidia_smi_temperature_gpu) > 85
+            and on ()
+            (kube_deployment_status_replicas{namespace="web3", deployment="pearl-miner"} > 0)
+          for: 5m
+          annotations:
+            summary: >-
+              The RTX 2070 has been above 85 C for 5 minutes with pearl-miner running; the gate
+              stops it at 80 C, so the stop is failing
+          labels:
+            severity: warning

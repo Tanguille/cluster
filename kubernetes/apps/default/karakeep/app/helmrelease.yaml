@@ -52,7 +52,7 @@ spec:
           app:
             image:
               repository: ghcr.io/karakeep-app/karakeep
-              tag: 0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987
+              tag: 0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d
             env:
               BROWSER_WEB_URL: http://karakeep-chrome.default.svc.cluster.local:9222
               DATA_DIR: /data
@@ -73,12 +73,12 @@ spec:
               # OpenAI-compatible endpoint (via agentgateway); must match /v1/models ids.
               OPENAI_BASE_URL: http://agentgateway.ai.svc.cluster.local:4000/v1
               OPENAI_API_KEY: ${LLM_API_KEY}
-              INFERENCE_TEXT_MODEL: qwen-3.8-fast
-              INFERENCE_IMAGE_MODEL: qwen-3.8-fast
+              INFERENCE_TEXT_MODEL: inkling-2-mini-auto
+              INFERENCE_IMAGE_MODEL: inkling-2-mini-auto
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
-              # Bound background bookmark prefill on the shared 27B backend.
+              # Bound background bookmark prefill on the shared Inkling backend.
               INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
               OCR_USE_LLM: "true"
@@ -110,7 +110,7 @@ spec:
           app:
             image:
               repository: ghcr.io/karakeep-app/karakeep-chrome
-              tag: 157.0.8103.38-r1@sha256:6c80ed470871bb8c129dc58692ca1714cddbc1392faad3ebf59aecd2e6e58eac
+              tag: 158.0.8127.88-r1@sha256:4f23c2630fbcea09c4a8a5272490855f2dd25686017ab379fbec78615782782d
             # Entrypoint adds --headless=new, --no-sandbox and a socat forward to :9222.
             args:
               - --disable-gpu
@@ -143,7 +143,7 @@ spec:
           app:
             image:
               repository: getmeili/meilisearch
-              tag: v1.56.2@sha256:9600db22be3fcbf3d506176d3a73dd70a65c5719d9aa1d2837355b75afb8f4fb
+              tag: v1.58.0@sha256:cee0d2e31191594ff8e1651eb144aabd95b389a0bc3532327ecfb9ed91dffe7e
             args:
               - /bin/meilisearch
               # Renamed from --experimental-dumpless-upgrade in v1.51; without it a prior-version database won't open.

@@ -20,7 +20,7 @@ spec:
           app:
             image:
               repository: ghcr.io/tanguille/mesh-organiser
-              tag: v5.0.3@sha256:59c83b2261e7ed102284717485fbe7e002133bebb0a3c55c44f4d0386cdb8b72
+              tag: v5.1.2@sha256:04589e7f1a1847ee21fc378a54f6a19fa9f72af14c9805a5ce1c74d23f9355a1
             env:
               # config.json, db.sqlite and the model files all live next to the config file.
               APP_CONFIG_PATH: /cfg/config.json
@@ -92,10 +92,6 @@ spec:
                   statusCode: 302
           - backendRefs:
               - identifier: app
-            matches:
-              - path:
-                  type: PathPrefix
-                  value: /
     persistence:
       config:
         existingClaim: *app

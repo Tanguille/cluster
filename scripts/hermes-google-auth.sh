@@ -15,7 +15,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 repo, client_file = sys.argv[1:3]
 out = "kubernetes/apps/ai/hermes/app/google-secret.sops.yaml"
-scopes = ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/calendar.readonly"]
+# The digest lists events on the primary calendar. Gmail search still requires gmail.readonly.
+scopes = ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/calendar.events.owned.readonly"]
 
 if client_file:
     client = json.load(open(client_file))

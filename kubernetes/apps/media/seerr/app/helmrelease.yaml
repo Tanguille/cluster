@@ -15,8 +15,6 @@ spec:
       url: oci://ghcr.io/seerr-team/seerr/seerr-chart
   values:
     fullnameOverride: seerr
-    image:
-      sha: aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2
     serviceAccount:
       # Seerr has no Kubernetes API integration.
       automount: false
@@ -77,7 +75,7 @@ spec:
         enabled: true
         annotations:
           gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: Jellyseerr
+          gethomepage.dev/name: Seerr
           gethomepage.dev/description: Media requests
           gethomepage.dev/group: Requests
           gethomepage.dev/icon: jellyseerr.png

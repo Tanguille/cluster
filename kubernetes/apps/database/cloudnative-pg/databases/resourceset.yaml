@@ -23,8 +23,6 @@ spec:
       extensions:
         - *vector
     - name: grafana
-    - name: jellystat
-      db: jfstat
     - name: kguardian
       extensions:
         - *vector
@@ -48,6 +46,11 @@ spec:
     - name: radarr
     - name: sonarr
     - name: spoolman
+    - name: tracearr
+      extensions:
+        # Version must match the timescaledb image tag in cluster.yaml.
+        - name: timescaledb
+          version: "2.32.1"
   resources:
     - apiVersion: postgresql.cnpg.io/v1
       kind: Database

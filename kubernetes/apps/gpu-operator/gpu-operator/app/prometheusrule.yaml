@@ -6,18 +6,29 @@ metadata:
   name: gpu-rules
 spec:
   groups:
-    - name: dcgm-exporter
+    - name: nvidia-gpu-exporter
       rules:
         - alert: HighGpuUsage
-          # DCGM_FI_DEV_GPU_UTIL is a 0-100 gauge, so average it (the old rate() > 0.85 never meant 85%).
+          # nvidia_smi_utilization_gpu_ratio is 0-1, so 0.85 is 85%.
           expr: |-
-            avg_over_time(DCGM_FI_DEV_GPU_UTIL[15m]) > 85
+            avg_over_time(nvidia_smi_utilization_gpu_ratio[15m]) > 0.85
           for: 15m
           labels:
             severity: warning
           annotations:
             summary: >-
-              High GPU usage on node {{ $labels.Hostname }} for 15 minutes
+              High GPU usage on {{ $labels.instance }} for 15 minutes
             description: >-
-              GPU usage on node {{ $labels.Hostname }} for gpu: {{ $labels.modelName }}
+              GPU {{ $labels.uuid }} on {{ $labels.instance }}
               has passed 85% for over 15 minutes
+        - alert: NvidiaVramLow
+          # Time-sliced pods share VRAM. This board-wide alert uses total minus used.
+          # Pearl's gate uses the driver's reported free memory, which excludes reserved VRAM.
+          expr: max by (instance) (nvidia_smi_memory_total_bytes - nvidia_smi_memory_used_bytes) / 1048576 < 512
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              The RTX 2070 on {{ $labels.instance }} has {{ $value }} MiB of VRAM free; a new CUDA allocation on it
+              (a pod restart, a larger batch) can fail. Check nvidia-smi for the process that grew.

@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/daemonset_v1.json
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-undervolt
+  labels:
+    app.kubernetes.io/name: nvidia-undervolt
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nvidia-undervolt
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nvidia-undervolt
+    spec:
+      priorityClassName: system-node-critical
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: app
+          image: library/python:3.15.2-slim-trixie@sha256:63bb298d2b7b88f176f51b5189f54ce6535c997682ea70885d2132f5d473a8a5
+          env:
+            # 2026-11-22 sweep on the 2070: with the cap at 1400 MHz, +400 was clean, +500 gave Xid 31 and crashed the
+            # miner; +300 with the cap lifted to 1560 also faulted, so the offset only holds together with the cap.
+            # Caps 1500-1700 with +100..+200 were all clean. 1500/+200: 146 W for 47 TMAC/s (stock 167 W, 45 TMAC/s).
+            - name: CLOCK_MAX_MHZ
+              value: "1500"
+            - name: VF_OFFSET_MHZ
+              value: "200"
+            - name: EXPECT_NAME
+              value: RTX 2070
+            # Not a GPU request: the time-sliced replicas belong to the workloads.
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: utility
+          command:
+            - python3
+            - /scripts/nvidia-undervolt.py
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 24Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: nvidia-undervolt-scripts

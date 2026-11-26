@@ -24,6 +24,7 @@ resources:
   - memini.yaml
   - mesh-organiser.yaml
   - opnsense
+  - orbit.yaml
   - podmonitor.yaml
   - searxng.yaml
   - talos-mcp.yaml
@@ -34,7 +35,6 @@ resources:
 
 patches:
   # Every MCPServer pod runs third-party tool code; MCPServerEntry has no pod. Opt a server out by narrowing the target.
-  # No server needs its service account token: flux-operator authenticates with its own kubeconfig.
   - target:
       kind: MCPServer
     patch: |-
@@ -45,5 +45,17 @@ patches:
       spec:
         podTemplateSpec:
           spec:
-            automountServiceAccountToken: false
             runtimeClassName: gvisor
+  # Only servers labelled mount-sa-token keep their service account token (flux-operator authenticates with it).
+  - target:
+      kind: MCPServer
+      labelSelector: "!mount-sa-token"
+    patch: |-
+      apiVersion: toolhive.stacklok.dev/v1beta1
+      kind: MCPServer
+      metadata:
+        name: not-used
+      spec:
+        podTemplateSpec:
+          spec:
+            automountServiceAccountToken: false

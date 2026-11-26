@@ -33,7 +33,7 @@ spec:
           app:
             image: &image
               repository: nousresearch/hermes-agent
-              tag: v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
+              tag: v0.23.4@sha256:ef0650d523ee1b5ab32c779acabc446d9936869a9932591553688a62bcf0c42f
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -86,8 +86,8 @@ spec:
               requests:
                 cpu: 100m
                 memory: 896Mi
+              # No CPU limit: under gVisor only the pod cgroup gets a quota, and only when every container sets one.
               limits:
-                cpu: 2
                 memory: 6Gi
           # Holds the Google token away from the agents; serves the digest on 127.0.0.1:8765 (resources/google_digest.py).
           google-digest:
@@ -157,14 +157,16 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
-      dshm:
-        type: emptyDir
-        medium: Memory
-        sizeLimit: 1Gi
+      # Overlays the job's PVC script path; the PVC copy stays as the rollback.
+      cron-health:
+        type: configMap
+        name: hermes-cron-health
         advancedMounts:
           hermes:
             app:
-              - path: /dev/shm
+              - path: /opt/data/scripts/cron_health_export.py
+                subPath: cron_health_export.py
+                readOnly: true
       google-digest:
         type: configMap
         name: hermes-google-digest

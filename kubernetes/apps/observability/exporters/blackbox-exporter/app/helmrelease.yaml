@@ -9,16 +9,25 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 11.21.3
+        tag: 12.0.0
       url: oci://ghcr.io/prometheus-community/charts/prometheus-blackbox-exporter
   interval: 1h
   values:
     fullnameOverride: blackbox-exporter
     resources:
       requests:
-        memory: 64Mi
+        memory: 16Mi
     securityContext:
       capabilities: { add: ["NET_RAW"] }
+    # The prober must survive the host it pings: control-1 is a VM on the TrueNAS host and goes dark with it.
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: NotIn
+                  values: [control-1]
     config:
       modules:
         icmp:
@@ -56,10 +65,20 @@ spec:
     prometheusRule:
       enabled: true
       rules:
-        - alert: LanProbeFailed
-          # LB IPs are covered by LoadBalancerIPUnreachable; `on(service)` because the probe and self-monitor series differ in job and instance
+        - alert: TrueNASHostDown
+          # Faster and separate from LanProbeFailed (15 m, one of many target alerts when the host drops).
           expr: |-
-            probe_success{service="blackbox-exporter",job!="probe/observability/loadbalancer-ips"} == 0
+            probe_success{job="probe/observability/lan-icmp",instance="${TRUENAS_IP}"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: |-
+              TrueNAS host {{ $labels.instance }} does not answer ping; control-1, Home Assistant and the NAS shares are off the network with it
+        - alert: LanProbeFailed
+          # Not LB IPs (LoadBalancerIPUnreachable) or the TrueNAS ping (TrueNASHostDown); `on(service)` because the probe and self-monitor series differ in job and instance
+          expr: |-
+            probe_success{service="blackbox-exporter",job!="probe/observability/loadbalancer-ips",instance!="${TRUENAS_IP}"} == 0
             and on(service)
             up{service="blackbox-exporter"} == 1
           for: 15m

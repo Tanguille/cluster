@@ -35,7 +35,7 @@ spec:
           securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/web
-        tag: release@sha256:a7c9eb558743508da46f2e66dcf51c42956affb7b8ed161a189ab4886fa38a65
+        tag: release@sha256:66e80ddd9e8afcb10a9a9f013daee31c955e0a558b4ba6f0dc902934c814a62a
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
@@ -49,7 +49,7 @@ spec:
       resources:
         requests:
           cpu: 100m
-          memory: 128Mi # measured 163Mi steady
+          memory: 128Mi
         limits:
           memory: 1Gi
       additionalContainers:
@@ -58,7 +58,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi # measured 316Mi steady
+              memory: 256Mi
             limits:
               memory: 1Gi
       persistence:
@@ -77,13 +77,13 @@ spec:
       securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/ml-api
-        tag: release@sha256:a85d2931912309265b2d8d502a29c938e8aa0931564743a4e37a71838f9a2271
+        tag: release@sha256:6a0fdb8c6e713be70ebef7da9cc753ad378162af02767813c17447ef3935a02b
       env:
         DEBUG: "False"
       resources:
         requests:
           cpu: 100m
-          memory: 192Mi
+          memory: 256Mi
         limits:
           memory: 1Gi
 

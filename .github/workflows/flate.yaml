@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Flate
-        uses: home-operations/flate/action@bbb6ebc344da051752dbdb1b413860ceffcfb63d # v0.7.3
+        uses: home-operations/flate/action@4e07f351352d235a335e5a1f0a088eab7ec40997 # v0.8.0
 
       # All three diffs share one job: the first render warms flate's on-disk cache,
       # so the other two are near-free. Separate jobs each render from cold.
@@ -56,16 +56,18 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - if: ${{ steps.flate.outputs.helmrelease == 'true' || steps.flate.outputs.kustomization == 'true' }}
+      - if: >-
+          ${{ github.event.pull_request.head.repo.full_name == github.repository &&
+              (steps.flate.outputs.helmrelease == 'true' || steps.flate.outputs.kustomization == 'true') }}
         name: Generate Token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: app-token
         with:
           client-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      - if: ${{ steps.flate.outputs.helmrelease == 'true' }}
+      - if: ${{ steps.app-token.outcome == 'success' && steps.flate.outputs.helmrelease == 'true' }}
         name: Add Comment (HelmRelease)
         uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
         with:
@@ -73,7 +75,7 @@ jobs:
           message-id: ${{ github.event.pull_request.number }}/kubernetes/helmrelease
           message-path: ${{ runner.temp }}/flate-helmrelease.md
 
-      - if: ${{ steps.flate.outputs.kustomization == 'true' }}
+      - if: ${{ steps.app-token.outcome == 'success' && steps.flate.outputs.kustomization == 'true' }}
         name: Add Comment (Kustomization)
         uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
         with:

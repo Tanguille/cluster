@@ -21,9 +21,9 @@ spec:
             amd.com/gpu: "true"
         containers:
           app:
-            image: &devicePluginImage
+            image:
               repository: ghcr.io/squat/generic-device-plugin
-              tag: latest@sha256:8dc84958301f054bf72d9753a7a2c9af3d6642a9844b34d1171b3f2cdb4a15f6
+              tag: latest@sha256:6fd8023741b24c0302a97153605ff77f4d55535a4b5a8b0c8502b208e8310525
             args:
               - --domain=squat.ai
               - --device
@@ -35,34 +35,14 @@ spec:
                     paths:
                       - path: /dev/dri
                       - path: /dev/kfd
-            securityContext: &devicePluginSecurityContext
+            securityContext:
               privileged: true
-            resources: &devicePluginResources
+            resources:
               requests:
                 cpu: 10m
                 memory: 32Mi
               limits:
                 memory: 64Mi
-      # iGPU nodes: 2 slots (one iGPU model per node plus the co-located reranker); count only gates scheduling.
-      generic-device-plugin-igpu:
-        type: daemonset
-        pod:
-          nodeSelector:
-            amd.com/igpu: "true"
-        containers:
-          app:
-            image: *devicePluginImage
-            args:
-              - --domain=squat.ai
-              - --device
-              - |
-                name: dri
-                groups:
-                  - count: 2
-                    paths:
-                      - path: /dev/dri
-            securityContext: *devicePluginSecurityContext
-            resources: *devicePluginResources
 
     persistence:
       dev:

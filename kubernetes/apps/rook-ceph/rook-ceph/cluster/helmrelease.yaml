@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 1.21.2
+        tag: 1.21.3
       url: oci://ghcr.io/rook/rook-ceph-cluster
   interval: 1h
   values:
@@ -47,8 +47,8 @@ spec:
       priorityClassNames:
         crashcollector: homelab-critical
         exporter: homelab-critical
-      # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
-      # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
+      # Ceph 20 rates cipher `aes` HEALTH_ERR; aes256k avoids it but needs the in-kernel client from
+      # Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
         cephx:
           allowedCiphers: ["aes256k"]
@@ -158,7 +158,6 @@ spec:
           failureDomain: host
           replicated:
             size: 2
-            minSize: 1
           parameters:
             compression_mode: aggressive
             compression_algorithm: zstd
@@ -189,12 +188,10 @@ spec:
           metadataPool:
             replicated:
               size: 2
-              minSize: 1
           dataPools:
             - failureDomain: host
               replicated:
                 size: 2
-                minSize: 1
               parameters:
                 compression_mode: aggressive
                 compression_algorithm: zstd

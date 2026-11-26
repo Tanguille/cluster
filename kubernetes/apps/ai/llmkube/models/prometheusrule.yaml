@@ -3,41 +3,41 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: qwen38-27b-vllm-rules
+  name: llm-engine-rules
 spec:
   groups:
-    - name: qwen38-27b-vllm.rules
+    - name: llm-engine.rules
       rules:
         # /health keeps answering through a wedge, so the probes cannot catch it.
         - alert: LLMEngineStalled
           expr: |-
-            (sum(vllm:num_requests_running{model_name="qwen-3.8"}) > 0)
-            and on()
-            (sum(rate(radiance:engine_steps_total{model_name="qwen-3.8"}[2m])) == 0)
+            (sum by (model_name) (vllm:num_requests_running) > 0)
+            and on(model_name)
+            (sum by (model_name) (rate(radiance:engine_steps_total[2m])) == 0)
           for: 5m
           annotations:
             summary: >-
-              qwen-3.8 has {{ $value }} request(s) running but radiance ran no engine step for 5m: the step loop or the
+              {{ $labels.model_name }} has {{ $value }} request(s) running but radiance ran no engine step for 5m: the step loop or the
               card is wedged while /health still answers. Restart the pod.
           labels:
             severity: critical
-        # Latched adds ~30 ms/step (vLLM 31 -> 62 ms, unseen on radiance); healthy M=1 is 27-35 ms, conc-4 38 ms.
-        # running<2 is load-bearing. No liveness band probe, so this is the only guard.
+        # Latched adds ~30 ms/step (vLLM 31 -> 62 ms, unseen on radiance). Inkling's single-stream update gap is
+        # ~20-23 ms (BetterBench, 2026-11-23); running<2 is load-bearing. No liveness band probe, so this is the only guard.
         - alert: LLMDecodeStepLatched
           expr: |-
             (
-              rate(vllm:inter_token_latency_seconds_sum{model_name="qwen-3.8"}[15m])
+              sum by (model_name) (rate(vllm:inter_token_latency_seconds_sum[15m]))
               /
-              rate(vllm:inter_token_latency_seconds_count{model_name="qwen-3.8"}[15m])
+              sum by (model_name) (rate(vllm:inter_token_latency_seconds_count[15m]))
               > 0.055
             )
             and
-            (avg_over_time(vllm:num_requests_running{model_name="qwen-3.8"}[15m]) < 2)
+            on(model_name) (sum by (model_name) (avg_over_time(vllm:num_requests_running[15m])) < 2)
           # Persistent once latched; 15m rate + 30m for = ~45m notice.
           for: 30m
           annotations:
             summary: >-
-              qwen38-27b-vllm decode is latched at
+              {{ $labels.model_name }} decode is latched at
               {{ $value | humanizeDuration }}/token near single-stream, roughly
               half speed. If drm_engine_utilization_ratio{engine="vcn"} is at
               least 0.05 a VCN-busy co-tenant (Jellyfin or fileflows) is contending:
@@ -46,20 +46,20 @@ spec:
           labels:
             severity: warning
 
-        # The linear half: attention blocks without a state snapshot still re-prefill, yet count as attn hits.
-        # 0.4 is provisional (3h read 61%).
+        # Inkling has no linear state, so attention tokens are its prefix hits. 0.4 is carried over from qwen-3.8,
+        # provisional until a week of Inkling traffic.
         - alert: LLMPrefixCacheHitRateLow
           expr: |-
-            sum(increase(radiance:linear_cached_tokens_total{model_name="qwen-3.8"}[1d]))
+            sum by (model_name) (increase(radiance:attn_cached_tokens_total[1d]))
             /
             (
-              sum(increase(radiance:linear_cached_tokens_total{model_name="qwen-3.8"}[1d]))
-              + sum(increase(radiance:prefill_tokens_total{model_name="qwen-3.8"}[1d]))
+              sum by (model_name) (increase(radiance:attn_cached_tokens_total[1d]))
+              + sum by (model_name) (increase(radiance:prefill_tokens_total[1d]))
             )
             < 0.4
           annotations:
             summary: >-
-              qwen-3.8 prefix cache served only {{ $value | humanizePercentage }}
+              {{ $labels.model_name }} prefix cache served only {{ $value | humanizePercentage }}
               of prompt tokens over 24h: sessions are being evicted
               (radiance:prefix_cache_ckpt_evictions_by_reason_total) or something is rewriting the resent prefix.
           labels:

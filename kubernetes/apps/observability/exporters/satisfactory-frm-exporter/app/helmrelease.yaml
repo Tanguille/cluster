@@ -19,10 +19,10 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/featheredtoast/ficsit-remote-monitoring-companion
+              repository: featheredtoast/ficsit-remote-monitoring-companion
               tag: latest@sha256:6c003115f5b748687cdff1dea963d956a005fee6239265e357ea8b14c7bfb18b
             env:
-              FRM_HOST: satisfactory.default.svc.cluster.local
+              FRM_HOST: satisfactory.games.svc.cluster.local
             probes:
               liveness:
                 enabled: true

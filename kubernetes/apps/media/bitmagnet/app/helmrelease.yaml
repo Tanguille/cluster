@@ -41,6 +41,8 @@ spec:
               # Loads /etc/bitmagnet/classifier.yml from the config mount.
               XDG_CONFIG_HOME: /etc
               CLASSIFIER_WORKFLOW: movies_tv
+              # Default 100; file rows were 45% of the DB. Larger torrents keep their first 20 files.
+              DHT_CRAWLER_SAVE_FILES_THRESHOLD: "20"
               POSTGRES_USER: bitmagnet
             # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
             envFrom:
@@ -83,7 +85,7 @@ spec:
             # The postgres16 cluster's image: already on every node.
             image:
               repository: ghcr.io/cloudnative-pg/postgresql
-              tag: 18.7-standard-trixie@sha256:b2874d5e078458098467588f154202c53c7b3932a1e7bd439d49f897361e73d2
+              tag: 18.7-standard-trixie@sha256:864f6c9626b93c04f4cd2b684f95b0625b1ae54129ed4330f9f1b60f2ff8a629
             # -q: command tags (DELETE n, DROP INDEX) would otherwise land in the hash list.
             command:
               [
@@ -119,7 +121,7 @@ spec:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
             image:
               repository: python
-              tag: 3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
+              tag: 3.15.2-slim-trixie@sha256:63bb298d2b7b88f176f51b5189f54ce6535c997682ea70885d2132f5d473a8a5
             command: [python3, /prune/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security

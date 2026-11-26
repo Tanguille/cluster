@@ -10,7 +10,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: v26.7.2
+        tag: v26.7.3
       url: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
   values:
     # Talos ships the driver (our signed modules) and toolkit as extensions on control-1.
@@ -26,22 +26,12 @@ spec:
       # allocates through its own CDI kind instead of the extension's /run/cdi/nvidia.yaml.
       # The `nvidia` RuntimeClass is the chart default and owned by the operator, so none is shipped.
       enabled: false
+    # GPU metrics come from nvidia_gpu_exporter, not DCGM.
     dcgmExporter:
-      env:
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: all
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: all
-      resources:
-        requests:
-          memory: 128Mi
-        limits:
-          memory: 1Gi
+      enabled: false
       serviceMonitor:
-        # Keep the exporter's pod/namespace labels of the workload using the GPU.
-        honorLabels: true
-        additionalLabels:
-          prometheus: victoria-metrics
+        # The chart default {} merges to null against the live ClusterPolicy and fails the server-side apply.
+        additionalLabels: null
     devicePlugin:
       config:
         create: true

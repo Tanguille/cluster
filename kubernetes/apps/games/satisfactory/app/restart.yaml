@@ -1,0 +1,84 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
+# The 06:00 UTC in-process session reload can leave FRM bound to the destroyed world ("World not ready",
+# porisius/FicsitRemoteMonitoring#313); only a process restart recovers it. Delete once #313 is fixed.
+# The new pod is also the daily retry of an FRM that scripts/start.sh removed.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: satisfactory-restart
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/role_v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: satisfactory-restart
+rules:
+  # `kubectl rollout restart` is a get + patch of the pod template; scoped to the one
+  # deployment so the token cannot touch anything else in the namespace.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["satisfactory"]
+    verbs: ["get", "patch"]
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/rolebinding_v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: satisfactory-restart
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: satisfactory-restart
+subjects:
+  - kind: ServiceAccount
+    name: satisfactory-restart
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: satisfactory-restart
+spec:
+  # UTC like the game container, not ${TIMEZONE}: a local-time schedule would drift an hour at DST.
+  schedule: "10 6 * * *"
+  timeZone: UTC
+  # A late run would restart a server people are already playing on.
+  startingDeadlineSeconds: 1800
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            # kubectl needs the apiserver, which the namespace's deny-kube-apiserver-egress blocks.
+            egress.home.arpa/kube-apiserver: allow
+        spec:
+          serviceAccountName: satisfactory-restart
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: kubectl
+              # Skew-matched to the 1.37 server; Renovate bumps it.
+              image: registry.k8s.io/kubectl:v1.37.3@sha256:82f06779a0dcd86225ffdb96c005418b9716093a39907a5ecf686d7a22e6b788
+              args:
+                - rollout
+                - restart
+                - deployment/satisfactory
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi

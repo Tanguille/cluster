@@ -11,7 +11,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.10.18
+        tag: 0.10.19
       url: oci://ghcr.io/defilantech/charts/llmkube
   values:
     controllerManager:
@@ -37,9 +37,6 @@ spec:
           # off.
           gpu:
             enabled: false
-          # NVIDIA DCGM alerts; llmkube does not use the RTX 2070 (DCGM comes from the gpu-operator app).
-          gpuHealth:
-            enabled: false
 
     grafana:
       dashboards:
@@ -48,9 +45,11 @@ spec:
         # Skips quota, slo and model-router: blank without GPUQuota, pyrra or router-proxy (the ModelRouter compiles to agentgateway).
         # Skips sglang (no SGLang runtime) and amd-gpu-observability (drm-exporter has its own GPU dashboard).
         # Auto mode publishes the runtime dashboards only while a matching InferenceService exists.
+        # vllm-dashboard covers radiance, which serves through the vllm runtime.
         only:
           - llamacpp-dashboard
           - llmkube-inference
+          - vllm-dashboard
         operator:
           enabled: true
           folder: ai
@@ -61,10 +60,11 @@ spec:
             - datasourceName: VictoriaMetrics
               inputName: DS_PROMETHEUS
 
-    # RWX on CephFS: controller and iGPU services land on different nodes; read
-    # once at load. qwen38-27b-vllm has its own node-local cache.
+    # RWX on CephFS: the controller and the GPU services land on different nodes; read
+    # once at load. inkling2-mini (and the suspended qwen38-27b-vllm) have their own node-local caches.
     modelCache:
-      # embeddinggemma-2 0.31Gi + d3-nano 2.4Gi + bge-reranker-v2-m3; 16Gi after 91% at 8Gi: the operator never GCs old revisions.
+      # Flash 3.55Gi, rollback d3-nano 2.4Gi, embeddinggemma-2 0.31Gi, reranker and CUDA JIT cache.
+      # Raised to 16Gi after usage reached 91% at 8Gi. The operator keeps old revisions.
       size: 16Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany

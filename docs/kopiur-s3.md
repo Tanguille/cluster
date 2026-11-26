@@ -34,7 +34,7 @@ carries `exclude: /kopiur/**`; without it, its `SYNC` deletes that folder. The r
 R2 is recorded in [Results](#results-2026-11-06).
 
 Both tasks are `SYNC`, so deletions propagate. The S3 key can delete every object in the
-bucket and reaches app namespaces for each mover run, so both also carry
+bucket, so both also carry
 `--max-delete 30000` (about 3x a normal night): a wiped source stops at the cap and the task
 fails. Repeat runs would delete more, so treat that failure as urgent. Only ZFS snapshots
 are out of the key's reach.
@@ -50,10 +50,9 @@ serves a dedicated `s3.${SECRET_DOMAIN}` zone resolving directly to `${TRUENAS_I
 An unsigned `curl https://s3.${SECRET_DOMAIN}:9000/` must complete TLS verification and
 return S3 `AccessDenied` (HTTP 403); do not use `-k` or `--resolve` for this check.
 
-S3 is pod traffic, unlike the kubelet's NFS mounts, so `moverDefaults.podLabels` grants
-movers the `egress.home.arpa/lan: allow` exception that `default` and `media` require.
-It is that LAN exception, not a restriction to port 9000. Browse sessions ignore
-`podLabels`, so run `kubectl kopiur` browse, `ls` and `download` in `kopiur-system`.
+S3 is pod traffic, unlike the kubelet's NFS mounts. Movers run in `kopiur-system` (central
+execution), which has no `deny-lan-egress`, so they need no `egress.home.arpa/lan: allow` label.
+Run `kubectl kopiur` browse, `ls` and `download` in `kopiur-system`.
 Kopiur's [TLS configuration](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mod.rs#L242)
 defaults `disableTls` and `insecureSkipVerify` to false, so an unexpected DNS target
 cannot downgrade the client to HTTP or bypass certificate checks.

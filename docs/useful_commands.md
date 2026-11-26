@@ -98,6 +98,44 @@ flux resume ks cloudnative-pg-cluster -n database
 
 ---
 
+## Orbit: first run, MCP and GitHub
+
+`orbit.<domain>` is LAN-only (`envoy-internal`). The only public path is the GitHub webhook, on its own host `orbit-webhook.<domain>` (`envoy-external`, exact path `/api/v1/integrations/github/webhook`). Data is in the `orbit` database on CNPG, attachments and Orbit's pre-migration backups on the 5Gi `orbit` PVC (kopiur); a restore needs both from the same point in time. Upstream reference: [operations](https://github.com/coollabsio/orbit/blob/main/docs/operations.md), [MCP](https://github.com/coollabsio/orbit/blob/main/docs/mcp.md), [GitHub](https://github.com/coollabsio/orbit/blob/main/docs/github.md).
+
+1. Claim the root account right after the first deploy. The one-time setup URL is logged once, by the first pod, and whoever opens it becomes root:
+
+   ```bash
+   kubectl -n default logs deploy/orbit | grep "Initial setup URL"
+   ```
+
+   The token lasts 30 minutes. Missed it: `kubectl -n default exec deploy/orbit -- /orbit setup-token rotate` prints a new URL while no root exists yet.
+
+2. Registration is closed (`ORBIT_OPEN_REGISTRATION=false`); people join by invitation from **Admin → Users**.
+3. Outgoing mail goes through `smtp-relay` (`ORBIT_SMTP_*`), so **Admin → Email** is read-only. Check it there with **Send test email**.
+4. `ORBIT_APP_KEY` (`orbit-secret`) encrypts saved secrets, 2FA and Orbit's own backups. Never rotate it; keep a copy in Vaultwarden.
+5. MCP: clients use `https://orbit.<domain>/mcp` (Streamable HTTP). The URL must be the public origin, Orbit checks `Host`.
+   - Cluster agents: the ToolHive `orbit` entry (`kubernetes/apps/ai/toolhive/mcp/orbit.yaml`) puts Orbit's tools (`orbit_*`) in the unified vMCP. `ORBIT_MCP_TOKEN` in `toolhive-secrets` holds the full `Bearer <token>` header of a personal API token (docs and chat need a personal token, service-account tokens cover tasks only). To rotate it, create a new token in **Settings → API tokens** and update the secret.
+   - Interactive clients: OAuth, for example `claude mcp add --scope user --transport http orbit https://orbit.<domain>/mcp`, then authenticate in `/mcp`.
+
+### GitHub integration
+
+One way: a GitHub issue or pull request with the project's label becomes a task. Orbit learns about installations only from GitHub's `installation` webhooks, so the order matters:
+
+1. Cloudflare: the "Allow GitHub webhooks, badges, Matrix" skip rule (dashboard, not in git) needs a clause for `orbit-webhook.<domain>` with that exact path, next to the other webhook hosts. Without it the non-EU block drops GitHub's deliveries.
+2. In **Settings → GitHub**, register the App (from `https://orbit.<domain>`). Then set the App's **Webhook URL** to `https://orbit-webhook.<domain>/api/v1/integrations/github/webhook` (GitHub, Developer settings, GitHub Apps, the app, General). Orbit registers the host you browse from, so the default points at the LAN-only host.
+3. Install the App on the repositories. If Orbit still says "No repositories installed yet", the install event was missed: redeliver it from the App's **Advanced → Recent deliveries**, or re-save the installation.
+4. Connect each project to one repository and a label (create the label in GitHub). The project's **GitHub** settings page does it; the API route is `PUT /api/v1/workspaces/{workspace}/projects/{project}/github` with `{installation_id, repository, label}`, using a session bearer from `POST /api/v1/auth/login` (a request without an `Origin` header returns `session_token`). API tokens do not work on `/api/v1`.
+
+Checks: Cloudflare firewall analytics shows `skip` for `orbit-webhook`, and Orbit answers `200` to `installation` events and `202` to events it ignores. A `202` on every delivery means no installation recorded yet, or no project connected to that repository.
+
+Never attach the UI route to `envoy-external`, and keep the webhook on its own host. k8s-gateway answers a host that sits on both gateways with both IPs, so half the clients land on `envoy-external`, which 404s the UI and `/mcp` (the unified vMCP marked the Orbit backend degraded when this happened).
+
+Postgres: Orbit connects straight to `postgres16-rw` without TLS, because 0.4.1 is built without Postgres TLS ([coollabsio/orbit#155](https://github.com/coollabsio/orbit/issues/155)) and the poolers require it. `pg_stat_ssl` shows all of its connections as plaintext. A `hostnossl ... reject` rule in `pg_hba` would lock it out, and Orbit exits (the pod restarts) when its lock connection drops, for example on a failover. The `orbit` database is its own `Database` manifest: Orbit only accepts builtin `C.UTF-8`.
+
+Every request must arrive through Envoy: Orbit answers `400 https_required` to plain HTTP on the Service, so a `kubectl port-forward` does not work. `orbit-ingress-deny` also blocks every pod but `envoy-internal` and `envoy-external` from port 8080, in-cluster agents included: they use the public URL.
+
+---
+
 ## Talos: network interface speeds
 
 ```bash

@@ -2,10 +2,10 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "abandonments:recommended",
-    "github>home-operations/renovate-presets#11.0.0",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#11.0.0",
-    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#11.0.0",
-    "github>home-operations/renovate-presets//apps/searxng.json5#11.0.0"
+    "github>home-operations/renovate-presets#12.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#12.0.0",
+    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#12.0.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#12.0.0"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   "helm-values": {
@@ -118,6 +118,17 @@
       datasourceTemplate: "github-tags"
     },
     {
+      description: "CNPG Database timescaledb version pin; moves with the extension image so ALTER EXTENSION UPDATE runs",
+      customType: "regex",
+      managerFilePatterns: ["/cloudnative-pg/databases/resourceset\\.yaml$/"],
+      matchStrings: [
+        'name: timescaledb\\n\\s+version: "(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
+      ],
+      depNameTemplate: "ghcr.io/tanguille/timescaledb",
+      datasourceTemplate: "docker",
+      extractVersionTemplate: "^(?<version>\\d+\\.\\d+\\.\\d+)-\\d+-trixie$"
+    },
+    {
       description: "Digest-pinned oci:// references",
       customType: "regex",
       managerFilePatterns: ["/\\.ya?ml(?:\\.j2)?$/"],
@@ -208,8 +219,22 @@
       automerge: false
     },
     {
+      description: "extension image build bases are the rolling tag of the PG_MAJOR build arg",
+      matchFileNames: [
+        "docker/timescaledb/Dockerfile",
+        "docker/vchord/Dockerfile"
+      ],
+      matchDatasources: ["docker"],
+      enabled: false
+    },
+    {
       matchPackageNames: ["docker.io/stilldeadcode/radiance"],
       groupName: "radiance"
+    },
+    {
+      description: "flate Group: mise, the workflow action and .kritika.yaml must render with one version",
+      groupName: "flate",
+      matchPackageNames: ["/home-operations/flate/"]
     },
     {
       matchPackageNames: ["ghcr.io/joryirving/opencode"],

@@ -43,6 +43,28 @@ spec:
         compression:
           type: Zstd
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/envoyproxy_v1alpha1.json
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: crowdsec-wasm
+spec:
+  # Inherit the shared DaemonSet, resources, worker count and probe settings.
+  mergeType: StrategicMerge
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDaemonSet:
+        container:
+          env:
+            - name: CROWDSEC_LAPI_KEY
+              valueFrom: &credential
+                secretKeyRef:
+                  name: crowdsec-wasm
+                  key: api-key
+            - name: CROWDSEC_APPSEC_KEY
+              valueFrom: *credential
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gatewayclass_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -61,6 +83,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: envoy-external
+  labels:
+    security.home.arpa/crowdsec: "true"
   annotations:
     external-dns.kubernetes.io/target: &hostname external.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
@@ -74,6 +98,10 @@ metadata:
 spec:
   gatewayClassName: envoy
   infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: crowdsec-wasm
     annotations:
       coredns.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_EXTERNAL_IP}
@@ -210,27 +238,6 @@ spec:
   targetSelectors:
     - kind: Gateway
   tcpKeepalive: {}
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/securitypolicy_v1alpha1.json
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: SecurityPolicy
-metadata:
-  name: crowdsec
-spec:
-  targetRefs:
-    # Internet-facing gateway only; internal LAN traffic skips the bouncer
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: envoy-external
-  extAuth:
-    # Bouncer/appsec outage must not 403 the whole gateway; crowdsec is defense-in-depth
-    failOpen: true
-    grpc:
-      backendRefs:
-        # name pinned via fullnameOverride in bouncers/envoy/helmrelease.yaml
-        - name: crowdsec-envoy-bouncer
-          namespace: security
-          port: 8080
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1

@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.0.120
+        tag: 0.0.127
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -123,32 +123,39 @@ spec:
           apiKey: { env: LLM_API_KEY }
           # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen.
           concurrency: 16
+          # Logfare 429/503 cooldowns clear in seconds to ~2 min; without retries each one sent a 150K-token call to qwen.
+          # Backoff 1s doubling to 30s (~7s for 3); the fallback runs only after these are spent.
+          retries: 3
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
           <<: *llm
-          # A quarter of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
+          # One of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
           # At 4, queueing behind Hermes pushed 64-188K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
-          concurrency: 2
+          # At 2, a failover burst held radiance in 150K-token cold prefills (~80 s each) while interactive sessions queued (2026-11-15).
+          concurrency: 1
+          # A retry would resend a call of up to 25m.
+          retries: 0
           # Fallback calls took up to 807s (p95 387s) unqueued; 5m default abandoned them and resent the step.
           # 25m rides out queueing and stays under the engine's 1800s backend timeout.
           timeout: 25m
-        # Own provider so the iGPU embedder doesn't scale with llm: index runs hold all but one slot.
+        # Own provider so the embedder doesn't scale with llm: index runs hold all but one slot.
         embed:
           <<: *llm
           concurrency: 3
       review:
         model: llm/omniroute
-        # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
-        fallback: local/qwen-3.8
+        # The only inkling-2-mini fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
+        fallback: local/inkling-2-mini
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
-      # Keep default step/token limits: 1M tokens stopped a 98-file PR with 42 files unread.
       agent:
         parts: 16
-        # 60 default steps at omniroute's ~80s p95 per call need over an hour; 45m canceled 98- and 28-file reviews.
-        timeout: 90m
+        steps: 100
+        tokens: 12000000
+        # 100 steps at omniroute's ~80s p95 per call need over 2h; the cap is 2h35m.
+        timeout: 150m
       rules:
         - id: verify-effective-behavior
           rule: >-
@@ -163,17 +170,37 @@ spec:
             - expr: pr.headRef.startsWith("renovate/")
           rule: >-
             This is a Renovate dependency update. Read what changed from the
-            release notes in the PR body, or from upstream's release notes or
-            compare view with gh (one call per release, never the releases
-            list). Then search this repository for uses of the package,
-            including the comments in those files, and report each breaking
-            change, deprecation, rename or changed default that affects it,
-            and any version it must stay in lockstep with. Name the range as
-            from-version to to-version and read every release between them, or
-            list the ones skipped. A target published before the current
-            version lacks that version's later fixes: compare the two release
-            dates and name what is lost. Start with a verdict, safe to merge
-            or not, and name the sources you read.
+            release notes in the PR body. Only when they are missing, cut
+            short or skip versions, read upstream's with gh in one releases
+            call filtered to the range's tags (gh api
+            'repos/OWNER/REPO/releases?per_page=100' --jq '.[] |
+            select(.tag_name | test("TAG_REGEX")) | "## \(.tag_name)\n\(.body)"'),
+            never the unfiltered list. Anchor TAG_REGEX on the chart name
+            (^chart-) in a repository that publishes several charts; add
+            &page=2 when the old version is not in the first 100. When every
+            commit is a release (tags like b12627) or the bodies are mostly
+            asset lists, read the commit titles once instead (gh api
+            repos/OWNER/REPO/compare/OLD...NEW --jq '.total_commits,
+            (.commits[].commit.message | split("\n")[0])'). The compare lists
+            at most 250 commits: when the first line is larger, name how many
+            titles you did not read. With no GitHub upstream, try the project's
+            changelog page and say when none is reachable. Then search this
+            repository for uses of the package, including the comments in
+            those files, and report each breaking change, deprecation, rename
+            or changed default that affects it, and any version it must stay
+            in lockstep with. Name the range as from-version to to-version and
+            list any release in it you did not read. A target published before
+            the current version lacks that version's later fixes: compare the
+            two release dates and name what is lost. Start with a verdict, safe
+            to merge or not, and name the sources you read. End with the
+            release-note entries worth knowing here, patch and digest bumps
+            included, each with a line on what it could mean for this
+            repository: a fix for a bug it shows, a workaround comment that
+            can go, or a new feature, API or option that would simplify code
+            or config here (name the file and line it would replace). Notes,
+            not findings. A digest-only
+            bump's rebuild reason is its note. Mark upstream's speedup claims
+            as upstream's. Write "nothing notable" when there is none.
         - id: radiance-bump
           when:
             - expr: pr.headRef.startsWith("renovate/radiance")
@@ -267,6 +294,7 @@ spec:
           - "*.pkg.dev"
           - gcr.io
           - mirror.gcr.io
+          - nvcr.io
           # Never *.blob.core.windows.net (gsoci and Actions log blobs): anyone can register a storage account there.
           - gsoci.azurecr.io
           # Self-hosted forges of home-operations community members.
@@ -284,6 +312,8 @@ spec:
           - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
+          # fileflows.com/docs/versions is the only changelog for revenz/fileflows (no public repo).
+          - fileflows.com
           - grafana.com
           - huggingface.co
           - "*.cdn.hf.co"
