@@ -14,7 +14,9 @@ spec:
   interval: 1h
   values:
     operator:
-      # Chart lowered GOMEMLIMIT to 110MiB in 0.41.0, but live RSS sits at 128Mi — exactly the chart's default limit. Keep headroom.
+      # Chart lowered GOMEMLIMIT to 110MiB in 0.41.0, under the 128Mi live RSS, so the GC ran flat out; raise it with the limit.
+      gc:
+        gomemlimit: 230MiB
       resources:
         requests:
           memory: 128Mi
