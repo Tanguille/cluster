@@ -3,6 +3,10 @@
 import asyncio
 import json
 
+# Hermes pastes this output into the prompt. The report only covers open tasks, so completed ones and
+# older replies stay out; the input then grows with open work, not with Orbit's history.
+LATEST_REPLIES = 5
+
 
 async def read_pages(client, tool, **params):
     items = []
@@ -16,7 +20,7 @@ async def read_pages(client, tool, **params):
 
 
 async def collect(client):
-    tasks = await read_pages(client, "orbit_list_tasks")
+    tasks = [task for task in await read_pages(client, "orbit_list_tasks") if not task["completed_at"]]
     statuses = {}
     for project in sorted({task["project_id"] for task in tasks}):
         for status in await read_pages(client, "orbit_list_task_statuses", project_id=project):
@@ -24,12 +28,14 @@ async def collect(client):
 
     report = []
     for task in tasks:
-        row = {key: task[key] for key in ("identifier", "title", "created_at", "updated_at", "completed_at")}
+        row = {key: task[key] for key in ("identifier", "title", "created_at", "updated_at")}
         row["status"] = statuses[task["status_id"]]
-        if "[hermes]" in task["title"].casefold() and not task["completed_at"]:
+        if "[hermes]" in task["title"].casefold():
             row["description"] = task["description"]
-            comments = await read_pages(client, "orbit_list_comments", task_id=task["id"])
-            row["comments"] = [{key: c[key] for key in ("created_at", "body")} for c in comments]
+            comments = sorted(await read_pages(client, "orbit_list_comments", task_id=task["id"]), key=lambda c: c["created_at"])
+            row["comments"] = [{key: c[key] for key in ("created_at", "body")} for c in comments[-LATEST_REPLIES:]]
+            if len(comments) > LATEST_REPLIES:
+                row["older_replies_omitted"] = len(comments) - LATEST_REPLIES
         elif "hermes" in task["description"].casefold():
             row["mentions_hermes"] = True
         report.append(row)

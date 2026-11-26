@@ -115,7 +115,7 @@ flux resume ks cloudnative-pg-cluster -n database
 4. `ORBIT_APP_KEY` (`orbit-secret`) encrypts saved secrets, 2FA and Orbit's own backups. Never rotate it; keep a copy in Vaultwarden.
 5. MCP: clients use `https://orbit.<domain>/mcp` (Streamable HTTP). The URL must be the public origin, Orbit checks `Host`.
    - Cluster agents: the ToolHive `orbit` entry (`kubernetes/apps/ai/toolhive/mcp/orbit.yaml`) puts Orbit's tools (`orbit_*`) in the unified vMCP. `ORBIT_MCP_TOKEN` in `toolhive-secrets` holds the full `Bearer <token>` header of a personal API token (docs and chat need a personal token, service-account tokens cover tasks only). To rotate it, create a new token in **Settings → API tokens** and update the secret.
-   - Hermes daily task report: [orbit_report.py](../kubernetes/apps/ai/hermes/app/resources/orbit_report.py) reads tasks, statuses and replies through the same gateway. After the script is mounted and the live change is approved, set `script: orbit_report.py` and `enabled_toolsets: []` together on the existing `orbit-maintain` job. Keep its prompt, schedule and delivery. The model summarizes the script output with no callable tools. To roll back, restore the job's previous script and toolset values.
+   - Hermes daily task report: [orbit_report.py](../kubernetes/apps/ai/hermes/app/resources/orbit_report.py) reads open tasks, their statuses and the latest replies through the same gateway. After the script is mounted and the live change is approved, set `script: orbit_report.py` and `enabled_toolsets: []` together on the existing `orbit-maintain` job. Keep its prompt, schedule and delivery. The model summarizes the script output with no callable tools. To roll back, restore the job's previous script and toolset values.
    - Interactive clients: OAuth, for example `claude mcp add --scope user --transport http orbit https://orbit.<domain>/mcp`, then authenticate in `/mcp`.
 
 ### GitHub integration
@@ -183,7 +183,7 @@ read -rp 'Profile and job id: ' profile job
 home_dir=/opt/data
 [[ $profile == default ]] || home_dir="/opt/data/profiles/$profile"
 hermes_exec=(kubectl -n ai exec deploy/hermes -c app -- /command/s6-setuidgid hermes)
-"${hermes_exec[@]}" env HERMES_HOME="$home_dir" hermes cron runs "$job" --limit 5
+"${hermes_exec[@]}" hermes -p "$profile" cron runs "$job" --limit 5
 read -rp 'Execution id: ' execution
 "${hermes_exec[@]}" /opt/hermes/.venv/bin/python -c '
 import sqlite3, sys
