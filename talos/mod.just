@@ -15,12 +15,13 @@ vip := "192.168.0.2"
 render-config node:
     role="$(just talos node-role "{{ node }}")"
     [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
+    schematic="$(just talos schematic-id "{{ node }}")"
     # The router and the relay's ClusterIP are defined once, in the Flux cluster settings.
     settings="{{ justfile_directory() }}/kubernetes/components/common/cluster-settings.yaml"
     gateway="$(yq -e '.data.OPNSENSE_IP' "${settings}")"
     log_relay_ip="$(yq -e '.data.TALOS_LOG_RELAY_IP' "${settings}")"
     # One context for every layer, so any layer may reference any of these.
-    ctx=(-D "vip={{ vip }}" -D "gateway=${gateway}" -D "log_relay_ip=${log_relay_ip}")
+    ctx=(-D "vip={{ vip }}" -D "gateway=${gateway}" -D "log_relay_ip=${log_relay_ip}" -D "schematic=${schematic}")
     # Rendered to variables before talosctl runs, so a failed layer aborts before a single byte
     # reaches stdout. Inline <(just template) dropped the layer silently and still emitted a
     # config, which apply-node pipes straight to a node.
@@ -78,14 +79,6 @@ download-image node version:
         -o "{{ source_directory() }}/talos-{{ version }}-${schematic:0:8}.iso" \
         "https://factory.talos.dev/image/${schematic}/{{ version }}/metal-amd64.iso"
 
-# The node files are the fleet inventory, so a caller cannot build against a stale hand-written
-# list. Schematics are `<node>.schematic.yaml`, so the glob picks up node files only.
-[private]
-nodes:
-    names="$(basename -s .yaml.j2 -a "{{ source_directory() }}"/nodes/*/*.yaml.j2 | sort | tr '\n' ' ')"
-    [[ -n "${names// /}" ]] || { echo "no node files under nodes/" >&2; exit 1; }
-    echo "${names}"
-
 # Directory placement is the single source of truth for a node's role; machine.type is
 # set by the role layer, so a node cannot claim one role by filename and another by content.
 [private]
@@ -114,19 +107,26 @@ schematic-file node:
     done
     echo "{{ source_directory() }}/schematic.yaml"
 
-# Off the render path since every node pins its own installer: `download-image` is the only caller.
 # Schematics are plain YAML, not templates: POST the file directly rather than routing it through
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
-# Bounded so `download-image` fails rather than hanging on a stalled factory. Retries are safe:
-# the endpoint is content-addressed, so re-POSTing identical content returns the same id.
+# The id is content-addressed, so it is cached by file hash: renders stay offline until a
+# schematic changes. Bounded so a stalled factory fails the render instead of hanging it.
 [private]
 schematic-id node:
     file="$(just talos schematic-file "{{ node }}")"
     [[ -f "${file}" ]] || { echo "no schematic file for {{ node }}: ${file}" >&2; exit 1; }
-    curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
-        --data-binary @"${file}" \
-        https://factory.talos.dev/schematics \
-        | jq -er '.id | strings | select(length > 0)'
+    hash="$(sha256sum "${file}" | cut -d' ' -f1)"
+    cache="${XDG_CACHE_HOME:-${HOME}/.cache}/talos-schematic/${hash}"
+    if [[ ! -s "${cache}" ]]; then
+        id="$(curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
+            --data-binary @"${file}" https://factory.talos.dev/schematics \
+            | jq -er '.id | strings | select(length > 0)')"
+        mkdir -p "${cache%/*}"
+        tmp="$(mktemp "${cache}.XXXXXX")"
+        printf '%s\n' "${id}" > "${tmp}"
+        mv -f "${tmp}" "${cache}"
+    fi
+    cat "${cache}"
 
 [private]
 machine-image node:
@@ -135,10 +135,3 @@ machine-image node:
     image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
     [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
     echo "${image}"
-
-[doc('Build the custom-kernel Talos installers; defaults to every node (docker/talos-kernel/README.md)')]
-kernel-build *nodes:
-    names="{{ nodes }}"
-    [[ -n "${names}" ]] || names="$(just talos nodes)"
-    "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" \
-        "$(just tuppr-version talos)" ${names}
