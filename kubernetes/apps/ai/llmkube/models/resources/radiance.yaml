@@ -25,6 +25,10 @@ models:
     max-num-seqs: 8 # 12 x ~52K production sessions (~624K) overflow the ~483K pool: prodshape preempted 15 times, TTFT 19-28 s.
     num-speculative-tokens: 7 # The DSpark block drafter is 7 or off; adaptive verifies only what pays. +35% single stream.
     draft-window: adaptive
+    flex:
+      kv:
+        # Sizes the KV claim; the default, one 262K sequence, left 5.6 GiB of the card unused. ~23 KiB a token.
+        min-tokens: 458752
   qwen-3.8:
     model: /models-qwen/914951ec7d617dec/qwen3.8-27b-iq4r-s-v4.rad
     max-num-seqs: 6 # i8 costs ~47% more per token than 1.17's k6_v4 (gone in 2.x): 8 slots re-prefilled at 8 sessions on 2.0 and 2.2, 6 held on 2.0.
@@ -34,3 +38,7 @@ models:
     checkpoint-policy: tip-only # One state snapshot per session.
     checkpoint-slots: 48 # 16 and 32 overflowed (store_full) under 8 agent sessions on 1.17.
     prefix-resume: nearest # Resume on 2048-token chunks; a hit is no longer bit-identical to a cold run.
+    flex:
+      kv:
+        # Sizes the KV claim; the default, one 262K sequence, left 4.3 GiB of the card unused. ~34 KiB a token.
+        min-tokens: 360448
