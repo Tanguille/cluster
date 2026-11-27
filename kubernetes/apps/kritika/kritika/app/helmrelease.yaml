@@ -121,11 +121,13 @@ spec:
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
-          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen.
-          concurrency: 16
-          # Logfare 429/503 cooldowns clear in seconds to ~2 min; without retries each one sent a 150K-token call to qwen.
-          # Backoff 1s doubling to 30s (~7s for 3); the fallback runs only after these are spent.
-          retries: 3
+          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen. 16 sent ~2x what
+          # smart-free's working slots served on 2026-11-27 (HMS allows 5 in flight, Munito a few calls a minute), so the
+          # excess pushed providers into cooldown; at 8 the excess queues here instead.
+          concurrency: 8
+          # One retry, then the fallback: a smart-free attempt can run to the 90 s target timeout, so 3 retries kept a
+          # failing review away from inkling for minutes. Also applies to embed, which inherits it.
+          retries: 1
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
           <<: *llm
