@@ -8,8 +8,8 @@ require explicit approval. This runbook is guidance, not authorization to do the
 ## Current configuration and key scope
 
 - [`.sops.yaml`](../.sops.yaml) encrypts all values in `talos/*.sops.yaml`
-  with a classical age recipient; `bootstrap/` and `kubernetes/` use a PQ age
-  recipient and encrypt `data`/`stringData` values, leaving resource metadata public.
+  with a classical age recipient; `kubernetes/` uses a PQ age
+  recipient and encrypts `data`/`stringData` values, leaving resource metadata public.
 - [`.mise.toml`](../.mise.toml) points `SOPS_AGE_KEY_FILE` at the local `age.key`.
   Preserve **both classical and PQ identities** in that file and in recovery
   backups. A classical-only copy can decrypt Talos but fails on Kubernetes.

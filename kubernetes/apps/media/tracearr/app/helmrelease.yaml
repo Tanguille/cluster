@@ -36,10 +36,7 @@ spec:
                   secretKeyRef:
                     name: dragonfly-auth
                     key: password
-              NODE_ENV: production
-              HOST: 0.0.0.0
               PORT: &port "3000"
-              LOG_LEVEL: info
               # One hop: the envoy gateway.
               TRUST_PROXY: "true"
               # Full origin (scheme included); the app compares it against the browser Origin header.
