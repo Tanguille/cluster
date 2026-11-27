@@ -14,9 +14,12 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: nvidia-undervolt
+      annotations:
+        # Not a GPU request: the time-sliced replicas belong to the workloads. The NRI plugin injects
+        # the whole GPU for this namespace (gpu-operator NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES).
+        nvidia.cdi.k8s.io/pod: management.nvidia.com/gpu=all
     spec:
       priorityClassName: system-node-critical
-      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu: "true"
       tolerations:
@@ -34,11 +37,6 @@ spec:
               value: "200"
             - name: EXPECT_NAME
               value: RTX 2070
-            # Not a GPU request: the time-sliced replicas belong to the workloads.
-            - name: NVIDIA_VISIBLE_DEVICES
-              value: all
-            - name: NVIDIA_DRIVER_CAPABILITIES
-              value: utility
           command:
             - python3
             - /scripts/nvidia-undervolt.py

@@ -36,7 +36,7 @@ mount more than one PVC (e.g. nextcloud has a second, unrelated 500Gi NFS volume
 
 ## Recover a blocked Hermes RBD attachment
 
-On 25 November the replacement pod was scheduled within five minutes, but the original node held the `ai/hermes` volume for four hours. Check which node still owns it:
+A replacement pod can stay Pending for hours while the old node still holds the `ai/hermes` volume (25 November: four hours). Check which node owns it:
 
 ```bash
 kubectl -n ai get pods -l app.kubernetes.io/name=hermes -o wide
@@ -47,7 +47,7 @@ kubectl get volumeattachments -o json | jq --arg pv "$pv" \
 
 - **For a planned shutdown**, drain while the kubelet can unmount the volume. Wait for the replacement to become Ready and verify Ceph health before shutting down the host. TrueNAS also hosts a Ceph OSD and the Kopia repository.
 - **If the node is unreachable**, restore connectivity or recover the kubelet first. Force-deleting the pod, attachment or RBD lock risks two SQLite writers.
-- **After confirming power-off**, verify the old node cannot restart during handover, including TrueNAS VM autostart. Check the other workloads on the node and remaining Ceph quorum. With approval, follow the Kubernetes out-of-service taint and recovery procedure. [Non-graceful node shutdown](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/#non-graceful-node-shutdown-handling)
+- **After confirming power-off**, make sure the old node cannot restart during handover (including TrueNAS VM autostart) and check its other workloads and the remaining Ceph quorum. Then, with approval, follow the [non-graceful node shutdown](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/#non-graceful-node-shutdown-handling) procedure (out-of-service taint).
 
 Verify one ready replica, one attachment of the original PV on that pod’s node, and two consecutive ten-minute exporter heartbeats. If data integrity is uncertain, use the separate-claim drill below.
 

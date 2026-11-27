@@ -176,15 +176,13 @@ done
 
 ## Hermes cron delivery failures
 
-Take the profile and job name from `HermesCronDeliveryFailed`; `cron list` shows the job id. Match the run time in the execution ledger, then check the same execution in the profile’s outbox:
+Take the profile and job id from `HermesCronDeliveryFailed`. Match the run time in the execution ledger, then check the same execution in the profile’s outbox:
 
 ```bash
-read -rp 'Profile: ' profile
+read -rp 'Profile and job id: ' profile job
 home_dir=/opt/data
 [[ $profile == default ]] || home_dir="/opt/data/profiles/$profile"
 hermes_exec=(kubectl -n ai exec deploy/hermes -c app -- /command/s6-setuidgid hermes)
-"${hermes_exec[@]}" hermes -p "$profile" cron list
-read -rp 'Job id: ' job
 "${hermes_exec[@]}" hermes -p "$profile" cron runs "$job" --limit 5
 read -rp 'Execution id: ' execution
 "${hermes_exec[@]}" /opt/hermes/.venv/bin/python -c '
@@ -193,4 +191,4 @@ db = sqlite3.connect("file:" + sys.argv[1] + "/cron/deliveries.db?mode=ro", uri=
 print(db.execute("SELECT status, error FROM deliveries WHERE execution_id=? UNION ALL SELECT terminal_status, NULL FROM delivery_tombstones WHERE execution_id=?", (sys.argv[2], sys.argv[2])).fetchall())' "$home_dir" "$execution"
 ```
 
-A completed execution can have a failed delivery. If the gateway reports `not configured/enabled`, check the connected Discord adapter, the profile route for the exact thread and parent, and the bot’s thread membership and **Send Messages in Threads** permission. An unknown delivery may already have reached Discord. Observe the next scheduled run to avoid posting a duplicate.
+A completed execution can still fail delivery. If the gateway reports `not configured/enabled`, check the Discord adapter, the profile route for the exact thread and parent, and the bot’s thread membership and **Send Messages in Threads** permission. An `unknown` delivery may already have reached Discord: wait for the next scheduled run instead of re-sending.
