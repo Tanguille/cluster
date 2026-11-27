@@ -28,9 +28,6 @@ machine:
         memory.available: 1Gi
       evictionMinimumReclaim:
         memory.available: 1Gi
-      # Trigger image GC before Ceph's mon_data_avail_warn default (30% free) fires.
-      imageGCHighThresholdPercent: 70
-      imageGCLowThresholdPercent: 55
       # Reap images unused for 2d regardless of disk pressure: Renovate and Paseo leave a superseded
       # image almost daily, and control-1's /var climbed ~13 GiB/day until the 70% GC (2026-11-17).
       imageMaximumGCAge: 48h
