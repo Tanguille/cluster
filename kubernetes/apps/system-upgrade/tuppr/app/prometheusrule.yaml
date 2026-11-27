@@ -10,7 +10,7 @@ spec:
     - name: tuppr.parked.rules
       rules:
         # Pending/PrePullFailed matches neither TalosUpgradeStuck nor TupprUpgradeBlocked and pre-pull
-        # retries forever without reaching Failed; 4h clears a ~90m installer build plus the pull.
+        # retries forever without reaching Failed; 4h clears a slow installer pre-pull.
         - alert: TalosUpgradeParked
           expr: |-
             tuppr_talos_upgrade_phase{phase="Pending"} == 1
@@ -18,6 +18,6 @@ spec:
           annotations:
             summary: >-
               TalosUpgrade {{ $labels.name }} has been Pending for 4h — the installer tag it
-              wants is probably unpublished; check the talos-kernel workflow
+              wants is probably unpullable; check the Image Factory and the node's install image
           labels:
             severity: warning

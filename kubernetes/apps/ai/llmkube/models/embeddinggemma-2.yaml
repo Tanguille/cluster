@@ -24,9 +24,8 @@ metadata:
 spec:
   modelRef: embeddinggemma-2
   mode: embedding
-  # Image, runtime class and JIT cache: see decision.yaml.
+  # Image and JIT cache: see decision.yaml.
   image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:ef8785623dbd5c82eca35679592add50cbb70558b41652a4188835ced8722dfd
-  runtimeClassName: nvidia
   env:
     - name: CUDA_CACHE_PATH
       value: /cuda-cache/.nv-compute-cache

@@ -13,8 +13,7 @@ spec:
   values:
     defaultPodOptions:
       priorityClassName: low-priority-mining
-      # nvidia runtime injects the GPU; control-1 is the only node labelled for it.
-      runtimeClassName: nvidia
+      # The nvidia.com/gpu request injects the GPU; control-1 is the only node labelled for it.
       nodeSelector:
         nvidia.com/gpu: "true"
       # The image runs under tini, so SIGTERM stops the miner at once.

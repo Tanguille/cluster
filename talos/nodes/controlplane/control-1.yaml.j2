@@ -3,9 +3,6 @@
 machine:
   install:
     disk: /dev/vda
-    # Its own schematic (control-1.schematic.yaml: qemu-guest-agent, GPU extensions and kernel args), so its own installer
-    # repo -- control-2/3 share talos/schematic.yaml and cannot use this image.
-    image: ghcr.io/tanguille/installer/control-1:{{ pinned }}
   nodeLabels:
     # GPU label for applications; the amdgpu kernel module is loaded
     # automatically by the siderolabs/amdgpu system extension
@@ -68,10 +65,3 @@ kind: KernelModuleConfig
 name: nvidia_drm
 parameters:
   - modeset=1
----
-# The nvidia-container-toolkit extension requires this. Merges with the SysctlConfig in
-# cluster.yaml.j2, the node layer adds keys.
-apiVersion: v1alpha1
-kind: SysctlConfig
-params:
-  net.core.bpf_jit_harden: "1"

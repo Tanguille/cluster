@@ -27,8 +27,9 @@ models:
     draft-window: adaptive
     flex:
       kv:
-        # Sizes the KV claim; the default, one 262K sequence, left 5.6 GiB of the card unused. ~23 KiB a token.
-        min-tokens: 458752
+        # Sizes the KV claim; the default, one 262K sequence, left 5.6 GiB of the card unused. 448K gave a 410K pool
+        # (the experts take a share) with 1.85 GiB left; ~19 KiB of claim a token, so 512K leaves ~0.7 GiB.
+        min-tokens: 524288
   qwen-3.8:
     model: /models-qwen/914951ec7d617dec/qwen3.8-27b-iq4r-s-v4.rad
     max-num-seqs: 6 # i8 costs ~47% more per token than 1.17's k6_v4 (gone in 2.x): 8 slots re-prefilled at 8 sessions on 2.0 and 2.2, 6 held on 2.0.

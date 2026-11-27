@@ -13,19 +13,22 @@ spec:
         tag: v26.7.3
       url: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
   values:
-    # Talos ships the driver (our signed modules) and toolkit as extensions on control-1.
+    # Talos 1.15 ships the driver (modules and userspace) as extensions on control-1, and no container
+    # runtime: the operator's toolkit registers with containerd through NRI, so no RuntimeClass is used.
     driver:
       enabled: false
     toolkit:
-      enabled: false
+      # Writable /var; the chart default /usr/local/nvidia is read-only on Talos.
+      installDir: /var/lib/nvidia
+      env:
+        # Namespaces besides the operator's that may request the whole GPU by pod annotation
+        # (nvidia-undervolt, nvidia-gpu-exporter) instead of taking a time-slice.
+        - name: NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES
+          value: kube-system,observability
     hostPaths:
       driverInstallDir: /usr/local
     cdi:
-      # Off: the extension registers only the `nvidia` containerd handler. On, the operator also makes
-      # the nvidia-cdi and nvidia-legacy RuntimeClasses (no handler on Talos) and the device plugin
-      # allocates through its own CDI kind instead of the extension's /run/cdi/nvidia.yaml.
-      # The `nvidia` RuntimeClass is the chart default and owned by the operator, so none is shipped.
-      enabled: false
+      nriPluginEnabled: true
     # GPU metrics come from nvidia_gpu_exporter, not DCGM.
     dcgmExporter:
       enabled: false
