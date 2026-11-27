@@ -30,7 +30,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sgasser/pasteguard
-              tag: 0.9.10@sha256:fa084a9ff996750181cf97ec9e8df08f895c0d2fa22c28af49a5e2984f913ba5
+              tag: 0.9.11@sha256:399c0537bd4442ad8311ce356e88ec6bed7453d1e0338fc4ea6b13a609d6c4a5
             # Proxy only: the image's supervisord also starts the GLiNER PII detector, unused with PII detection off.
             command: ["bun", "run", "src/index.ts"]
             workingDir: /pasteguard

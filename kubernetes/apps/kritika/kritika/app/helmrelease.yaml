@@ -203,20 +203,24 @@ spec:
             as upstream's. Write "nothing notable" when there is none.
         - id: radiance-bump
           when:
-            - expr: pr.headRef.startsWith("renovate/radiance")
+            # renovate/radiance, and renovate/major-radiance for majors.
+            - expr: pr.headRef.startsWith("renovate/") && pr.headRef.endsWith("radiance")
           rule: >-
-            radiance engine bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ .rad,
-            k6_v4 KV, host prefix tier): config
-            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, whose Job
-            reconverts the .rad on every image change. The body has digests
+            radiance engine bump on the gfx1201 card. Production runs our own
+            build (image in kubernetes/apps/ai/llmkube/models/inkling2-mini.yaml),
+            so a Renovate radiance PR moves only the GrafanaDashboard URL: judge
+            the release for when that build rebases on it. One process serves
+            the fleet in
+            kubernetes/apps/ai/llmkube/models/resources/radiance.yaml.
+            The body has digests
             only and Codeberg has no releases: the changelog is the body of the
             commit the new tag points at. Read it and the commits between the
             previous and new version at codeberg.org/StillDeadcode/radiance
             (its API with curl; gh does not reach Codeberg), one path per call.
-            Check every flag in
-            extraArgs against renamed, removed or re-defaulted options (a gone
-            flag fails the boot), the .rad container or recipe format
-            (q38-27b-w4a16.recipe), prefix cache, checkpoint policy and KV
+            Check every key of that file against renamed, removed or
+            re-defaulted options (an unknown key fails the boot of both
+            models), the .rad container format, fleet scheduling (park,
+            priority, ttl, warm-up), prefix cache, checkpoint policy and KV
             dtype changes, and the vllm:* and radiance:* metrics read by
             kubernetes/apps/ai/llmkube/models/prometheusrule.yaml. Start with a verdict: nothing
             relevant, needs a clone test, or needs a config change. Then list

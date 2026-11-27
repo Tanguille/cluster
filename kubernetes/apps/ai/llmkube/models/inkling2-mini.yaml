@@ -20,7 +20,7 @@ metadata:
 spec:
   # A ready radiance container (int8 trunk, NVFP4 experts as stored, DSpark drafter, bf16 vision tower), not a
   # checkpoint: nothing to convert. Its layout is tied to the engine build, so no Renovate bump: move the revision
-  # and the image together, then the cache dir in resources/inkling2-mini-radiance.yaml (sha256 of this source, first 16 hex).
+  # and the image together, then the cache dir in resources/radiance.yaml (sha256 of this source, first 16 hex).
   source: hf://gostar77/inkling2-mini-i8-dspark-radiance@f90eb3600834e93f959781fb1d5a4db6d89bb256
   format: custom
   quantization: i8-nvfp4
@@ -45,7 +45,7 @@ spec:
   modelRef: inkling2-mini
   # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
-  # radiance 2.x takes only --config, so its flags live in resources/inkling2-mini-radiance.yaml. The ModelRouter still
+  # radiance 2.x takes only --config, so its flags live in resources/radiance.yaml. The ModelRouter still
   # needs --served-model-name in extraArgs, which the shell ignores.
   command: [sh]
   args:
@@ -53,7 +53,7 @@ spec:
     - exec radiance --config /etc/radiance/config.yaml
     - radiance
   # Our own build until radiance ships Inkling (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
-  # from docs/llm-hosting: python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles
+  # from docs/llm-hosting: python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles (and qwen-3.8)
   # and prodshape.py --levels 8 (0 preemptions). The card holds one engine, so a bench means stopping production.
   image: ghcr.io/tanguille/radiance:attnrel-d34cc357@sha256:2257896e6239ff7f156d94ea7534c2d83b484ddc38e2ac6e0d51e2345330b237
   # Variant 2 of the relative-attention kernel (reads K and V straight from memory). Unset, the build runs the older
@@ -71,17 +71,32 @@ spec:
   modelCache:
     claimName: inkling2-mini-model-cache
   extraArgs:
-    # Must equal the models key in resources/inkling2-mini-radiance.yaml and the displayName in agentgateway/app/models.yaml:
+    # Must equal the models key in resources/radiance.yaml and the displayName in agentgateway/app/models.yaml:
     # the router checks only this one, and a drift fails every request at runtime.
     - --served-model-name=inkling-2-mini
   extraVolumes:
     - name: radiance-config
       configMap:
-        name: inkling2-mini-radiance-config
+        name: radiance-config
+    # qwen-3.8, the fleet's other model: its prefetched .rad (qwen38-27b.yaml) and chat template.
+    - name: qwen38-27b
+      persistentVolumeClaim:
+        claimName: qwen38-27b-model-cache
+        readOnly: true
+    - name: qwen38-sharp-chat-template
+      configMap:
+        name: qwen38-sharp-chat-template
   extraVolumeMounts:
     - name: radiance-config
       mountPath: /etc/radiance/config.yaml
       subPath: config.yaml
+      readOnly: true
+    - name: qwen38-27b
+      mountPath: /models-qwen
+      readOnly: true
+    - name: qwen38-sharp-chat-template
+      mountPath: /chat-templates/chat_template.jinja
+      subPath: chat_template.jinja
       readOnly: true
   nodeSelector:
     amd.com/gpu: "true"
@@ -94,7 +109,8 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Engine log pins 16.00 tier + ~7.1 checkpoints + 1.46 host pool GiB.
+    # Engine log pins 16.00 tier + ~7.1 checkpoints + 1.46 host pool GiB; qwen-3.8 pinned 26.4 GiB on 1.17. Only one of
+    # the two is loaded at a time (park ram: never in the radiance config).
     memory: 26Gi
     # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: 64Gi would pass
     # control-1's 59 GiB allocatable.
@@ -102,6 +118,8 @@ spec:
   endpoint:
     port: 8000
   probeOverrides:
+    # /health is the process: 200 once it listens, whichever model is loaded. The fleet's stuck-exit (60 s) ends a wedged
+    # one; LLMEngineStalled pages.
     liveness:
       httpGet:
         path: /health

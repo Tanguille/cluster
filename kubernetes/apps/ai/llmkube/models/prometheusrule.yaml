@@ -47,14 +47,15 @@ spec:
             severity: warning
 
         # Inkling has no linear state, so attention tokens are its prefix hits. 0.4 is carried over from qwen-3.8,
-        # provisional until a week of Inkling traffic.
+        # provisional until a week of Inkling traffic. Inkling only: qwen-3.8 (same pod, on demand) hits through
+        # linear-state checkpoints and gets too little traffic for a daily ratio.
         - alert: LLMPrefixCacheHitRateLow
           expr: |-
-            sum by (model_name) (increase(radiance:attn_cached_tokens_total[1d]))
+            sum by (model_name) (increase(radiance:attn_cached_tokens_total{model_name="inkling-2-mini"}[1d]))
             /
             (
-              sum by (model_name) (increase(radiance:attn_cached_tokens_total[1d]))
-              + sum by (model_name) (increase(radiance:prefill_tokens_total[1d]))
+              sum by (model_name) (increase(radiance:attn_cached_tokens_total{model_name="inkling-2-mini"}[1d]))
+              + sum by (model_name) (increase(radiance:prefill_tokens_total{model_name="inkling-2-mini"}[1d]))
             )
             < 0.4
           annotations:
