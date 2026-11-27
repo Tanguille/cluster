@@ -144,8 +144,8 @@ spec:
           concurrency: 3
       review:
         model: llm/omniroute
-        # The only inkling-2-mini fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
-        fallback: local/inkling-2-mini
+        # The only inkling fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
+        fallback: local/inkling-2-mini-auto
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
