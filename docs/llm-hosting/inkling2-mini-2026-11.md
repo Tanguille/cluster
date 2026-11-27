@@ -72,8 +72,23 @@ radiance 2.x serves several models from one process (upstream `docs/MULTIMODEL.m
 - The two never fit on the card together. A request for the one not loaded takes the card once the other has served its quantum (5-30 s) and drained (30 s; open streams are then cut). The leaving model unloads (`park: ram: never`), so its sessions prefill again and the pod pins one model's host memory at a time. Under mixed traffic the two swap back and forth.
 - Equal priority, no `ttl`: on this build every `/metrics` scrape counts as a use, so a model never goes idle (2.3.0 fixed that, so a qwen `ttl` could now hand the card back; not set yet).
 - `warm-up: false`: nothing loads at start. The pod is ready before Inkling is, and the first request waits for its load (up to `load-timeout`, 120 s).
-- Untested on the card: qwen's first load on this build is the first time `qwen35_w8a8` runs here, and a device fault during it ends Inkling too. Run it in a bench window: the qualitygate modes with `--model qwen-3.8`, prodshape `--levels 1,4,6`, and the `kv:` line for the pool. Settings carried over from 1.17 (Swift, k6_v4) are not re-measured.
+- Measured on `attnrel-2c0ca6ea` in this fleet config (2026-11-27): qwen loads in 14 s, tools 12/12 single and 5 at once, and Inkling swaps back. prodshape on qwen and the settings carried over from 1.17 (Swift, k6_v4) are not re-measured.
 - Do not send `qwen-3.8` before the Model reads Ready: a missing file fails only qwen's load, but the attempt can still reclaim Inkling's free KV.
+
+### Against Inkling (2026-11-27, same build, same card)
+
+BetterBench 20 passes a category; QualityBench quick, thinking on at effort medium, on the same items (Inkling's run on `attnrel-495db507`).
+
+| | inkling-2-mini | qwen-3.8 |
+| --- | --- | --- |
+| Single stream, combined decode tok/s | 186.8 | 129.5 |
+| 1 / 2 / 4 / 8 concurrent, aggregate tok/s | 175 / 241 / 341 / 461 | 117 / 203 / 288 / 329 (6 slots) |
+| Prefill at 2K / 16K / 64K, tok/s | 5,036 / 5,242 / 4,472 | 2,424 / 2,285 / 1,970 |
+| GSM8K / IFEval / MMLU-Pro | 130/132, 46/55, 76/100 | 130/132, 47/55, 79/100 |
+| HumanEval+ / MBPP+ / LiveCodeBench v6 | 17/17, 29/38, 10/18 | 17/17, 31/38, 12/18 |
+| BFCL / needle | 36/40, 2/2 | 38/40, 2/2 |
+
+qwen scores equal or one to three items higher on every task; every paired 95% interval includes 0 (gate T5 7/7). Inkling decodes 45% faster and prefills twice as fast, but writes 2.5-3x the mean tokens on IFEval, MMLU-Pro and MBPP+. A QualityBench run against a bench pod needs a `/health` keepalive through the port-forward: its requests do not stream, and an idle tunnel dropped all of them at ~575 s.
 
 ## Outside git
 
