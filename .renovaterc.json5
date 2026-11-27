@@ -136,16 +136,6 @@
         "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       datasourceTemplate: "docker"
-    },
-    {
-      description: "Inline OCI chart sources in HelmReleases",
-      customType: "regex",
-      managerFilePatterns: ["/helmrelease\\.yaml$/"],
-      matchStrings: [
-        "\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)"
-      ],
-      depTypeTemplate: "HelmChart",
-      datasourceTemplate: "docker"
     }
   ],
   packageRules: [
