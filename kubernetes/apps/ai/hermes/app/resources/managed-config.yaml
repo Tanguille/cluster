@@ -31,3 +31,10 @@ sessions:
 tools:
   tool_search:
     enabled: false
+gateway:
+  # Long-lived chats otherwise only know the date of their last compaction.
+  message_timestamps:
+    enabled: true
+skills:
+  # Defaults to false, so named profiles wrote skills unscanned; root already had it on.
+  guard_agent_created: true
