@@ -115,6 +115,7 @@ flux resume ks cloudnative-pg-cluster -n database
 4. `ORBIT_APP_KEY` (`orbit-secret`) encrypts saved secrets, 2FA and Orbit's own backups. Never rotate it; keep a copy in Vaultwarden.
 5. MCP: clients use `https://orbit.<domain>/mcp` (Streamable HTTP). The URL must be the public origin, Orbit checks `Host`.
    - Cluster agents: the ToolHive `orbit` entry (`kubernetes/apps/ai/toolhive/mcp/orbit.yaml`) puts Orbit's tools (`orbit_*`) in the unified vMCP. `ORBIT_MCP_TOKEN` in `toolhive-secrets` holds the full `Bearer <token>` header of a personal API token (docs and chat need a personal token, service-account tokens cover tasks only). To rotate it, create a new token in **Settings → API tokens** and update the secret.
+   - Hermes daily task report: `/opt/data/scripts/orbit_report.py` on the Hermes PVC reads open tasks through the same gateway, so the `orbit-maintain` job can run with `enabled_toolsets: []`.
    - Interactive clients: OAuth, for example `claude mcp add --scope user --transport http orbit https://orbit.<domain>/mcp`, then authenticate in `/mcp`.
 
 ### GitHub integration
@@ -172,3 +173,24 @@ done
 
 - `speedMbit`: link speed in Mbps; `4294967295` usually means virtual/unknown.
 - Physical NICs show real speeds (for example, 1000, 2500, or 10000).
+
+## Hermes cron delivery failures
+
+Take the profile and job name from `HermesCronDeliveryFailed`; `cron list` shows the job id. Match the run time in the execution ledger, then check the same execution in the profile’s outbox:
+
+```bash
+read -rp 'Profile: ' profile
+home_dir=/opt/data
+[[ $profile == default ]] || home_dir="/opt/data/profiles/$profile"
+hermes_exec=(kubectl -n ai exec deploy/hermes -c app -- /command/s6-setuidgid hermes)
+"${hermes_exec[@]}" hermes -p "$profile" cron list
+read -rp 'Job id: ' job
+"${hermes_exec[@]}" hermes -p "$profile" cron runs "$job" --limit 5
+read -rp 'Execution id: ' execution
+"${hermes_exec[@]}" /opt/hermes/.venv/bin/python -c '
+import sqlite3, sys
+db = sqlite3.connect("file:" + sys.argv[1] + "/cron/deliveries.db?mode=ro", uri=True)
+print(db.execute("SELECT status, error FROM deliveries WHERE execution_id=? UNION ALL SELECT terminal_status, NULL FROM delivery_tombstones WHERE execution_id=?", (sys.argv[2], sys.argv[2])).fetchall())' "$home_dir" "$execution"
+```
+
+A completed execution can have a failed delivery. If the gateway reports `not configured/enabled`, check the connected Discord adapter, the profile route for the exact thread and parent, and the bot’s thread membership and **Send Messages in Threads** permission. An unknown delivery may already have reached Discord. Observe the next scheduled run to avoid posting a duplicate.
