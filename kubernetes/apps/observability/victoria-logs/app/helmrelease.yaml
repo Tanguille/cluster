@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.13.13
+        tag: 0.13.14
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-logs-single
   interval: 1h
   values:
@@ -48,5 +48,18 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+        # The bare host opens the query UI instead of the landing page.
+        extraRules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: /
+            filters:
+              - type: RequestRedirect
+                requestRedirect:
+                  path:
+                    type: ReplaceFullPath
+                    replaceFullPath: /select/vmui/
+                  statusCode: 302
       serviceMonitor:
         enabled: true

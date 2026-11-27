@@ -28,6 +28,8 @@ spec:
       # Talos already mounts cgroupv2 at /sys/fs/cgroup.
       autoMount:
         enabled: false
+    # The adaptive timer reached five hours on control-3 while its non-TCP map was nearly full.
+    conntrackGCMaxInterval: 5m
     dashboards:
       enabled: true
     enableIPv4BIGTCP: true

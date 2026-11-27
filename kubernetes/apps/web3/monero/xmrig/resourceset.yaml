@@ -39,7 +39,7 @@ spec:
                 app:
                   image:
                     repository: djerfy/xmrig
-                    tag: 6.26.0@sha256:74847c25c6273248d2387c41feac55d2833c6a347f5c9e63e5cf19ed4a0406bd
+                    tag: 6.27.0@sha256:72ca82414280aed10fdf246d2e9f4bc148cb9b1a4145046c6b1e4d2119388538
                   # The image's Cmd is the /xmrig source dir; the binary sits inside it.
                   command: ["/xmrig/xmrig"]
                   args:
@@ -107,8 +107,8 @@ spec:
             metadata:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
               # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
-              # tech_cave_cold floors the share at one miner. It and xmrig_slot_available are recorded in ../guard/prometheusrule.yaml; a missing sensor counts as warm, a missing slot rule closes the gate.
-              # A missing P1 meter counts as 0 W export, so only the surplus share is lost, not the cold-room floor.
+              # xmrig_slot_available is recorded in ../guard/prometheusrule.yaml; a missing slot rule closes the gate.
+              # A missing P1 meter counts as 0 W export, so no miner runs.
               # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
               # Requests sit below usage, so the last term also wants 4Gi really available, counting the miner's own use.
               # A node failing only that term keeps its ranked share, so some surplus goes unmined.
@@ -123,7 +123,7 @@ spec:
                       xmrig_slot_available
                       * on(node) (xmrig_guard_rank < bool scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
                     ),
-                    50 * scalar(tech_cave_cold or vector(0))
+                    0
                   )
                   * on()
                   (
@@ -146,9 +146,9 @@ spec:
                       ) >= bool 4294967296
                     )
                   )
-                  # UPS stage 1: stop mining at 75 % tech cave UPS load, before ai/pearl-miner (85 %), so xmrig sheds first.
+                  # UPS stage 1: xmrig stops at 80 % tech cave UPS load (5m max), before pearl-miner's 85 % stop, so xmrig sheds first.
                   # llmkube/models/ups-load-shed.yaml is the last resort.
-                  unless on() max_over_time(network_ups_tools_ups_load[5m]) >= 75
+                  unless on() max_over_time(network_ups_tools_ups_load[5m]) >= 80
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
               # half a miner's draw

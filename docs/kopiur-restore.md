@@ -34,6 +34,50 @@ Check `volumeMounts`/`volumes` first for the real PVC `claimName` and mount path
 mount more than one PVC (e.g. nextcloud has a second, unrelated 500Gi NFS volume at the
 "obvious" `/var/www/data` path; the migrated one is elsewhere).
 
+## Recover a blocked Hermes RBD attachment
+
+A replacement pod can stay Pending for hours while the old node still holds the `ai/hermes` volume (25 November: four hours). Check which node owns it:
+
+```bash
+kubectl -n ai get pods -l app.kubernetes.io/name=hermes -o wide
+pv=$(kubectl -n ai get pvc hermes -o jsonpath='{.spec.volumeName}')
+kubectl get volumeattachments -o json | jq --arg pv "$pv" \
+  '.items[] | select(.spec.source.persistentVolumeName == $pv) | {node: .spec.nodeName, attached: .status.attached}'
+```
+
+- **For a planned shutdown**, drain while the kubelet can unmount the volume. Wait for the replacement to become Ready and verify Ceph health before shutting down the host. TrueNAS also hosts a Ceph OSD and the Kopia repository.
+- **If the node is unreachable**, restore connectivity or recover the kubelet first. Force-deleting the pod, attachment or RBD lock risks two SQLite writers.
+- **After confirming power-off**, make sure the old node cannot restart during handover (including TrueNAS VM autostart) and check its other workloads and the remaining Ceph quorum. Then, with approval, follow the [non-graceful node shutdown](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/#non-graceful-node-shutdown-handling) procedure (out-of-service taint).
+
+Verify one ready replica, one attachment of the original PV on that pod’s node, and two consecutive ten-minute exporter heartbeats. If data integrity is uncertain, use the separate-claim drill below.
+
+## Verify a Hermes snapshot on a separate claim
+
+For a recovery drill, keep the production claim mounted and the gateway running.
+
+1. Record the production PVC, PV and pod identities. Select a recent `Succeeded` Snapshot
+   with a recorded Kopia snapshot id. Pin its Kubernetes name in a new Restore's
+   `spec.source.snapshotRef.name`. Set `target.populator: {}` and `policy.onMissingSnapshot: Fail`
+   so an empty volume cannot pass the drill. Use the mover uid and gid from the Hermes policy.
+2. Create a separate claim with the production class, access mode and capacity. Its
+   `dataSourceRef` must name the **drill** Restore. Wait for the claim to bind and for the
+   Restore to report both `Completed` and `Ready=True`.
+3. Mount the claim read-only in an isolated helper with the same uid, an empty scratch volume,
+   no service-account token and no network access. Override the image entrypoint so restored
+   cron jobs and messaging adapters never start. Check ownership and private-key permissions
+   without displaying file contents.
+4. Copy each SQLite database and its WAL/SHM companions together to scratch and run
+   `PRAGMA integrity_check` on the copy. Parse the profile settings and schedules, resolve
+   each job's script beneath its owning profile, and validate syntax without executing it.
+   Check the [backup exclusions](../kubernetes/apps/ai/hermes/ks.yaml) separately:
+   a restored lockfile proves dependency metadata survived; rebuilding the excluded runtime
+   or packages on clean scratch verifies that they can actually be recovered. In a separate
+   controlled environment with registry access, download the runtime artifacts and package
+   files required by the restored version and lockfiles. Mount them read-only in the helper
+   and rebuild on scratch using the package manager's offline mode.
+5. Remove the drill helper, claim, Restore and network policy. Check that the drill PV and
+   populator staging resources disappear and that the recorded production identities still match.
+
 ## Proper Restore Workflow
 
 ### Step 1: Suspend Kustomization AND HelmRelease

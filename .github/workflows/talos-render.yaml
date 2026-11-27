@@ -27,26 +27,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           # No cache: this job runs on PRs only, so every PR would save its own copy.
           cache: false
-          install_args: aqua:casey/just aqua:mikefarah/yq
+          install_args: aqua:mikefarah/yq
 
       - name: Check template variables
         run: scripts/talos-template-vars.sh
-
-      # talos-kernel.yaml skips recipe edits on purpose, so prove the recipes its script calls
-      # still resolve here, without building. Same version guard the script applies first.
-      - name: Resolve kernel-build recipes
-        run: |
-          kernel="$(just kernel-version)"
-          version="$(just tuppr-version talos)"
-          [[ "${version#*-k}" == "${kernel}" ]] || { echo "CR names ${version}, Dockerfile builds ${kernel}" >&2; exit 1; }
-          # Assigned first: a failed substitution in the for list would pass on zero nodes.
-          nodes="$(just talos nodes)"
-          for node in ${nodes}; do
-            file="$(just talos schematic-file "${node}")"
-            [[ -f "${file}" ]] || { echo "no schematic for ${node}: ${file}" >&2; exit 1; }
-            echo "${node}: ${file}"
-          done

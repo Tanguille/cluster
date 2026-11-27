@@ -12,6 +12,15 @@ spec:
         tag: 0.24.3
       url: oci://ghcr.io/crowdsecurity/helm-charts/crowdsec
   interval: 1h
+  install:
+    # The chart's values.schema.json only knows the k8s-audit webhook for `source: kubernetes`;
+    # the native pod-log kubernetes source is valid CrowdSec config the schema would reject.
+    # The chart renders additionalAcquisition verbatim, so the schema check is dead weight here.
+    # v2 API location: a top-level spec.disableSchemaValidation is a v1 field that Flux prunes.
+    disableSchemaValidation: true
+  # The release already exists, so reconciles are upgrades, which read spec.upgrade, not spec.install.
+  upgrade:
+    disableSchemaValidation: true
   # Chart's CA renews with the leaves (day 60) and cert-manager >=1.18 rotates its key, so leaves
   # signed by the old key break lapi (unknown certificate authority); keep the key, renew rarely.
   postRenderers:
@@ -80,14 +89,6 @@ spec:
               - meta: target_fqdn
                 expression: evt.Parsed.target_fqdn
         s02-enrich:
-          envoy-418-whitelist.yaml: |-
-            name: hydaz/envoy-418-whitelist
-            description: "Whitelist 418 responses from the envoy bouncer to prevent processing already banned IPs"
-            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
-            whitelist:
-              reason: "envoy bouncer response to already banned ips"
-              expression:
-                - "evt.Meta.http_status == '418'"
           # s02-enrich runs in filename order; this must sort after http-logs.yaml
           spa-api-requests.yaml: |-
             name: hydaz/spa-api-requests
@@ -135,7 +136,7 @@ spec:
           port: 5432
           flush:
             # Cert clients register per pod IP (CN@IP) and every restart leaves a stale row;
-            # cert only: the appsec key bouncer (api-key) never pulls, so an api_key timeout would drop it
+            # cert only: the API-key bouncer registration is reused and must survive gateway downtime
             bouncers_autodelete:
               cert: 24h
             agents_autodelete:
@@ -182,6 +183,11 @@ spec:
         # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
         - name: AGENTS_ALLOWED_OU
           value: agent-ou,appsec-ou
+        - name: BOUNCER_KEY_envoy_wasm
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-wasm
+              key: api-key
       envFrom:
         - secretRef:
             name: crowdsec-secret
@@ -195,6 +201,10 @@ spec:
           enabled: true
     agent:
       priorityClassName: homelab-critical
+      # Reads envoy-external pod logs through the K8s API (Role in agent-rbac)
+      serviceAccountName: crowdsec-agent
+      # Acquisition goes through the K8s API, so the host /var/log hostPath is unused
+      hostVarLog: false
       daemonsetAnnotations:
         reloader.stakater.com/auto: "true"
       startupProbe:
@@ -204,14 +214,22 @@ spec:
         requests:
           cpu: 100m
           memory: 128Mi
-      acquisition:
-        # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
+      # Native kubernetes source: the agent tails the envoy-external pods over the
+      # K8s API (pods + pods/log) instead of file-tailing containerd log files, so
+      # log capture no longer depends on the host /var/log layout the chart renders.
+      additionalAcquisition:
+        # Only the gateway the crowdsec-wasm EnvoyExtensionPolicy enforces on; envoy-internal/-tls have no
         # bouncer, so their alerts would ban at the external gateway only.
-        # ????? is the DaemonSet pod suffix, which keeps envoy-external-probe-* out
-        - namespace: network
-          podName: envoy-external-?????
-          program: envoy
-          poll_without_inotify: true
+        # owning-gateway-name is per-gateway (app.kubernetes.io/name is 'envoy' for
+        # every gateway), which keeps envoy-external-probe-* out.
+        # No per-node scoping: every agent tails every matching pod, so API log streams and
+        # events multiply by node count (bans are per-IP, so the duplicates are harmless).
+        - source: kubernetes
+          namespace: network
+          selector: "gateway.envoyproxy.io/owning-gateway-name=envoy-external"
+          labels:
+            # The non-syslog parser sets Parsed.program from type; hydaz/envoy-logs needs 'envoy*'
+            type: envoy
       env:
         - name: COLLECTIONS
           value: >-

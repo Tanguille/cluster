@@ -8,10 +8,8 @@ components:
   - ../../components/common
   - ../../components/dragonfly-auth
   - ../../components/ndots-1
-  # qwen38's engine runs seccomp Unconfined (io_uring, NUMA binding) and opencode's root
-  # kopiur mover adds DAC_READ_SEARCH; baseline rejects both.
+  # The radiance engine (inkling2-mini) runs seccomp Unconfined (io_uring, NUMA binding); baseline rejects it.
   - ../../components/psa-privileged
-  - ../../components/kopiur/privileged-movers
 
 resources:
   - ./agentgateway/ks.yaml
@@ -24,6 +22,5 @@ resources:
   - ./opencode/ks.yaml
   - ./paseo/ks.yaml
   - ./pasteguard/ks.yaml
-  - ./pearl-miner/ks.yaml
   - ./toolhive/ks.yaml
   - ./networkpolicy.yaml

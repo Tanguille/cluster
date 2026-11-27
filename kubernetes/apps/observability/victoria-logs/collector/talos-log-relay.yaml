@@ -16,7 +16,7 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/timberio/vector
+              repository: timberio/vector
               tag: 0.62.0-distroless-libc@sha256:22100806cedabab3768edd6ac919be1a3a026b1020c5b280174a54573572db9d
             env:
               # Default is one worker per node CPU (12); each idle one costs memory, a few lines/s needs 2.
@@ -38,6 +38,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 65534
         runAsGroup: 65534
+        fsGroup: 65534
         seccompProfile:
           type: RuntimeDefault
     # No Reloader: the chart's checksum/configMaps pod annotation rolls the pod on changes.
@@ -45,6 +46,7 @@ spec:
       config:
         data:
           vector.yaml: |
+            data_dir: /var/lib/vector
             sources:
               # host is the sending node's IP.
               talos:
@@ -53,11 +55,35 @@ spec:
                 address: 0.0.0.0:6050
                 decoding:
                   codec: json
+            transforms:
+              # dns-resolve-cache logs two debug lines per host DNS query; the console dashboard polls machined every second.
+              drop_noise:
+                type: filter
+                inputs:
+                  - talos
+                condition: |
+                  svc = ."talos-service"
+                  msg = string(.msg) ?? ""
+                  svc != "dns-resolve-cache" && !(svc == "machined" && contains(msg, "match with service \"dashboard\""))
+              # Kernel lines end in a newline; VictoriaLogs has level, not talos-level (an app-supplied level wins).
+              tidy:
+                type: remap
+                inputs:
+                  - drop_noise
+                source: |
+                  if is_string(.msg) { .msg = replace(string!(.msg), r'\n$', "") }
+                  tl = del(."talos-level")
+                  if tl != null && !exists(.level) { .level = tl }
             sinks:
               victoria_logs:
                 type: http
                 inputs:
-                  - talos
+                  - tidy
+                # Disk buffer so a VictoriaLogs restart does not drop lines; full buffer blocks, and Talos redials.
+                buffer:
+                  type: disk
+                  max_size: 536870912
+                  when_full: block
                 uri: http://victoria-logs.observability.svc.cluster.local:9428/insert/jsonline?_stream_fields=host,talos-service&_msg_field=msg&_time_field=talos-time
                 encoding:
                   codec: json
@@ -77,6 +103,11 @@ spec:
           talos:
             port: 6050
     persistence:
+      data:
+        type: emptyDir
+        sizeLimit: 1Gi
+        globalMounts:
+          - path: /var/lib/vector
       config:
         type: configMap
         identifier: config

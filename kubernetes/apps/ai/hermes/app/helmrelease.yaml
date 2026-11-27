@@ -33,7 +33,7 @@ spec:
           app:
             image: &image
               repository: nousresearch/hermes-agent
-              tag: v0.23.3@sha256:3e9fe4c6ef36490f43aa0d0d80f9df64e9c92a576eee3042f1a97c8813c05355
+              tag: v0.23.4@sha256:ef0650d523ee1b5ab32c779acabc446d9936869a9932591553688a62bcf0c42f
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -157,6 +157,26 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
+      # Overlays the job's PVC script path; the PVC copy stays as the rollback.
+      cron-health:
+        type: configMap
+        name: hermes-cron-health
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data/scripts/cron_health_export.py
+                subPath: cron_health_export.py
+                readOnly: true
+      # subPath only: the image bakes chromium-executable-path and image-provenance.json into /etc/hermes.
+      managed-config:
+        type: configMap
+        name: hermes-managed-config
+        advancedMounts:
+          hermes:
+            app:
+              - path: /etc/hermes/config.yaml
+                subPath: config.yaml
+                readOnly: true
       google-digest:
         type: configMap
         name: hermes-google-digest

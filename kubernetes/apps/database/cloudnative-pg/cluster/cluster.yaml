@@ -7,7 +7,7 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:19.0-standard-trixie@sha256:e845b0146b37f13d912461b63b1a25ef4bbc6992e19fa2447f6ec001f4ee06e8
+  imageName: ghcr.io/cloudnative-pg/postgresql:19.0-standard-trixie@sha256:6f17393bf934a41fec47439306a17e087c5c2f419ddd5bf4b8dc0241da4bceb0
   instances: 3
   primaryUpdateMethod: switchover
   # Hostpath PVs pin each instance; a preempted one never returns and deadlocks drains.
@@ -100,6 +100,10 @@ spec:
         login: true
         passwordSecret:
           name: tracearr-db
+      - name: orbit
+        login: true
+        passwordSecret:
+          name: orbit-db
   postgresql:
     parameters:
       # CNPG defaults to logical; nothing here uses logical replication and replica writes less WAL.

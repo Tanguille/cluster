@@ -1,11 +1,13 @@
 # NVIDIA RTX 2070 on control-1
 
-The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: signed
-NVIDIA open modules built into the custom kernel pipeline, the toolkit extension, and the GPU
-Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Plan and spike
+The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: the stock
+Image Factory extensions (NVIDIA open modules and driver userspace) and the GPU Operator (driver
+disabled; its toolkit registers with containerd through NRI, so there is no `nvidia` RuntimeClass)
+with time-slicing, `nvidia.com/gpu` x8. Driver and kernel only change with a Talos bump. Plan and spike
 record: `docs/plans/nvidia-gpu-operator-control-1.md` in git at `764b538101`. Workloads on it:
-[llama.cpp services](#llamacpp-services-on-the-2070), [Fenrir](../kubernetes/apps/games/fenrir/)
-game streaming and the solar-gated [Pearl miner](pearl-solar-mining.md).
+[llama.cpp services](#llamacpp-services-on-the-2070) and the solar-gated
+[Pearl miner](pearl-solar-mining.md). [Fenrir](../kubernetes/apps/games/fenrir/) game streaming is
+disabled: wolf cannot start under its operator.
 
 Every step below is owner-run. **[ASK]** marks steps that touch a live system or delete;
 nothing here runs from an agent session without an explicit OK. Node IPs: control-1
@@ -49,7 +51,7 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 
    Expect `nvidia.com/gpu: "8"` and `amd.com/gpu` unchanged.
 
-2. A test pod sees the TU106. The image must be glibc (the toolkit injects `nvidia-smi`; busybox
+2. A test pod sees the TU106. The image must be glibc (CDI injects `nvidia-smi`; busybox
    will not run it), for example any Debian or Ubuntu image already pinned in the repo:
 
    ```sh
@@ -60,7 +62,6 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
      name: nvidia-smi-test
    spec:
      restartPolicy: Never
-     runtimeClassName: nvidia
      nodeSelector:
        kubernetes.io/hostname: control-1
      containers:
@@ -71,7 +72,7 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
            limits:
              nvidia.com/gpu: 1
    EOF
-   kubectl -n gpu-operator logs nvidia-smi-test       # TU106 / RTX 2070, driver 595.112.07
+   kubectl -n gpu-operator logs nvidia-smi-test       # TU106 / RTX 2070
    kubectl -n gpu-operator delete pod nvidia-smi-test   # [ASK: delete]
    ```
 
@@ -103,18 +104,54 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 
 ## llama.cpp services on the 2070
 
-d3-nano, bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
-llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
-`server-cuda13` (CUDA 13.4). Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
+Perplexity Decider Flash v1.3 (Service `d3-nano`), bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
+llmkube (`accelerator: cuda`, one time-slice each), image
+`server-cuda13`. Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
 image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
-([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run v1.19.1 and all
-three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
+([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). All three services were
+tested on the extension's v1.19.1; Talos 1.15 moves the toolkit to the GPU Operator's. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
 below for comparison; rolling back means pinning that image again.
 
-Per process in production after the merge (`nvidia-smi --query-compute-apps` in each pod) and in the
-first CUDA 12.8 pods:
+### Decider Flash v1.3, 2026-11-23
 
-| Service | Flags | VRAM MiB, CUDA 13 (production) | CUDA 12.8 |
+Both models ran through 8-ball on this RTX 2070 with two slots. Flash kept its output tensor in host RAM for this first trial.
+The table gives correct / wrong / unsure verdicts at the default thresholds. The 60 plugin cases cover ad hoc requests,
+GitOps, model radar and jobs. The 48 external
+cases use public, teacher-labeled agent traces and incidents. All 108 final Flash requests succeeded with learning
+and escalation off.
+
+| Cases | D3-nano Q8_0 | Flash Q4_K_M | Nano p50 / p95 | Flash p50 / p95 |
+| --- | --- | --- | --- | --- |
+| Plugin (60) | 42 / 4 / 14 | 51 / 0 / 9 | 52 / 125 ms | 204 / 309 ms |
+| External (48) | 11 / 5 / 32 | 24 / 7 / 17 | 80 / 105 ms | 343 / 478 ms |
+
+Flash corrected three wrong plugin decisions and deferred the fourth. Five of its seven external errors were
+urgency or severity ratings. All six synthetic effort-routing probes passed. The Qwen fallback was already suspended.
+
+We then tested the same Q4_K_M GGUF with the output tensor on the CPU or GPU, using llama.cpp b12648 and
+`--load-mode none`. Pearl was paused for all four passes over the 108 cases (CPU, GPU, GPU, CPU). Every verdict
+matched across passes. The table pools the two passes for each mode.
+
+| Cases | CPU output p50 / p95 | GPU output p50 / p95 |
+| --- | --- | --- |
+| Plugin (60) | 142 / 212 ms | 78 / 135 ms |
+| External (48) | 213 / 270 ms | 149 / 210 ms |
+| All (108) | 179 / 265 ms | 115 / 198 ms |
+
+Flash now runs fully on the GPU. Its process used 4088 MiB after warm-up, up from 2828–2838 MiB with CPU output.
+The board had 1787 MiB free with the miner paused. After rollout, one overlapping request to each of Flash,
+EmbeddingGemma and BGE succeeded. The lowest of 50 GPU readings was 1793 MiB free. Pearl stayed idle because
+UPS load and the R9700 junction temperature blocked startup. See [Pearl's gate](pearl-solar-mining.md#gate) for the mining margin.
+
+With the default HTTP startup check, the first typed request exceeded 8-ball's 20-second timeout. The startup
+probe now posts a typed question before Kubernetes sends traffic. On a cached restart with CPU output the first
+plugin request took 312 ms.
+
+### Original D3-nano deployment
+
+Per-process measurements after the CUDA 13 migration (`nvidia-smi --query-compute-apps` in each pod) and in the first CUDA 12.8 pods:
+
+| Service | Flags | VRAM MiB, CUDA 13 | CUDA 12.8 |
 | --- | --- | --- | --- |
 | embeddinggemma-2 Q8_0 | 8 slots, ubatch 8192, `-fa on` | 1344 | 1388 (weights 144, compute 1088) |
 | bge-reranker-v2-m3 Q8_0 | 4 slots x 2048, `-fa on` | 500 | 510 |
@@ -136,7 +173,8 @@ the same order, d3 picks the same effort with probabilities within 0.011.
 
 Each process also holds ~110 MiB of CUDA context and ~1 GiB of host RSS (0.3-0.4 GiB anonymous,
 the rest mmapped model pages). llama.cpp allocates its buffers at load, so VRAM is flat under load.
-`NvidiaVramLow` fires below 512 MiB free: time-slicing gives no VRAM isolation between pods.
+`NvidiaVramLow` fires when total minus used stays below 512 MiB for 10 minutes. Pearl uses the driver's reported
+free memory, which excludes reserved VRAM.
 
 Turing is built only as PTX, so the driver JIT-compiles the kernels: with an empty cache the
 embedder took 59 s to load and 27 s for its first request; with a warm cache 1.3 s and 0.08 s.
@@ -161,8 +199,24 @@ vectorless writes later, qwen-3.8-auto to plain qwen-3.8 (also on control-1).
 
 ## Pearl solar miner on the 2070
 
-`ai/pearl-miner` is an optional workload: a Deployment at 0 replicas that KEDA raises to 1 on
+`web3/pearl-miner` is an optional workload: a Deployment at 0 replicas that KEDA raises to 1 on
 solar surplus ([gate and thresholds](pearl-solar-mining.md)). It needs about 1.6 GiB of VRAM beside
-the three services, starts only with 2560 MiB free, stops below 1024 MiB, and has no toleration
+the three services, starts with at least 1776 MiB free, stops below 96 MiB, and has no toleration
 (control-1 has no taint). The UPS shed query does not see the 2070's draw, so the gate reads the UPS
 itself. Metrics come from `nvidia_smi_*`; DCGM is disabled.
+
+## Undervolt (`kube-system/nvidia-undervolt`)
+
+A DaemonSet caps the 2070 at 1500 MHz and applies a +200 MHz GPC clock offset (a lower voltage at the same
+clock; NVML has no direct voltage control) through `libnvidia-ml` from a privileged pod. The settings live
+in the driver, so it reapplies every minute (reboot, driver reload, GPU reset) and clears both on SIGTERM,
+offset first, after checking the GPU name again.
+The offset is only stable with the cap: on 2026-11-22 +400 at 1400 MHz was clean, +500 gave Xid 31 and
+crashed the miner, and +300 with the cap lifted to 1560 faulted too. Caps of 1500, 1600 and 1700 MHz with
++100, +150 and +200 were all clean (5/5 miner self-tests, no Xid, identical embedder, reranker and d3-nano
+outputs). At 1500/+200 the miner drew 146 W for 47 TMAC/s against 167 W and 45 TMAC/s at stock, and the
+services stayed near stock latency (rerank of 15 documents p50 323 ms against 302 ms, miner running).
+
+After a crash read `talosctl -n 192.168.0.11 dmesg | grep Xid` (Xid 31 in `cppminer` is the undervolt-too-deep signature). To change the value
+re-run a sweep first: `nvidia-smi -lgc` plus `nvmlDeviceSetGpcClkVfOffset`, raising the offset in 50 MHz
+steps, watching Xids and the miner's hashrate.

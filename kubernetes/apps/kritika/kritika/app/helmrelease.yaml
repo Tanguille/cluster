@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.0.122
+        tag: 0.0.127
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -144,8 +144,8 @@ spec:
           concurrency: 3
       review:
         model: llm/omniroute
-        # The only qwen-3.8 fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
-        fallback: local/qwen-3.8
+        # The only inkling-2-mini fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
+        fallback: local/inkling-2-mini
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
@@ -170,33 +170,57 @@ spec:
             - expr: pr.headRef.startsWith("renovate/")
           rule: >-
             This is a Renovate dependency update. Read what changed from the
-            release notes in the PR body, or from upstream's release notes or
-            compare view with gh (one call per release, never the releases
-            list). Then search this repository for uses of the package,
-            including the comments in those files, and report each breaking
-            change, deprecation, rename or changed default that affects it,
-            and any version it must stay in lockstep with. Name the range as
-            from-version to to-version and read every release between them, or
-            list the ones skipped. A target published before the current
-            version lacks that version's later fixes: compare the two release
-            dates and name what is lost. Start with a verdict, safe to merge
-            or not, and name the sources you read.
+            release notes in the PR body. Only when they are missing, cut
+            short or skip versions, read upstream's with gh in one releases
+            call filtered to the range's tags (gh api
+            'repos/OWNER/REPO/releases?per_page=100' --jq '.[] |
+            select(.tag_name | test("TAG_REGEX")) | "## \(.tag_name)\n\(.body)"'),
+            never the unfiltered list. Anchor TAG_REGEX on the chart name
+            (^chart-) in a repository that publishes several charts; add
+            &page=2 when the old version is not in the first 100. When every
+            commit is a release (tags like b12627) or the bodies are mostly
+            asset lists, read the commit titles once instead (gh api
+            repos/OWNER/REPO/compare/OLD...NEW --jq '.total_commits,
+            (.commits[].commit.message | split("\n")[0])'). The compare lists
+            at most 250 commits: when the first line is larger, name how many
+            titles you did not read. With no GitHub upstream, try the project's
+            changelog page and say when none is reachable. Then search this
+            repository for uses of the package, including the comments in
+            those files, and report each breaking change, deprecation, rename
+            or changed default that affects it, and any version it must stay
+            in lockstep with. Name the range as from-version to to-version and
+            list any release in it you did not read. A target published before
+            the current version lacks that version's later fixes: compare the
+            two release dates and name what is lost. Start with a verdict, safe
+            to merge or not, and name the sources you read. End with the
+            release-note entries worth knowing here, patch and digest bumps
+            included, each with a line on what it could mean for this
+            repository: a fix for a bug it shows, a workaround comment that
+            can go, or a new feature, API or option that would simplify code
+            or config here (name the file and line it would replace). Notes,
+            not findings. A digest-only
+            bump's rebuild reason is its note. Mark upstream's speedup claims
+            as upstream's. Write "nothing notable" when there is none.
         - id: radiance-bump
           when:
-            - expr: pr.headRef.startsWith("renovate/radiance")
+            # renovate/radiance, and renovate/major-radiance for majors.
+            - expr: pr.headRef.startsWith("renovate/") && pr.headRef.endsWith("radiance")
           rule: >-
-            radiance engine bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ .rad,
-            k6_v4 KV, host prefix tier): config
-            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, whose Job
-            reconverts the .rad on every image change. The body has digests
+            radiance engine bump on the gfx1201 card. Production runs our own
+            build (image in kubernetes/apps/ai/llmkube/models/inkling2-mini.yaml),
+            so a Renovate radiance PR moves only the GrafanaDashboard URL: judge
+            the release for when that build rebases on it. One process serves
+            the fleet in
+            kubernetes/apps/ai/llmkube/models/resources/radiance.yaml.
+            The body has digests
             only and Codeberg has no releases: the changelog is the body of the
             commit the new tag points at. Read it and the commits between the
             previous and new version at codeberg.org/StillDeadcode/radiance
             (its API with curl; gh does not reach Codeberg), one path per call.
-            Check every flag in
-            extraArgs against renamed, removed or re-defaulted options (a gone
-            flag fails the boot), the .rad container or recipe format
-            (q38-27b-w4a16.recipe), prefix cache, checkpoint policy and KV
+            Check every key of that file against renamed, removed or
+            re-defaulted options (an unknown key fails the boot of both
+            models), the .rad container format, fleet scheduling (park,
+            priority, ttl, warm-up), prefix cache, checkpoint policy and KV
             dtype changes, and the vllm:* and radiance:* metrics read by
             kubernetes/apps/ai/llmkube/models/prometheusrule.yaml. Start with a verdict: nothing
             relevant, needs a clone test, or needs a config change. Then list
@@ -240,6 +264,11 @@ spec:
       # Benchmark output the default globs miss.
       ignore:
         - "**/*.out"
+      # The repo is public: a stranger's fork PR would otherwise take review slots.
+      trigger:
+        exclude:
+          - name: forks
+            expr: pr.fork
       embedding:
         model: embed/embeddinggemma-2
         dims: 768
@@ -292,6 +321,8 @@ spec:
           - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
+          # fileflows.com/docs/versions is the only changelog for revenz/fileflows (no public repo).
+          - fileflows.com
           - grafana.com
           - huggingface.co
           - "*.cdn.hf.co"

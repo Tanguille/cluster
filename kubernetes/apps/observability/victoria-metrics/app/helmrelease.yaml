@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.98.1
+        tag: 0.99.1
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-metrics-k8s-stack
   interval: 1h
   values:
@@ -436,7 +436,7 @@ spec:
         # merge it with the matching chart appVersion bump.
         image:
           repository: quay.io/victoriametrics/victoria-metrics
-          tag: v1.156.0-enterprise
+          tag: v1.157.0-enterprise
         # 365d fits the 200Gi PVC only because downsampling shrinks the long tail:
         # ~23GB raw (0-30d) + ~10GB at 5m (30-180d) + ~2GB at 1h (180-365d) from the
         # current ~140GB/180d, before IndexDB overhead.

@@ -24,9 +24,8 @@ metadata:
 spec:
   modelRef: embeddinggemma-2
   mode: embedding
-  # Image, runtime class and JIT cache: see d3-nano.
-  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:936fb902b76d651b1f855ae1a716b9f9ab7ba046b18ba644b4088bf5cdb65c85
-  runtimeClassName: nvidia
+  # Image and JIT cache: see d3-nano.
+  image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:ef8785623dbd5c82eca35679592add50cbb70558b41652a4188835ced8722dfd
   env:
     - name: CUDA_CACHE_PATH
       value: /cuda-cache/.nv-compute-cache

@@ -116,7 +116,7 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **Memini**   | Long-term memory for agents                                |
 | **Paseo**    | Web UI to run and manage coding agents                     |
 | **PasteGuard** | Masks secrets in requests to free cloud models           |
-| **8-ball**   | Yes/no decision service (d3-nano, qwen escalation)         |
+| **8-ball**   | Decisions with Decider Flash v1.3 and Qwen escalation      |
 | **Pearl miner** | Solar-gated miner on the RTX 2070                       |
 
 Tuning constraints and benchmark history for the inference stack live in
@@ -145,7 +145,7 @@ Continuwuity · Sable · rsume · family-blog
 <details>
 <summary>🎮 <b>Games</b> (namespace <code>games/</code>)</summary>
 
-Satisfactory · Fenrir (Moonlight game streaming)
+Satisfactory
 
 </details>
 

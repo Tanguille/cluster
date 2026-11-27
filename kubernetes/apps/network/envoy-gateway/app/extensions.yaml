@@ -1,0 +1,81 @@
+---
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: gateway.envoyproxy.io/v1alpha1
+    kind: EnvoyExtensionPolicy
+    metadata:
+      name: eep
+    spec:
+      targetSelectors:
+        - kind: Gateway
+          matchExpressions:
+            - key: security.home.arpa/crowdsec
+              operator: DoesNotExist
+      wasm:
+        - &errorPage
+          name: eep
+          rootID: eep
+          code:
+            type: Image
+            image:
+              url: oci://ghcr.io/ishioni/eep:0.4.1@sha256:242c9b2d377f62be3216edb5794a716ca89b2c04ade9afde50f4e30768d7f78a
+          config:
+            &errorPageConfig # never echo request metadata on the public gateway
+            showDetails: false
+            filterCodes: [404, "500-599"]
+            # API hosts whose clients parse error bodies (Matrix errcodes, MCP JSON-RPC, OpenAI errors)
+            excludeDomains:
+              - "(?i)^(matrix|mcp|llm)\\.${SECRET_DOMAIN}(:[0-9]+)?$"
+          failOpen: true
+  - apiVersion: gateway.envoyproxy.io/v1alpha1
+    kind: EnvoyExtensionPolicy
+    metadata:
+      name: crowdsec-wasm
+    spec:
+      targetRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: envoy-external
+      backends:
+        - name: lapi
+          backendRef:
+            name: crowdsec-service
+            namespace: security
+            port: 8080
+        - name: appsec
+          backendRef:
+            name: crowdsec-appsec-service
+            namespace: security
+            port: 7422
+      wasm:
+        - <<: *errorPage
+          config:
+            <<: *errorPageConfig
+            filterCodes: [403, 404, "500-599"]
+        - name: crowdsec
+          rootID: crowdsec-http
+          code:
+            type: Image
+            image:
+              # Pin the 0.11.0 child manifest digest verified by the Gateway WASM puller.
+              url: oci://ghcr.io/kariton/crowdsec-wasm-bouncer@sha256:aa36ace04ccf8560c8cb34bad9d4e5750d4edadd34195ed89890c80fa2186b43
+          env:
+            hostKeys:
+              - CROWDSEC_LAPI_KEY
+              - CROWDSEC_APPSEC_KEY
+          failOpen: true
+          config:
+            crowdsec:
+              trusted_ips: ["${POD_CIDR}"]
+              # A background LAPI sync has no route metadata from which to resolve a backend alias.
+              lapi:
+                cluster: envoyextensionpolicy/network/crowdsec-wasm/backend/lapi/gateway/network/envoy-external/0
+                host: crowdsec-service.security.svc.cluster.local:8080
+                fail_open: true
+              appsec:
+                enabled: true
+                cluster: envoyextensionpolicy/network/crowdsec-wasm/backend/appsec/gateway/network/envoy-external/0
+                host: crowdsec-appsec-service.security.svc.cluster.local:7422
+                fail_open: true
+                forward_body: true

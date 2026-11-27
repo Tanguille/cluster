@@ -1,11 +1,12 @@
 # Pearl solar mining on the 2070
 
-`ai/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
-surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/ai/pearl-miner/app/scaledobject.yaml`)
+`web3/pearl-miner` runs a CUDA Pearl (PRL) miner on the control-1 RTX 2070 only when there is solar
+surplus or the tech cave is cold. It is a Deployment at 0 replicas; a KEDA ScaledObject (`kubernetes/apps/web3/pearl-miner/app/scaledobject.yaml`)
 raises it to 1. Pearl outranks xmrig: the gate counts running xmrig draw as available, and xmrig sheds
-once the miner's draw shows on the meter. On UPS load xmrig stops first (75 %, Pearl at 85 %).
-Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built from the `Tanguille/CPPminer` fork (`ci/cluster-image`,
-keeps the 1% dev fee).
+once the miner's draw shows on the meter. On UPS load xmrig stops first (80 %, Pearl at 85 %).
+Pool `fr.pearl.herominers.com:1200`, worker `cluster-2070`, payout address in `pearl-miner-secret`. The image is built weekly by the `Tanguille/CPPminer` fork (`cluster-image` branch) from upstream's `cuda` branch
+(`main` and the `vX.Y` tags lack the tensor-core kernels: 13 vs 46 TMAC/s on the 2070) with the 1% dev fee disabled (MIT),
+pushed as `ghcr.io/tanguille/cppminer:<commit date YYYYMMDD.HHMM>`; Renovate bumps the tag.
 
 ## Gate
 
@@ -16,12 +17,16 @@ keep levels differ. A missing series gives 0, and a scaler error falls back to 0
 | --- | --- | --- |
 | surplus (15 m net export, miner and xmrig draw added back), or | 200 W | 100 W |
 | tech cave temperature, 15 m average | under 18 C | under 18 C |
-| UPS load max | 15 m under 70 % | 5 m under 85 % |
-| 2070 free VRAM | 2560 MiB | 1024 MiB |
+| UPS load max, 5 m | under 65 % (85 % stop minus its ~15 point step and a margin) | under 85 % |
+| 2070 free VRAM | 1776 MiB | 96 MiB |
 | 2070 temperature | under 80 C | under 80 C |
 | R9700 junction, 5 m max | under 85 C | under 90 C |
 | control-1 guard (`xmrig_guard_safe`) | safe and under 120 s old | same |
 | control-1 memory | 64Mi request fits, 2Gi `MemAvailable` | same |
+
+With Flash fully on the GPU, the board had 1787 MiB free with Pearl paused. Starting requires room
+for Pearl’s measured 1668 MiB allocation plus the 96 MiB keep threshold and 12 MiB of margin.
+That leaves an estimated 119 MiB while mining, only 23 MiB above the keep threshold.
 
 DCGM is disabled in the cluster, so the gate uses `nvidia_smi_*`. A cold room replaces only the
 surplus test (the heat is wanted, so grid power is fine); every other factor still applies, and a
@@ -31,7 +36,8 @@ missing room sensor counts as warm. The room was under 18 C 21 % of the time ove
 ## Expected behaviour
 
 Measured offline on the 2070 with `--mock`: 44 to 47 TH/s at about 168 W, 70 C, 1.6 GiB VRAM.
-d3-nano latency goes from about 75 ms to 175 ms while mining (accepted). A 14-day replay of the
+Mining raised the former D3-nano model’s latency from about 75 ms to 175 ms. See the
+[Flash v1.3 measurements](nvidia-gpu-control-1.md#decider-flash-v13-2026-11-23) for the current setup. A 14-day replay of the
 surplus-only gate (2026-11-05 to 2026-11-18, 30 s steps) opens about 0.33 h/day with 19 starts and 7
 cycles in one window, so it can flap. The replay predates Pearl-first priority (it still reserved
 xmrig slots) and the cold-room path, which adds up to the
@@ -46,18 +52,18 @@ assumption. xmrig gives way whenever the miner runs, and the R9700 balanced prof
 `PearlMinerEnforcementBypassed` fires when the miner runs while a safety factor is unmet.
 `PearlMinerGpuHot` fires above 85 C. `TechCaveSensorAbsent` fires when the room sensor has been
 missing for 30 min, since the gate then reads the room as warm. The egress policy `pearl-miner-egress` allows kube-dns and the
-public internet only (private ranges excluded, so no LAN), so a compromised miner cannot reach other `ai` pods.
+public internet only (private ranges excluded, so no LAN), so a compromised miner cannot reach other `web3` pods.
 
 ## Stop everything
 
 Flux drops a manually added annotation on its next reconcile, so suspend the Kustomization first.
 
 ```sh
-flux suspend kustomization pearl-miner -n ai
-kubectl -n ai annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas=0 --overwrite
+flux suspend kustomization pearl-miner -n web3
+kubectl -n web3 annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas=0 --overwrite
 # resume
-kubectl -n ai annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas-
-flux resume kustomization pearl-miner -n ai
+kubectl -n web3 annotate scaledobject pearl-miner autoscaling.keda.sh/paused-replicas-
+flux resume kustomization pearl-miner -n web3
 ```
 
 To remove it for good, revert the commit; Flux prunes it.
@@ -74,3 +80,17 @@ To remove it for good, revert the commit; Flux prunes it.
 
 Go if no tenant restarts, no `NvidiaVramLow`, R9700 junction under 90 C, UPS under 90 % and no
 control-1 reset while mining. Otherwise pause and revert.
+
+## RTX 2070 constant-64 mode
+
+The normal deployment uses the pinned [SM75 image](https://github.com/Tanguille/CPPminer/actions/runs/45275354432)
+with `CP_CUDA_CONST64=1`. It retains upstream fee handling and the existing KEDA safety
+gates. Confirm `sm_75 -> packed` and `constant-64 job B cached` in the pod log; a share
+is accepted only after a successful pool submit response.
+
+In a single same-image 90-second comparison, constant-64 measured 0.33282 TMAC/J
+versus 0.32771 for zero-B (+1.56%). Sparse power samples and differing scan coverage
+make this an exploratory result, not a proven efficiency gain. Constant-64 produced
+three locally verified cert-v3 proofs in that window; neither leg recorded a pool
+acceptance. An earlier constant-64 canary recorded one verified proof and one pool
+acceptance. Monitor pool acceptance, GPU tenants, temperatures and the existing alerts.

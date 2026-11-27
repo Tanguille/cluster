@@ -35,7 +35,7 @@ Research is **advisory**: never copy secrets, domains, cluster-specific IDs, or 
 ## Tool routing
 
 - **kubesearch MCP first** when available: `kubesearch_search_releases`, `kubesearch_get_release`, `kubesearch_grep_values`, `kubesearch_search_images`.  
-  Then `repo_clone`/`repo_read_file` to inspect exemplar manifests. Kubesearch queries the pre-indexed kubesearch.dev database — no `topic:k8s-at-home` tag needed.
+  `kubesearch_repo_grep_all` greps manifests of the top-10 starred repos with no clone. Then `kubesearch_repo_clone`/`kubesearch_repo_read_file` to inspect a specific repo. Kubesearch queries the pre-indexed kubesearch.dev database — no `topic:k8s-at-home` tag needed.
 - **GitHub MCP second:** `github_search_repositories`, `github_get_file_contents` for repos not yet indexed by kubesearch.
 - **Fallback:** `gh search repos <app> --topic k8s-at-home --limit 10` then scoped `gh search code` with `repo:<owner>/<repo>`.
 - **Web search** only to find repo names; confirm in repository files.

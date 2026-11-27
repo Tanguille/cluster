@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://kritika.home-operations.com/kritika.schema.json
-# Agent files are optional references; Kritika does not discover them automatically.
+# Context files are not discovered; skills under .agents/skills are, read from the merge base.
 context:
   - path: AGENTS.md
     description: Repository architecture and conventions; coding-agent workflows are not review tasks.
@@ -13,11 +13,12 @@ context:
 tools:
   # renovate: datasource=github-releases depName=home-operations/flate
   "aqua:home-operations/flate": "v0.8.0"
+# Load pr-review on every PR; admin scopes leave it unset.
+skills:
+  scope:
+    pr-review:
+      load: true
 rules:
-  - id: render-helm
-    paths: ["kubernetes/**/helmrelease.yaml"]
-    rule: >-
-      Render a HelmRelease with `flate build hr <name> -n <namespace> -p kubernetes` (`flate diff hr` with the same arguments plus `--base origin/main` to compare) and quote the rendered field: chart defaults and the cluster-apps patches supply what the file omits.
   - id: ceph-csi-lockstep
     paths: ["kubernetes/apps/rook-ceph/**"]
     rule: >-

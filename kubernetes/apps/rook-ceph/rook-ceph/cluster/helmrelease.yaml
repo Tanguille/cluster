@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 1.21.2
+        tag: 1.21.3
       url: oci://ghcr.io/rook/rook-ceph-cluster
   interval: 1h
   values:
@@ -47,8 +47,8 @@ spec:
       priorityClassNames:
         crashcollector: homelab-critical
         exporter: homelab-critical
-      # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
-      # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
+      # Ceph 20 rates cipher `aes` HEALTH_ERR; aes256k avoids it but needs the in-kernel client from
+      # Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
         cephx:
           allowedCiphers: ["aes256k"]
@@ -73,6 +73,9 @@ spec:
         mon:
           # Suppress pgmap/audit debug spam; keeps INF/WRN/ERR (was debug).
           mon_cluster_log_level: info
+          # Mon data shares /var with image layers, and kubelet image GC starts at the Talos default
+          # of 75% used. Warn below 20% free (default 30) so GC runs first.
+          mon_data_avail_warn: "20"
         mgr:
           # v21 map cache never frees erased maps: active mgr grew ~230 MiB/h and OOMed at 2Gi.
           # Drop once ceph/ceph#72727 ships.
@@ -158,7 +161,6 @@ spec:
           failureDomain: host
           replicated:
             size: 2
-            minSize: 1
           parameters:
             compression_mode: aggressive
             compression_algorithm: zstd
@@ -189,12 +191,10 @@ spec:
           metadataPool:
             replicated:
               size: 2
-              minSize: 1
           dataPools:
             - failureDomain: host
               replicated:
                 size: 2
-                minSize: 1
               parameters:
                 compression_mode: aggressive
                 compression_algorithm: zstd

@@ -7,22 +7,25 @@ metadata:
 spec:
   groups:
     - name: hermes.rules
-      # Pushed every 10m by cron_health_export.py (hermes PVC, not git); bare selectors go blind
+      # Pushed every 10m by cron_health_export.py (mounted from the hermes-cron-health ConfigMap); bare selectors go blind
       # past VM's 5m staleness, so every rule uses last_over_time().
       rules:
-        # A paused job's frozen last status never clears, so paused jobs are excluded.
+        # Hermes disables completed jobs too. Page their final run inside the same age window.
         # The 1h clause bounds last_status_ok staleness for infrequent jobs (a weekly cron fired 5 days on one transient error); with for: 15m plus the 10m export interval it leaves ~35m of firing.
         # Keep backend 503s visible because a failed cron run may be below agentgateway's per-model alert threshold.
         - alert: HermesCronJobFailed
           expr: |-
             last_over_time(hermes_cron_last_status_ok[30m]) == 0
-              unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
-              and on (id) (time() - last_over_time(hermes_cron_last_run_timestamp[30m])) < 3600
+              and on (profile, id, name) (
+                last_over_time(hermes_cron_enabled[30m]) == 1
+                or on (profile, id, name) last_over_time(hermes_cron_completed[30m]) == 1
+              )
+              unless on (profile, id, name) last_over_time(hermes_cron_paused[30m]) == 1
+              and on (profile, id, name) (time() - last_over_time(hermes_cron_last_run_timestamp[30m])) < 3600
           for: 15m
           annotations:
             summary: >-
-              Hermes cron {{ $labels.name }} failed within the last hour — it will keep
-              failing on schedule until the cause is fixed
+              Hermes cron {{ $labels.profile }}/{{ $labels.name }} failed to execute within the last hour
           labels:
             severity: warning
 
@@ -31,13 +34,17 @@ spec:
         - alert: HermesCronDeliveryFailed
           expr: |-
             last_over_time(hermes_cron_delivery_failed[30m]) == 1
-              unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
-              and on (id) (time() - last_over_time(hermes_cron_last_run_timestamp[30m])) < 21600
+              and on (profile, id, name) (
+                last_over_time(hermes_cron_enabled[30m]) == 1
+                or on (profile, id, name) last_over_time(hermes_cron_completed[30m]) == 1
+              )
+              unless on (profile, id, name) last_over_time(hermes_cron_paused[30m]) == 1
+              and on (profile, id, name) (time() - last_over_time(hermes_cron_last_run_timestamp[30m])) < 21600
           for: 15m
           annotations:
             summary: >-
-              Hermes cron {{ $labels.name }} ran but could not deliver its output —
-              the result is lost, not late (the alert clears 6h after the run)
+              Hermes cron {{ $labels.profile }}/{{ $labels.name }} ({{ $labels.id }}) could not deliver its output within the last 6h
+            runbook_url: https://github.com/Tanguille/cluster/blob/main/docs/useful_commands.md#hermes-cron-delivery-failures
           labels:
             severity: warning
 

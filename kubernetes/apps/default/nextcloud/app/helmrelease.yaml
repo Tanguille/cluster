@@ -12,15 +12,8 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 9.4.5
+        tag: 9.4.6
       url: oci://ghcr.io/nextcloud/helm/nextcloud
-  # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
-  valuesFrom:
-    - kind: Secret
-      name: nextcloud-secret
-      valuesKey: FROM_ADDRESS
-      targetPath: nextcloud.mail.fromAddress
-
   # Chart has no automountServiceAccountToken value, and this internet-exposed pod needs no SA token.
   postRenderers:
     - kustomize:
@@ -39,10 +32,10 @@ spec:
               - op: add
                 path: /spec/jobTemplate/spec/template/spec/automountServiceAccountToken
                 value: false
-              # Chart has no TTL value; a failed run otherwise keeps KubeJobFailed firing until the next failure.
+              # Chart has no TTL value. 24h keeps finished jobs past a multi-hour outage; a failed run keeps KubeJobFailed up to a day.
               - op: add
                 path: /spec/jobTemplate/spec/ttlSecondsAfterFinished
-                value: 3600
+                value: 86400
 
   values:
     prometheus:
@@ -65,7 +58,7 @@ spec:
                     - control-1
     image:
       repository: nextcloud
-      tag: 35.0.3-fpm@sha256:5db92d6956be3b86cee099f88149189bcbf6f45b818b910b84e748c99de2840b
+      tag: 35.0.3-fpm@sha256:d94f573f34403c0ffa4292a244d572a53cae17963c44078636e2e64ef234e75b
 
     lifecycle:
       postStartCommand:
@@ -114,27 +107,32 @@ spec:
         # No client certs: with PGSSLMODE, libpq stats $HOME/.postgresql/postgresql.crt and fails fatally when HOME=/root is unreadable to www-data (fpm workers, occ via `su -p`; 503s after the 2026-11-04 image re-release).
         - name: PGSSLCERTMODE
           value: disable
+        # Mail goes through the in-cluster smtp-relay (plain SMTP, no auth, it holds the Gmail credentials).
+        # Set here instead of nextcloud.mail: the chart makes the SMTP username and password secret keys mandatory, and the image
+        # only reads these env vars (smtp.config.php), with no SMTP_NAME meaning no auth.
+        - name: SMTP_HOST
+          value: smtp-relay.network.svc.cluster.local
+        - name: SMTP_PORT
+          value: "25"
+        - name: MAIL_DOMAIN
+          value: gmail.com
+        - name: MAIL_FROM_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secret
+              key: FROM_ADDRESS
 
       existingSecret:
         enabled: true
         secretName: nextcloud-secret
         usernameKey: NEXTCLOUD_USERNAME
         passwordKey: NEXTCLOUD_PASSWORD
-        smtpUsernameKey: SMTP_USERNAME
-        smtpPasswordKey: SMTP_PASSWORD
-        smtpHostKey: SMTP_HOST
 
       host: nextcloud.${SECRET_DOMAIN}
 
       # Nothing scrapes the native /metrics; an empty list makes the chart omit OPENMETRICS_ALLOWED_CLIENTS, so Nextcloud's loopback-only default (127.0.0.0/16, ::1/128) applies.
       openmetrics:
         allowedClients: []
-
-      mail:
-        enabled: true
-        domain: gmail.com
-        smtp:
-          secure: starttls
 
       # Root only for post-start.sh's apt-get; the entrypoint drops to www-data itself
       securityContext:
@@ -358,8 +356,9 @@ spec:
       enabled: true
       type: cronjob
       cronjob:
-        failedJobsHistoryLimit: 1
-        successfulJobsHistoryLimit: 2
+        # Keeps a window of silent skips visible; failedJobsHistoryLimit stays at the
+        # chart default (5), an explicit value is flagged redundant by deadvalues.
+        successfulJobsHistoryLimit: 10
         affinity:
           podAffinity:
             requiredDuringSchedulingIgnoredDuringExecution:

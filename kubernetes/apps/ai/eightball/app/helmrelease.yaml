@@ -10,10 +10,11 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.1.17
+        tag: 0.1.29
       url: oci://ghcr.io/tanguille/charts/eightball
-  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They also put the
-  # database at /data/8ball.db on the PVC below, which the kopiur component backs up.
+  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They mount the
+  # eightball-config ConfigMap (resources/config.toml, generated in kustomization.yaml) at /etc/eightball and put
+  # the database at /data/8ball.db on the PVC below, which the kopiur component backs up.
   values:
     controllers:
       eightball:
@@ -22,45 +23,19 @@ spec:
         containers:
           app:
             env:
-              # The config comes from EIGHTBALL_CONFIG_TOML, which conflicts with the chart's default file path.
-              EIGHTBALL_CONFIG: null
-              EIGHTBALL_CONFIG_TOML: |
-                default = "d3"
-
-                [endpoints.d3]
-                url = "http://d3-nano.ai.svc.cluster.local:8080"
-                kind = "systemone"
-
-                # An unsure answer is re-asked once on the 27B with thinking off (one token, logprob bands).
-                # qwen-3.8-fast is the non-thinking alias; qwen-3.8-auto would call d3-nano for its effort and may think.
-                # A failed, slow or over-budget escalation keeps the unsure answer.
-                [endpoints.qwen]
-                url = "http://agentgateway.ai.svc.cluster.local:4000"
-                kind = "logprob"
-                model = "qwen-3.8-fast"
-                api_key_env = "LLM_API_KEY"
-                concurrency = 8
-
-                [escalation]
-                endpoint = "qwen"
-                per_minute = 30
-
-                [specs.gitops-investigate]
-                type = "noul"
-                instructions = "Does this candidate warrant investigating for this homelab? The state is JSON data with context (current inventory and recent recommendations) and item (the candidate). Investigate changes plausibly affecting a component we use, including migrations, breakage, or meaningful operational improvements. Routine version bumps and changes limited to components we do not use do not warrant investigation. Judge only the supplied evidence."
-
-                [specs.llm-radar-recommend]
-                type = "noul"
-                instructions = "Does this radar candidate (a new model, engine release or deployment change) warrant a Now or Engine Swap recommendation for this homelab's local LLM stack? The state is JSON data with context (the deployed stack and recent radar entries) and item (the candidate). Judge only the supplied evidence. Routine version bumps, models that do not fit our hardware and things we already run do not warrant one."
-              LLM_API_KEY: ${LLM_API_KEY}
+              # api_key_env of the local endpoint in resources/config.toml. A secretKeyRef keeps the key out of the
+              # Deployment spec, which postBuild substitution would write it into.
+              LLM_API_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: cluster-secrets
+                    key: LLM_API_KEY
               EIGHTBALL_API_KEY:
                 valueFrom:
                   secretKeyRef:
                     name: eightball-secret
                     key: EIGHTBALL_API_KEY
     persistence:
-      config:
-        enabled: false
       data:
         existingClaim: *app
     serviceMonitor:

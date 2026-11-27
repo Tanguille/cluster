@@ -30,8 +30,7 @@ spec:
         # wolf sends the video and audio UDP straight to the Moonlight client's LAN address; networkpolicy.yaml narrows the opt-out.
         egress.home.arpa/lan: allow
     spec:
-      # The nvidia runtime injects the GPU; control-1 is the only node labelled for it.
-      runtimeClassName: nvidia
+      # The nvidia.com/gpu request injects the GPU; control-1 is the only node labelled for it.
       nodeSelector:
         nvidia.com/gpu: "true"
       hostIPC: true
@@ -73,7 +72,7 @@ spec:
               exec /entrypoint.sh
           resources:
             requests:
-              cpu: "2"
+              cpu: 500m
               memory: 4Gi
             limits:
               memory: 12Gi

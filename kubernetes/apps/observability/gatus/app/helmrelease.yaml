@@ -22,6 +22,8 @@ spec:
       egress.home.arpa/postgres: allow
 
     gatus:
+      # Lets the sidecar write the first generated config before gatus reads it.
+      delayStartSeconds: "5"
       env:
         TZ: ${TIMEZONE}
       envFrom:

@@ -59,7 +59,7 @@
       {
         "name": "backends",
         "type": "constant",
-        "query": "agentgateway|headroom|embedding-cache|qwen38-27b-vllm|d3-nano|embeddinggemma-2|bge-reranker-v2-m3|omniroute",
+        "query": "agentgateway|headroom|embedding-cache|inkling2-mini|d3-nano|embeddinggemma-2|bge-reranker-v2-m3|omniroute",
         "hide": 2
       }
     ]
@@ -357,7 +357,7 @@
       "id": 7,
       "type": "stat",
       "title": "Unhealthy backends",
-      "description": "Gateway, Headroom, cache and inference deployments below their desired replicas.",
+      "description": "Configured deployments below their desired replicas. No data means at least one of the eight deployments in the backend list lacks available or desired replica telemetry.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -369,7 +369,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count((kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"} < kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})) or vector(0)",
+          "expr": "sum(\n  max by (deployment) (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"})\n  < bool\n  max by (deployment) (kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})\n)\nand\n(count(\n  group by (deployment) (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"})\n  and\n  group by (deployment) (kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})\n) == 8)",
           "legendFormat": "",
           "instant": true
         }
