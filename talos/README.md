@@ -143,8 +143,8 @@ Evaluate separately rather than adopting blindly: NRI is enabled by default in 1
 
 ## Talos 1.15 adoption
 
-Same rule as 1.14: apply only after every node runs 1.15, since a 1.14 node rejects the whole config
-over the two new documents.
+Same rule as 1.14: apply only after a node runs 1.15, since a 1.14 node rejects the whole config
+over `DiskSMARTConfig`.
 
 **Rollout order.** tuppr builds a node's target from the install image in its *live* config, which
 still names the self-built `ghcr.io/tanguille/installer/*` repos that no longer get new tags. So
@@ -152,19 +152,20 @@ merging first parks tuppr on an image nothing publishes. Move the nodes by hand 
 before merging, one at a time (control-1 last), waiting for `Ready` and a running Cilium agent:
 
 ```sh
-just talos upgrade-node <node> <ip>   # reads the rendered Factory image for v1.15.0-beta.0
+just talos upgrade-node <node> <ip>   # reads the rendered Factory image for v1.15.0-beta.1
 ```
 
 Then merge (tuppr finds every node at its target and completes), run `diff-node` on all three, and
-`apply-node` to land the Factory install image and the two documents. Only then drop the
-`talosctl.image.tag` pins.
+`apply-node` one node at a time (etcd config changes now restart etcd without a reboot) to land the
+Factory install image and `DiskSMARTConfig`. A 1.14 UKI cannot read that config, so `talosctl
+rollback` is off the table from here. Only then drop the `talosctl.image.tag` pins.
 
 | Document | Replaces / adds |
 | --- | --- |
-| `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive), plus `readinessCheck`: routes by `/readyz` instead of TCP |
+| `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive). Not `readinessCheck`: anonymous `/readyz` is 401 with `cluster.apiServer` |
 | `DiskSMARTConfig` | Talos-native SMART collection (`SMARTStatus`); off on upgraded clusters until the document exists |
 
-The kernel is stock (the self-built pipeline is in git at `f15ad5b13`); the schematics set
+The kernel is stock (the self-built pipeline is in git at `a9ed961f5f`); the schematics set
 `preempt=full` over its `PREEMPT_LAZY`. containerd config moves to version 4; our
 `CRICustomizationConfig` documents only use `plugins."io.containerd.cri.v1.*"`, which did not move.
 

@@ -66,8 +66,8 @@ name: nvidia_drm
 parameters:
   - modeset=1
 ---
-# The nvidia-container-toolkit extension requires this. Merges with the SysctlConfig in
-# cluster.yaml.j2, the node layer adds keys.
+# nvidia-container-cli needed this on 1.14; kept until the 1.15 NRI toolkit is confirmed without it.
+# Merges with the SysctlConfig in cluster.yaml.j2, the node layer adds keys.
 apiVersion: v1alpha1
 kind: SysctlConfig
 params:

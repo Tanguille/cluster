@@ -29,8 +29,7 @@ customization:
       - siderolabs/qemu-guest-agent
       - siderolabs/nfsrahead
       - siderolabs/gvisor
-      # The stock modules cannot load under sig_enforce (fresh kernel key per build), so
-      # scripts/talos-kernel-build.sh swaps in our own build, like siderolabs/amdgpu. The
-      # toolkit carries the userspace and firmware for the same driver version.
+      # Modules and driver userspace for the same driver version; the container runtime comes from
+      # the GPU Operator through NRI (kubernetes/apps/gpu-operator).
       - siderolabs/nvidia-open-gpu-kernel-modules-production
       - siderolabs/nvidia-container-toolkit-production

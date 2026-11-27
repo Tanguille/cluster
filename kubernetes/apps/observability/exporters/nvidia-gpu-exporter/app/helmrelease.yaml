@@ -14,7 +14,9 @@ spec:
       url: oci://ghcr.io/utkuozdemir/charts/nvidia-gpu-exporter
   values:
     # The chart requests no nvidia.com/gpu, so the exporter does not take a time-slice from the workloads.
-    runtimeClassName: nvidia
+    # The NRI plugin injects the whole GPU instead (gpu-operator NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES).
+    podAnnotations:
+      nvidia.cdi.k8s.io/container.nvidia-gpu-exporter: management.nvidia.com/gpu=all
     priorityClassName: homelab-critical
     resources:
       requests:

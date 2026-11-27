@@ -12,7 +12,7 @@ components:
 resources:
   # Disabled until a session can start: the operator forces UNAME=ubuntu on wolf, while wolf:stable's
   # supervisord must run as root, so wolf never starts. A single-pod Sunshine would work, but needs
-  # uinput in control-1's custom kernel build, i.e. an installer rebuild and a control-1 reboot.
+  # siderolabs/uinput in control-1's schematic, i.e. a new installer and a control-1 reboot.
   # Re-enabling it needs components/psa-privileged back: its Steam pods use SYS_ADMIN, unconfined
   # seccomp and hostIPC for bwrap.
   # - ./fenrir/ks.yaml

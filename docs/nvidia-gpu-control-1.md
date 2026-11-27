@@ -1,8 +1,9 @@
 # NVIDIA RTX 2070 on control-1
 
-The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: signed
-NVIDIA open modules built into the custom kernel pipeline, the toolkit extension, and the GPU
-Operator (driver and toolkit disabled) with time-slicing, `nvidia.com/gpu` x8. Plan and spike
+The RTX 2070 (TU106) is passed through to the control-1 VM next to the R9700. Stack: the stock
+Image Factory extensions (NVIDIA open modules and driver userspace) and the GPU Operator (driver
+disabled; its toolkit registers with containerd through NRI, so there is no `nvidia` RuntimeClass)
+with time-slicing, `nvidia.com/gpu` x8. Driver and kernel only change with a Talos bump. Plan and spike
 record: `docs/plans/nvidia-gpu-operator-control-1.md` in git at `764b538101`. Workloads on it:
 [llama.cpp services](#llamacpp-services-on-the-2070) and the solar-gated
 [Pearl miner](pearl-solar-mining.md). [Fenrir](../kubernetes/apps/games/fenrir/) game streaming is
@@ -50,7 +51,7 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 
    Expect `nvidia.com/gpu: "8"` and `amd.com/gpu` unchanged.
 
-2. A test pod sees the TU106. The image must be glibc (the toolkit injects `nvidia-smi`; busybox
+2. A test pod sees the TU106. The image must be glibc (CDI injects `nvidia-smi`; busybox
    will not run it), for example any Debian or Ubuntu image already pinned in the repo:
 
    ```sh
@@ -61,7 +62,6 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
      name: nvidia-smi-test
    spec:
      restartPolicy: Never
-     runtimeClassName: nvidia
      nodeSelector:
        kubernetes.io/hostname: control-1
      containers:
@@ -72,7 +72,7 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
            limits:
              nvidia.com/gpu: 1
    EOF
-   kubectl -n gpu-operator logs nvidia-smi-test       # TU106 / RTX 2070, driver 595.112.07
+   kubectl -n gpu-operator logs nvidia-smi-test       # TU106 / RTX 2070, driver 595.112.13 (Talos 1.15.0-beta.1)
    kubectl -n gpu-operator delete pod nvidia-smi-test   # [ASK: delete]
    ```
 
@@ -105,11 +105,12 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 ## llama.cpp services on the 2070
 
 Perplexity Decider Flash v1.3 (Service `d3-nano`), bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
-llmkube (`accelerator: cuda`, `runtimeClassName: nvidia`, one time-slice each), image
+llmkube (`accelerator: cuda`, one time-slice each), image
 `server-cuda13`. Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
 image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
-([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). We run v1.19.1 and all
-three services were tested on it. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
+([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). All three services were
+tested on the extension's v1.19.1; Talos 1.15 moves the toolkit to the GPU Operator's (v1.20.2 in
+chart v26.7.3). The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
 below for comparison; rolling back means pinning that image again.
 
 ### Decider Flash v1.3, 2026-11-23
