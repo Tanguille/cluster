@@ -21,14 +21,16 @@ models:
   inkling-2-mini:
     aliases:
       - default # A request without a model field still gets inkling.
-    model: /models/ca0a4e72e626e73f/inkling2-mini-i8-vl-dspark.rad
-    max-num-seqs: 8 # 12 x ~52K production sessions (~624K) overflow the ~483K pool: prodshape preempted 15 times, TTFT 19-28 s.
-    num-speculative-tokens: 7 # The DSpark block drafter is 7 or off; adaptive verifies only what pays. +35% single stream.
+    model: /models/f047232a7c24db73/inkling-2-mini-iq4r-v4.rad
+    max-num-seqs: 8 # 12 x ~52K production sessions (~624K) overflowed the old container's ~483K pool (15 preemptions); 12 is not re-measured on this one.
+    num-speculative-tokens: 7 # The DFlash2 block drafter; adaptive verifies only what pays.
     draft-window: adaptive
+    checkpoint-draft-window: true # Keeps the drafter's 2048-token window in the checkpoint slots: +46-68% at 4-8 sessions on code context.
     flex:
       kv:
-        # Sizes the KV claim; the default, one 262K sequence, left 5.6 GiB of the card unused. ~23 KiB a token.
-        min-tokens: 458752
+        # Sizes the KV claim, which the cache never grows past. ~17.5 KiB a token: 864K tokens is ~14.7 GiB, the
+        # card's room beside the 13.2 GiB of weights and 2 GiB of headroom (alone, the engine took 910K).
+        min-tokens: 884736
   qwen-3.8:
     model: /models-qwen/914951ec7d617dec/qwen3.8-27b-iq4r-s-v4.rad
     max-num-seqs: 6 # i8 costs ~47% more per token than 1.17's k6_v4 (gone in 2.x): 8 slots re-prefilled at 8 sessions on 2.0 and 2.2, 6 held on 2.0.
