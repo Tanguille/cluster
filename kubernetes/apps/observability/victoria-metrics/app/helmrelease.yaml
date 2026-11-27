@@ -124,9 +124,10 @@ spec:
       rules:
         etcdMemberCommunicationSlow:
           enabled: false
-        # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
+        # The llmkube latency quantiles are empty whenever the models sit idle (75% of 30m windows over 7d).
         RecordingRulesNoData:
-          enabled: false
+          spec:
+            expr: sum(vmalert_recording_rules_last_evaluation_samples{group!="llmkube-inference-recording"}) without(id) < 1
         # Both duplicate TargetDown (1,230 alert-min/7d each); TooManyLogs covers every VM component.
         TooManyLogs:
           enabled: false
@@ -385,6 +386,20 @@ spec:
       spec:
         securityContext: *vm-security-context
         priorityClassName: homelab-critical # sole scrape path
+        # Apart from vmsingle, vmagent keeps scraping into its queue while the vmsingle node restarts.
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: vmsingle
+                  topologyKey: kubernetes.io/hostname
+        extraArgs:
+          # Upstream flipped the default to false; true saves RAM per discovered target at the cost of
+          # pre-relabel labels on the targets page.
+          "promscrape.dropOriginalLabels": "true"
         resources:
           requests:
             cpu: 100m
