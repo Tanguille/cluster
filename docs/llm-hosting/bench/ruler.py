@@ -7,7 +7,7 @@ usage: $RULER_HOME/venv/bin/python ruler.py RUN [--port 18000] [--lengths 4096,.
 Sequential on purpose: prefill is compute-bound, so a second stream adds load on production, not throughput.
 Port-forward, not in the pod as prodshape: exec into the production pod is denied. The port-forward stalls after
 30-60 min; restart it on a timer and the retries absorb the cut:
-  while :; do timeout 1800 kubectl -n ai port-forward svc/qwen38-27b-vllm 18000:8000; sleep 1; done
+  while :; do timeout 1800 kubectl -n ai port-forward svc/inkling2-mini 18000:8000; sleep 1; done
 
 Setup, once (RULER_HOME defaults to ~/.local/state/radiance-tune/ruler):
   git clone https://github.com/NVIDIA/RULER $RULER_HOME/RULER && git -C $RULER_HOME/RULER checkout db43f92

@@ -219,6 +219,15 @@
       automerge: false
     },
     {
+      description: "Never auto-merge the .rad revisions: resources/radiance.yaml names each cache dir by source",
+      matchDatasources: ["git-refs"],
+      matchFileNames: [
+        "kubernetes/apps/ai/llmkube/models/inkling2-mini.yaml",
+        "kubernetes/apps/ai/llmkube/models/qwen38-27b.yaml"
+      ],
+      automerge: false
+    },
+    {
       description: "extension image build bases are the rolling tag of the PG_MAJOR build arg",
       matchFileNames: [
         "docker/timescaledb/Dockerfile",

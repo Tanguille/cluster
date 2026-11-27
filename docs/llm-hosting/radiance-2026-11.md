@@ -1,9 +1,10 @@
 # radiance engine, 2026-11
 
-qwen-3.8 (Swift 1.5 W4A16-AWQ) is served by [radiance](https://codeberg.org/StillDeadcode/radiance), a C++/HIP
-engine (Apache-2.0, single maintainer, own `.rad` container), replacing vLLM nightly `9cef623` with UltraQuant KV. Live since
-2026-11-01 on the R9700. The service, Deployment and `InferenceService` keep the name `qwen38-27b-vllm` so routes and alerts
-did not move.
+qwen-3.8 (Swift 1.5 W4A16-AWQ) was served by [radiance](https://codeberg.org/StillDeadcode/radiance), a C++/HIP
+engine (Apache-2.0, single maintainer, own `.rad` container), replacing vLLM nightly `9cef623` with UltraQuant KV, from
+2026-11-01 on the R9700 until Inkling took over on 2026-11-24 ([inkling2-mini-2026-11.md](inkling2-mini-2026-11.md)). This
+records that 1.x deployment (`InferenceService` `qwen38-27b-vllm`, since removed). qwen-3.8 now runs on demand in Inkling's
+2.x process, on upstream's IQ4R-S-V4 container.
 
 ## Method
 
@@ -135,18 +136,17 @@ Full context 2026-11-09, same engine and flags: five tasks at 261,888 tokens (th
 
 ## Operations
 
-- Alerts: `LLMDecodeStepLatched` is the only slow-band guard (no liveness band probe); `LLMPrefixCacheHitRateLow` reads
-  `radiance:linear_cached_tokens_total` (attention hits without a state snapshot still re-prefill) and its 0.4 threshold is
-  provisional.
-- Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
-  so both move in one `radiance` PR, opened as soon as the release appears; merging stays manual.
+- Alerts: `LLMDecodeStepLatched` is the only slow-band guard (no liveness band probe); `LLMPrefixCacheHitRateLow` read
+  `radiance:linear_cached_tokens_total` for qwen (attention hits without a state snapshot still re-prefill) and now reads
+  attention hits for inkling-2-mini only; its 0.4 threshold is provisional.
+- Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the tag our build is based on. No workload runs upstream's
+  image any more, so Renovate's `radiance` PR moves the dashboard alone; merging stays manual.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`; radiance 2.x takes only `--config`, see `inkling2-mini.yaml`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
-- Engine or checkpoint bump: no manual step. The Job `qwen38-27b-rad-convert` reruns when the image or the Model `source`
-  changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
-  `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
-  engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
+- Engine or checkpoint bump (1.x): the Job `qwen38-27b-rad-convert` reconverted the `.rad` when the image or the Model
+  `source` changed, named by checkpoint revision and engine digest. Removed with the 2.x move: the prebuilt container needs
+  no conversion.
 - Memory: raise the host tier only with node RAM; see Memory budget.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
