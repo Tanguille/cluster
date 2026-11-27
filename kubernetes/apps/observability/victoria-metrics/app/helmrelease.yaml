@@ -124,10 +124,9 @@ spec:
       rules:
         etcdMemberCommunicationSlow:
           enabled: false
-        # The llmkube latency quantiles are empty whenever the models sit idle (75% of 30m windows over 7d).
+        # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
         RecordingRulesNoData:
-          spec:
-            expr: sum(vmalert_recording_rules_last_evaluation_samples{group!="llmkube-inference-recording"}) without(id) < 1
+          enabled: false
         # Both duplicate TargetDown (1,230 alert-min/7d each); TooManyLogs covers every VM component.
         TooManyLogs:
           enabled: false
