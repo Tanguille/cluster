@@ -28,8 +28,8 @@ models:
     checkpoint-draft-window: true # A prefix hit restores the drafter's 2048-token window from its checkpoint slot instead of refilling it.
     flex:
       kv:
-        # Sizes the KV claim, which the cache never grows past: ~17.5 KiB a token, ~14.7 GiB beside 13.2 GiB of weights
-        # and the 2 GiB headroom (alone, the engine took 909,808 tokens). Recompute on a .rad or headroom change.
+        # Sizes the KV claim, which the cache never grows past: 839,488 tokens (14.05 GiB) beside 13.2 GiB of weights,
+        # settling 1.2 GiB above the 2 GiB headroom (alone, the engine took 909,808). Recompute on a .rad or headroom change.
         min-tokens: 884736
   qwen-3.8:
     model: /models-qwen/914951ec7d617dec/qwen3.8-27b-iq4r-s-v4.rad

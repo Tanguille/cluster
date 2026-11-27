@@ -55,7 +55,7 @@ spec:
   # Upstream 2.3.0 plus our PR #613 until it merges (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
   # from docs/llm-hosting: python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles (and qwen-3.8)
   # and prodshape.py --levels 8 (0 preemptions). The card holds one engine, so a bench means stopping production.
-  image: ghcr.io/tanguille/radiance:attnrel-cf02edae@sha256:72c75f517300e6f04fe51efaea47779bf4cc8565f5e7a5ad901b9376e9f0a39a
+  image: ghcr.io/tanguille/radiance:attnrel-2c0ca6ea@sha256:7bec50bae24b09e3df677456ed24af09f376ea5a652802ed19d82efea1e34422
   # Variant 2 of the relative-attention kernel (reads K and V straight from memory). Unset, the build runs the older
   # kernel: same output, ~12% slower at 8 sessions.
   # COMPACT_MIN=1 lets one or two sessions' long verifies take the compact band too (default: 4 sessions and up).
