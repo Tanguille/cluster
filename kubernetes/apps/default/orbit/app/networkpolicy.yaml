@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: orbit-ingress-deny
+spec:
+  # ORBIT_TRUSTED_PROXIES is the whole pod CIDR (Envoy pod IPs are not stable), so any pod reaching 8080 could forge X-Forwarded-For/-Proto.
+  # Deny every namespace the default allowlist admits, except envoy-internal and envoy-external (allow rules union, a deny wins). envoy-external only routes the GitHub webhook path.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: orbit
+  ingressDeny:
+    - fromEndpoints:
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: In
+              values:
+                - ai
+                - default
+                - observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+          matchExpressions:
+            - key: gateway.networking.k8s.io/gateway-name
+              operator: NotIn
+              values:
+                - envoy-internal
+                - envoy-external
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

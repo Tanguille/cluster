@@ -9,14 +9,16 @@ Start broad, then narrow by resource type. Use exact code-shaped queries rather 
 ```text
 # Find who deploys your chart, ranked by popularity
 kubesearch_search_releases(query: "cert-manager", limit: 10)
-# Drill into deployments + spec.values; response includes repo file_url
-kubesearch_get_release(id: "<id>", limit: 10)
+# Digest of common values + examples; view "deployments" lists repos, "values" + value_paths drills in
+kubesearch_get_release(id: "<id>", view: "summary")
 # Grep config examples across all indexed Helm values
 kubesearch_grep_values(query: "storageClass: ceph-block")
 # Find container image repos and tags
 kubesearch_search_images(query: "nginx")
+# Grep manifests of the top-10 starred repos, no clone needed
+kubesearch_repo_grep_all(query: "gatus.io/enabled")
 # After finding a repo, clone and review manifests
-repo_clone(repo: "owner/repo")  → repo_read_file / repo_grep
+kubesearch_repo_clone(repo: "owner/repo")  → kubesearch_repo_read_file / kubesearch_repo_grep
 ```
 
 ### Repository discovery (fallback)

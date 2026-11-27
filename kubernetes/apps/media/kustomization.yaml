@@ -9,6 +9,8 @@ components:
   - ../../components/deny-apiserver-egress
   - ../../components/deny-lan-egress
   - ../../components/affinity-control-1
+  # For tracearr's REDIS_URL.
+  - ../../components/dragonfly-auth
 
 resources:
   - ./bazarr/ks.yaml
@@ -16,15 +18,17 @@ resources:
   - ./brrpolice/ks.yaml
   - ./cleanrr/ks.yaml
   - ./fileflows/ks.yaml
+  - ./flaresolverr/ks.yaml
   - ./jellyfin/ks.yaml
   - ./seerr/ks.yaml
-  - ./jellystat/ks.yaml
+  - ./maintainerr/ks.yaml
   - ./prowlarr/ks.yaml
   - ./qbittorrent/ks.yaml
   - ./qui/ks.yaml
   - ./radarr/ks.yaml
   - ./recyclarr/ks.yaml
   - ./sonarr/ks.yaml
+  - ./tracearr/ks.yaml
   - ./unpackerr/ks.yaml
   - ./wizarr/ks.yaml
   - ./networkpolicy.yaml

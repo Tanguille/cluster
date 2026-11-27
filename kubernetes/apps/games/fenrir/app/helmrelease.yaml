@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# Moonlight game streaming (games-on-whales Fenrir): a paired client lists the App resources,
+# launching one makes the operator start a pod with the app, wolf and pulseaudio on control-1.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fenrir
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: 0.0.1-29362939347-SNAPSHOT
+      url: oci://ghcr.io/games-on-whales/charts/direwolf-operator
+  values:
+    controllers:
+      direwolf_operator:
+        pod:
+          labels: &apiserver
+            egress.home.arpa/kube-apiserver: allow
+        containers:
+          operator:
+            image:
+              pullPolicy: IfNotPresent
+            env:
+              WOLF_IMAGE: ghcr.io/games-on-whales/wolf:stable@sha256:47ce7a0b67ee6645d2c6fefd8fdda7fee49a00e327c39597a04e84a0cd052910
+      moonlight_proxy:
+        pod:
+          labels: *apiserver
+        containers:
+          proxy:
+            image:
+              pullPolicy: IfNotPresent
+    service:
+      app:
+        annotations:
+          lbipam.cilium.io/ips: ${FENRIR_IP}
+          # The operator gives each session's stream Service the namespace as sharing key, so it lands on this IP.
+          lbipam.cilium.io/sharing-key: games

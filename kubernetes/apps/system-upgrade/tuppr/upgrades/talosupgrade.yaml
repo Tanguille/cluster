@@ -7,13 +7,13 @@ metadata:
 spec:
   talos:
     # renovate: datasource=github-releases depName=siderolabs/talos
-    version: v1.15.0-beta.0
+    version: v1.15.0-beta.1
   talosctl:
     image:
-      # Unset, tuppr derives it from the node's current version, and the v1.14.6-k7.3.4 the nodes
+      # Unset, tuppr derives it from the node's current version, and the v1.14.7-k7.3.6 the nodes
       # report from the old self-built kernel has no talosctl image. Drop once no node reports -k.
       # renovate: datasource=github-releases depName=siderolabs/talos
-      tag: v1.15.0-beta.0
+      tag: v1.15.0-beta.1
   # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
   # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:

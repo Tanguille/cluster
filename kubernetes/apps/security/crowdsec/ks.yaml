@@ -6,6 +6,8 @@ metadata:
   name: crowdsec
   namespace: &namespace security
 spec:
+  components:
+    - ../../../../components/crowdsec-wasm
   dependsOn:
     - name: cloudnative-pg-databases
       namespace: database
@@ -19,15 +21,13 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: crowdsec-bouncers
-  namespace: &namespace security
+  name: crowdsec-agent-rbac
+  namespace: security
 spec:
-  dependsOn:
-    - name: crowdsec
   interval: 1h
-  path: ./kubernetes/apps/security/crowdsec/bouncers/envoy
+  path: ./kubernetes/apps/security/crowdsec/agent-rbac
   prune: true
-  targetNamespace: *namespace
+  # No targetNamespace: the Role and RoleBinding live in `network`, not `security`
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1

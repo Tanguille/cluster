@@ -12,8 +12,13 @@ configMapGenerator:
   - name: hermes-google-digest
     files:
       - ./resources/google_digest.py
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
+  - name: hermes-cron-health
+    files:
+      - ./resources/cron_health_export.py
+  - name: hermes-managed-config
+    files:
+      - config.yaml=./resources/managed-config.yaml
 generatorOptions:
   disableNameSuffixHash: true
+  annotations:
+    kustomize.toolkit.fluxcd.io/substitute: disabled

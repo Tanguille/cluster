@@ -1,0 +1,47 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gpu-operator
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: v26.7.3
+      url: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
+  values:
+    # Talos ships the driver (our signed modules) and toolkit as extensions on control-1.
+    driver:
+      enabled: false
+    toolkit:
+      enabled: false
+    hostPaths:
+      driverInstallDir: /usr/local
+    cdi:
+      # Off: the extension registers only the `nvidia` containerd handler. On, the operator also makes
+      # the nvidia-cdi and nvidia-legacy RuntimeClasses (no handler on Talos) and the device plugin
+      # allocates through its own CDI kind instead of the extension's /run/cdi/nvidia.yaml.
+      # The `nvidia` RuntimeClass is the chart default and owned by the operator, so none is shipped.
+      enabled: false
+    # GPU metrics come from nvidia_gpu_exporter, not DCGM.
+    dcgmExporter:
+      enabled: false
+      serviceMonitor:
+        # The chart default {} merges to null against the live ClusterPolicy and fails the server-side apply.
+        additionalLabels: null
+    devicePlugin:
+      config:
+        create: true
+        name: device-plugin-config
+        default: default
+        data:
+          default: |-
+            version: v1
+            sharing:
+              timeSlicing:
+                resources:
+                  - name: nvidia.com/gpu
+                    replicas: 8

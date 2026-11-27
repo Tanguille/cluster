@@ -10,10 +10,11 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.1.12
+        tag: 0.1.29
       url: oci://ghcr.io/tanguille/charts/eightball
-  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They also put the
-  # database at /data/8ball.db on the PVC below, which the kopiur component backs up.
+  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They mount the
+  # eightball-config ConfigMap (resources/config.toml, generated in kustomization.yaml) at /etc/eightball and put
+  # the database at /data/8ball.db on the PVC below, which the kopiur component backs up.
   values:
     controllers:
       eightball:
@@ -22,26 +23,14 @@ spec:
         containers:
           app:
             env:
-              # The config comes from EIGHTBALL_CONFIG_TOML, which conflicts with the chart's default file path.
-              EIGHTBALL_CONFIG: null
-              EIGHTBALL_CONFIG_TOML: |
-                default = "d3"
-
-                [endpoints.d3]
-                url = "http://d3-nano.ai.svc.cluster.local:8080"
-                kind = "systemone"
-
-                [specs.gitops-investigate]
-                type = "noul"
-                instructions = "Does this candidate warrant investigating for this homelab? The state is JSON data with context (current inventory and recent recommendations) and item (the candidate). Investigate changes plausibly affecting a component we use, including migrations, breakage, or meaningful operational improvements. Routine version bumps and changes limited to components we do not use do not warrant investigation. Judge only the supplied evidence."
+              # api_key_env of the qwen endpoint in resources/config.toml.
+              LLM_API_KEY: ${LLM_API_KEY}
               EIGHTBALL_API_KEY:
                 valueFrom:
                   secretKeyRef:
                     name: eightball-secret
                     key: EIGHTBALL_API_KEY
     persistence:
-      config:
-        enabled: false
       data:
         existingClaim: *app
     serviceMonitor:

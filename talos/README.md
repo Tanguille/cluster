@@ -73,7 +73,7 @@ content-addressed ID. `render-config` puts it in `machine.install.image`
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
 `schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
-overrides, because it is the TrueNAS VM and the only dGPU host.
+overrides, because it is the TrueNAS VM and the only GPU host (R9700 and RTX 2070).
 
 Schematics are plain YAML, deliberately not templates. Routing them through `template` would
 decrypt the secrets bundle to render a file that references no secrets. If a schematic ever needs a
@@ -113,7 +113,7 @@ after tuppr has rolled every node, and re-run `diff-node` on all three before ap
 | `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
 | `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default |
 | `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates |
-| `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
+| `UdevRulesConfig` | caps NVMe (and control-1's virtio `vd*`) `discard_max_bytes` at 256 MiB; the 2 TiB NVMe and 2 GiB virtio limits let weekly trim send multi-second discards |
 | `EtcFileConfig` | `/etc/gvisor/runsc-hostnet.toml` for the `runsc-hostnet` handler (`cri/` is a forbidden prefix). Upstream's `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize) is still unadopted; our five NFS mounts run at kernel defaults |
 
 Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does

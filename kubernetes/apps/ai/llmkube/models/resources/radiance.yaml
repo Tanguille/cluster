@@ -1,0 +1,36 @@
+# radiance 2.x fleet config of the inkling2-mini pod, mounted at /etc/radiance/config.yaml. Each models key is a served
+# name: inkling-2-mini (the ModelRouter backend's displayName) and qwen-3.8 (agentgateway/app/models/qwen-3.8.yaml).
+# The two swap on the card on demand: docs/llm-hosting/inkling2-mini-2026-11.md#qwen-38-on-demand.
+server:
+  kernels: libr4d # Holds both models' kernels; a gap fails only that model's load.
+memory:
+  gpu-headroom-mib: 2048 # Leaves 2 GiB VRAM free for Jellyfin and FileFlows (DgpuVramLow watches it); the engine sizes the KV pool from the rest.
+scheduler:
+  warm-up: false # The warm-up would load qwen first and keep inkling waiting behind it.
+defaults:
+  park:
+    ram: never # The leaving model unloads, so the pod pins one model's host memory at a time.
+  max-model-len: 262144
+  kv-cache-dtype: i8 # bf16 cannot hold one 262K inkling sequence beside its experts; i8 passes the needles through the chat template.
+  reasoning-effort: medium # For requests that name no effort (the engine defaults Qwen3.8 to xhigh); inkling-2-mini-auto picks per request.
+  prefix-cache-ttl: 0 # Never expire: the 3600 s default drops idle sessions.
+  prefix-cache-mib: 16384 # Host KV tier, pinned in node RAM; there is no disk tier.
+  vision-tower-placement: ram # Tower read over the link once per image; its VRAM goes to the KV pool.
+  weight-prefetch: off # Leave room for Jellyfin and FileFlows on the shared card.
+models:
+  inkling-2-mini:
+    aliases:
+      - default # A request without a model field still gets inkling.
+    model: /models/ca0a4e72e626e73f/inkling2-mini-i8-vl-dspark.rad
+    max-num-seqs: 8 # 12 x ~52K production sessions (~624K) overflow the ~483K pool: prodshape preempted 15 times, TTFT 19-28 s.
+    num-speculative-tokens: 7 # The DSpark block drafter is 7 or off; adaptive verifies only what pays. +35% single stream.
+    draft-window: adaptive
+  qwen-3.8:
+    model: /models-qwen/914951ec7d617dec/qwen3.8-27b-iq4r-s-v4.rad
+    max-num-seqs: 6 # i8 costs ~47% more per token than 1.17's k6_v4 (gone in 2.x): 8 slots re-prefilled at 8 sessions on 2.0 and 2.2, 6 held on 2.0.
+    override-chat-template: /chat-templates/chat_template.jinja # Sharp over the container's.
+    chat-template-kwargs:
+      preserve_thinking: true # Keep prior-turn reasoning in context.
+    checkpoint-policy: tip-only # One state snapshot per session.
+    checkpoint-slots: 48 # 16 and 32 overflowed (store_full) under 8 agent sessions on 1.17.
+    prefix-resume: nearest # Resume on 2048-token chunks; a hit is no longer bit-identical to a cold run.

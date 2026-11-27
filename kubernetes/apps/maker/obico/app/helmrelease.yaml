@@ -35,10 +35,15 @@ spec:
           securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/web
-        tag: release@sha256:a7c9eb558743508da46f2e66dcf51c42956affb7b8ed161a189ab4886fa38a65
+        tag: release@sha256:56e35adcc240eddf7b5a1c7486b65f77f821a57dfc59b215d0831235c31b512b
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
+        # Without it the image writes a key file into the root-owned /app, which fails as nonroot.
+        DJANGO_SECRET_KEY:
+          secretKeyRef:
+            name: obico-secret
+            key: DJANGO_SECRET_KEY
         # The map renders sorted, so REDIS_PASSWORD precedes the REDIS_URL that expands it.
         REDIS_PASSWORD:
           secretKeyRef:
@@ -49,7 +54,7 @@ spec:
       resources:
         requests:
           cpu: 100m
-          memory: 128Mi # measured 163Mi steady
+          memory: 128Mi
         limits:
           memory: 1Gi
       additionalContainers:
@@ -58,7 +63,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi # measured 316Mi steady
+              memory: 256Mi
             limits:
               memory: 1Gi
       persistence:
@@ -77,13 +82,13 @@ spec:
       securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/ml-api
-        tag: release@sha256:a85d2931912309265b2d8d502a29c938e8aa0931564743a4e37a71838f9a2271
+        tag: release@sha256:8472ca149ee85959780074baced97778c6aabc4a13204216f89ca1461e98b369
       env:
         DEBUG: "False"
       resources:
         requests:
           cpu: 100m
-          memory: 192Mi
+          memory: 256Mi
         limits:
           memory: 1Gi
 

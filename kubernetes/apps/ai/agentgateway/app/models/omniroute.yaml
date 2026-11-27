@@ -12,22 +12,27 @@ spec:
       # with qwen3.8-27b on the AA index and no successor at similar price exists, or it is another quota tier.
       - providers:
           - name: omniroute
-            host: omniroute.ai.svc.cluster.local
-            port: 20128
+            # Through pasteguard, which masks secrets before they reach the free providers.
+            host: pasteguard.ai.svc.cluster.local
+            port: 3000
             custom:
               model: smart-free
               providerOverride: omniroute
               formats:
                 - type: Completions
+                  path: /openai/v1/chat/completions
                 - type: Messages
+                  path: /anthropic/v1/messages
             policies:
               # GLM thinks only when asked. No include_reasoning: since 11-01 any value makes Logfare DeepSeek 1017
               # answer 400 "supported API model names are deepseek-flash, deepseek-v4-pro", and 1017 no longer
               # reasons through any field. Client-set values win.
+              # high, not max: 16 of ~490 calls in 3h (2026-11-15) spent kritika's 16384-token step cap on reasoning with no
+              # content, which omniroute rejects and fails over (the next target repeats it).
               ai:
                 defaults:
                   - field: reasoning_effort
-                    value: max
+                    value: high
               # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.
               transformation:
                 request:
@@ -35,31 +40,10 @@ spec:
                     - name: x-omniroute-disabled-guardrails
                       value: '"pii-masker"'
               http:
-                # Bounded so the qwen-3.8 fallback fires instead of a stalled free provider holding the call; 90s cut healthy-but-slow 115s/92s streams, 150s clears the observed tail.
-                requestTimeout: 150s
-              health:
-                # A free tier out of quota answers 402/429 and a rejected payload 400, all of
-                # which must fall through to qwen-3.8 like a 5xx. `!has(response.code)` keeps
-                # timeouts and refused connections unhealthy: a custom condition replaces the
-                # default, and a CEL error there reads as healthy.
-                unhealthyCondition: "!has(response.code) || response.code >= 400"
-                eviction:
-                  # 30s, not 5m: 5m sent every call to qwen-3.8 (24h p95 387s, kritika gives up at 300s).
-                  # The 100ms-backoff retry below still lands on qwen-3.8. Grows per consecutive ejection.
-                  duration: 30s
-      # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
-      # One deep: the iGPU models' slots are too small for review payloads, and widening them costs iGPU-node
-      # RAM. The AgentgatewayFallbackBackendDown alert (prometheusrule.yaml) guards the target.
-      - providers:
-          - name: qwen-3.8
-            host: qwen38-27b-vllm.ai.svc.cluster.local
-            port: 8000
-            custom:
-              model: qwen-3.8
-              providerOverride: vllm
-              formats:
-                - type: Completions
-                - type: Messages
+                # Omniroute's own waits (15s queue, 60s cooldown, 120s per target) plus margin, under kritika's 300s step
+                # timeout. Only kritika uses this route (owner, 2026-11-15) and it falls back to inkling-2-mini itself, so no
+                # second group or eviction here: with one provider an eviction would only answer 503.
+                requestTimeout: 240s
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -104,31 +88,3 @@ spec:
     formats:
       - type: Completions
       - type: Messages
----
-# Every omniroute failure the health policy evicts on is retried once (bodies up to 64 KiB), and the retry lands
-# on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
-# goes back to omniroute (a second 150s timeout before the fallback). The default single
-# retry also keeps a timed-out fallback from being re-run.
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
-apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayPolicy
-metadata:
-  name: agentgateway-retry-omniroute
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-omniroute
-  traffic:
-    retry:
-      backoff: 100ms
-      codes:
-        - 400
-        - 402
-        - 408
-        - 413
-        - 429
-        - 500
-        - 502
-        - 503
-        - 504

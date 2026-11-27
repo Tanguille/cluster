@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 0.98.1
+        tag: 0.99.1
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-metrics-k8s-stack
   interval: 1h
   values:
@@ -174,7 +174,7 @@ spec:
             - targetLabel: job
               replacement: kubelet
             - action: labeldrop
-              regex: (beta_kubernetes_io_.*|extensions_talos_dev_.*|feature_node_kubernetes_io_.*|amd_com_.*|openebs_io_.*|kepler_node)
+              regex: (beta_kubernetes_io_.*|extensions_talos_dev_.*|feature_node_kubernetes_io_.*|amd_com_.*|nvidia_com_.*|openebs_io_.*|kepler_node)
 
     kubeApiServer:
       vmScrape:
@@ -252,6 +252,12 @@ spec:
               - alertname =~ "KopiurRepositoryNotReady|KopiurRepositoryBreakerOpen"
             target_matchers:
               - alertname =~ "KopiurSnapshotFailed|KopiurLastBackupFailed|KopiurBackupConsecutiveFailures|KopiurBackupStale"
+          # A dead TrueNAS host also fails the NFS probe (192.168.0.27:2049): one page, not two.
+          - source_matchers:
+              - alertname = "TrueNASHostDown"
+            target_matchers:
+              - alertname = "LanProbeFailed"
+              - instance =~ "192\\.168\\.0\\.27(:.*)?"
           # Permanent mutes kept in git: Watchdog always fires, so these stay suppressed and off kromgo's active count.
           # KEDA's HPAs are min 1 max 1, so every active scaler reads as maxed out.
           - source_matchers: &alwaysFiring
@@ -430,7 +436,7 @@ spec:
         # merge it with the matching chart appVersion bump.
         image:
           repository: quay.io/victoriametrics/victoria-metrics
-          tag: v1.156.0-enterprise
+          tag: v1.157.0-enterprise
         # 365d fits the 200Gi PVC only because downsampling shrinks the long tail:
         # ~23GB raw (0-30d) + ~10GB at 5m (30-180d) + ~2GB at 1h (180-365d) from the
         # current ~140GB/180d, before IndexDB overhead.

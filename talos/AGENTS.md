@@ -13,5 +13,5 @@
 - `machine.install.image` is the Image Factory installer for the node's schematic, rendered in the
   cluster layer. The schematic id is cached by file hash, so only the first render after a
   schematic edit needs factory.talos.dev.
-- `control-1` is the TrueNAS VM and the only dGPU host. Upgrade it last, and never taint it or
+- `control-1` is the TrueNAS VM and the only GPU host (R9700 and RTX 2070). Upgrade it last, and never taint it or
   GPU workloads have nowhere to schedule.

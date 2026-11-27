@@ -38,18 +38,18 @@ spec:
               tag: 3.2.0@sha256:daae84b13c3a638aa50f4dae419abbd82003437ed72caccaa3dcc08a54a08531
             env:
               BAZARR_URL: http://bazarr.media.svc.cluster.local:6767
-              BAZARR_INTERVAL: "60"
+              BAZARR_INTERVAL: "300"
               JELLYFIN_URL: http://jellyfin.media.svc.cluster.local:8096
-              JELLYFIN_INTERVAL: "60"
+              JELLYFIN_INTERVAL: "300"
               SEERR_URL: http://seerr.media.svc.cluster.local:5055
-              SEERR_API_KEY: ${JELLYSEERR_API_KEY}
-              SEERR_INTERVAL: "60"
+              SEERR_API_KEY: ${SEERR_API_KEY}
+              SEERR_INTERVAL: "300"
               RADARR_URL: http://radarr.media.svc.cluster.local
               RADARR_API_KEY: ${RADARR_API_KEY}
-              RADARR_INTERVAL: "60"
+              RADARR_INTERVAL: "300"
               SONARR_URL: http://sonarr.media.svc.cluster.local
               SONARR_API_KEY: ${SONARR_API_KEY}
-              SONARR_INTERVAL: "60"
+              SONARR_INTERVAL: "300"
             envFrom:
               - secretRef:
                   name: scraparr-secret
@@ -66,7 +66,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 128Mi
+                memory: 32Mi
               limits:
                 cpu: 1
                 memory: 256Mi

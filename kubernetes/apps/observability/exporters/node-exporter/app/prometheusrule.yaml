@@ -29,19 +29,8 @@ spec:
               confirm this reboot was intentional
           labels:
             severity: warning
-        - alert: NodeGTTMemoryHigh
-          # Pinned iGPU memory the OOM killer cannot reclaim; normal embedder use is 1-2GB.
-          expr: |-
-            node_drm_memory_gtt_used_bytes{kubernetes_node=~"control-[23]"} > 4294967296
-          for: 15m
-          annotations:
-            summary: >-
-              {{ $labels.kubernetes_node }} has over 4GiB of pinned GTT GPU memory —
-              likely the embedder leak; native max pod lifetime recycling should cap it
-          labels:
-            severity: warning
         - alert: DgpuVramLow
-          # Nothing enforces the LLM/transcode VRAM split (squat.ai/dri counts device nodes, not bytes); the LLM side is set by --gpu-headroom-mib in qwen38-27b-vllm.yaml.
+          # Nothing enforces the LLM/transcode VRAM split (squat.ai/dri counts device nodes, not bytes); the LLM side is set by --gpu-headroom-mib in inkling2-mini.yaml.
           # Idle free is about 2 GiB with radiance loaded; under 1 GiB a 4K DV transcode (0.85 GB) has no margin.
           expr: |-
             node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
@@ -56,17 +45,16 @@ spec:
           labels:
             severity: warning
         - alert: NodeDRMCollectorFailed
-          # A dead DRM collector reads as "no GTT problem"; control-1 is included because DgpuVramLow uses the same collector.
+          # A dead DRM collector reads as "no VRAM problem" to DgpuVramLow.
           expr: |-
             max by (kubernetes_node) (
-              node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[123]"} == 0
+              node_scrape_collector_success{collector="drm", kubernetes_node="control-1"} == 0
             )
           for: 10m
           annotations:
             summary: >-
-              DRM collector failed on {{ $labels.kubernetes_node }} — its GPU memory
-              alert (GTT on control-2/3, dGPU VRAM on control-1) is blind until it
-              recovers
+              DRM collector failed on {{ $labels.kubernetes_node }}; DgpuVramLow is
+              blind until it recovers
           labels:
             severity: warning
         - alert: DgpuVramTelemetryMissing
@@ -82,20 +70,15 @@ spec:
               {{ $labels.kubernetes_node }} — DgpuVramLow is blind until it recovers
           labels:
             severity: warning
-        - alert: NodeGTTTelemetryMissing
-          # One alert identity per control node, even when the metric is absent entirely:
-          # absent() copies kubernetes_node from its equality matcher.
+        - alert: TrueNASSSDPoolSpaceWarning
+          # 100GiB leaves a day to delete snapshots before TrueNASSSDPoolSpaceLow (docs/drives.md).
           expr: |-
-            max by (kubernetes_node) (
-              node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
-            ) <= 0
-            or absent(node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"})
-            or absent(node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"})
-          for: 10m
+            node_filesystem_avail_bytes{job="node-exporter", fstype="zfs", mountpoint="/mnt/SSD_Pool"} < 107374182400
+          for: 1h
           annotations:
             summary: >-
-              GTT telemetry is absent or non-positive on {{ $labels.kubernetes_node }} —
-              NodeGTTMemoryHigh is blind until it recovers
+              TrueNAS SSD_Pool has under 100GiB free; free space before the sparse VM disks
+              (control-1, haos, k8s_management) fail writes and pause
           labels:
             severity: warning
         - alert: TrueNASSSDPoolSpaceLow

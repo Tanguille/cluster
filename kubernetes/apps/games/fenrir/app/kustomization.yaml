@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # The chart ships no CRDs and upstream has no releases: same commit the main images were built from.
+  - https://raw.githubusercontent.com/games-on-whales/fenrir/ec6c640596aca12a1942dacb034790bcc96eb863/crds/direwolf.games-on-whales.github.io_apps.yaml
+  - https://raw.githubusercontent.com/games-on-whales/fenrir/ec6c640596aca12a1942dacb034790bcc96eb863/crds/direwolf.games-on-whales.github.io_pairings.yaml
+  - https://raw.githubusercontent.com/games-on-whales/fenrir/ec6c640596aca12a1942dacb034790bcc96eb863/crds/direwolf.games-on-whales.github.io_sessions.yaml
+  - https://raw.githubusercontent.com/games-on-whales/fenrir/ec6c640596aca12a1942dacb034790bcc96eb863/crds/direwolf.games-on-whales.github.io_users.yaml
+  - helmrelease.yaml
+  - networkpolicy.yaml
+  - user.yaml
+  - steam.yaml

@@ -39,7 +39,7 @@ spec:
                 app:
                   image:
                     repository: djerfy/xmrig
-                    tag: 6.26.0@sha256:74847c25c6273248d2387c41feac55d2833c6a347f5c9e63e5cf19ed4a0406bd
+                    tag: 6.27.0@sha256:72ca82414280aed10fdf246d2e9f4bc148cb9b1a4145046c6b1e4d2119388538
                   # The image's Cmd is the /xmrig source dir; the binary sits inside it.
                   command: ["/xmrig/xmrig"]
                   args:
@@ -57,7 +57,6 @@ spec:
                     - "--no-huge-pages"
                     # nice 19 plus SCHED_IDLE: any waking task preempts the mining threads at once.
                     - "--cpu-priority=0"
-                    # Enable HTTP API for dashboard
                     - "--http-port=42000"
                     - "--http-host=0.0.0.0"
                   securityContext:
@@ -108,6 +107,8 @@ spec:
             metadata:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
               # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
+              # xmrig_slot_available is recorded in ../guard/prometheusrule.yaml; a missing slot rule closes the gate.
+              # A missing P1 meter counts as 0 W export, so no miner runs.
               # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
               # Requests sit below usage, so the last term also wants 4Gi really available, counting the miner's own use.
               # A node failing only that term keeps its ranked share, so some surplus goes unmined.
@@ -115,23 +116,12 @@ spec:
                 (
                   clamp_min(
                     clamp_max(
-                      clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0),
+                      (sum(clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0)) or vector(0)),
                       150
                     )
-                    - 50 * (
-                      count(
-                        (xmrig_guard_safe == 1)
-                        and on(node) (xmrig_guard_rank < scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
-                        and on(node) (
-                          (
-                            min by (node) (kube_node_status_allocatable{resource="memory"})
-                            - sum by (node) (
-                              kube_pod_container_resource_requests{resource="memory",pod!~"xmrig-.*"}
-                              * on(namespace, pod) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
-                            )
-                          ) >= 2147483648
-                        )
-                      ) or vector(0)
+                    - 50 * sum(
+                      xmrig_slot_available
+                      * on(node) (xmrig_guard_rank < bool scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
                     ),
                     0
                   )
@@ -156,8 +146,9 @@ spec:
                       ) >= bool 4294967296
                     )
                   )
-                  # UPS stage 1: stop mining above 85 % tech cave UPS load (llmkube/models/ups-load-shed.yaml is the last resort).
-                  unless on() max_over_time(network_ups_tools_ups_load[5m]) >= 85
+                  # UPS stage 1: xmrig stops at 80 % tech cave UPS load (5m max), before pearl-miner's 85 % stop, so xmrig sheds first.
+                  # llmkube/models/ups-load-shed.yaml is the last resort.
+                  unless on() max_over_time(network_ups_tools_ups_load[5m]) >= 80
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
               # half a miner's draw

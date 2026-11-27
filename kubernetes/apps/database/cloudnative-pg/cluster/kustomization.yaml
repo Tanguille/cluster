@@ -6,15 +6,12 @@ resources:
   - cluster.yaml
   - custom-queries.yaml
   - objectstore.yaml
-  - pooler.yaml
-  - pooler-ro.yaml
-  - pooler-session.yaml
+  - poolers.yaml
   - pdb.yaml
   - prometheusrule.yaml
   - scheduledbackup.yaml
   # Basic-auth Secrets backing spec.managed.roles in cluster.yaml (one per adopted app), so each role reconciles with its secret present.
   - roles/bitmagnet.sops.yaml
-  - roles/jellystat.sops.yaml
   - roles/radarr.sops.yaml
   - roles/bazarr.sops.yaml
   - roles/sonarr.sops.yaml
@@ -31,3 +28,5 @@ resources:
   - roles/kritik-app.sops.yaml
   - roles/kritik-runner.sops.yaml
   - roles/mealie.sops.yaml
+  - roles/orbit.sops.yaml
+  - roles/tracearr.sops.yaml

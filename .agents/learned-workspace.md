@@ -76,4 +76,4 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 - Memory requests sit just below the 7-day average and round down (64Mi steps below 1Gi; pods averaging under 64Mi use powers of two, floor 8Mi), so a request under the average its comment cites is intended.
 - For one-shot privileged pods, use a YAML manifest and `kubectl apply -f`; complex `kubectl run --overrides` JSON is unreliable. Delete an existing pod before reapplying because pod specs are largely immutable.
 - Follow KISS principles; avoid init containers or extra complexity unless needed.
-- Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kube-system/priorityclass.yaml`); the `DaemonSetPodWithoutPriorityClass` alert catches unclassed DaemonSets.
+- Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kubernetes/apps/kube-system/priorityclass.yaml`); the `DaemonSetPodWithoutPriorityClass` alert catches unclassed DaemonSets.
