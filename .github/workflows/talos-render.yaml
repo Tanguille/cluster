@@ -31,7 +31,7 @@ jobs:
         with:
           # No cache: this job runs on PRs only, so every PR would save its own copy.
           cache: false
-          install_args: aqua:casey/just aqua:mikefarah/yq
+          install_args: aqua:mikefarah/yq
 
       - name: Check template variables
         run: scripts/talos-template-vars.sh

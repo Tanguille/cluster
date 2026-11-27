@@ -72,7 +72,7 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
            limits:
              nvidia.com/gpu: 1
    EOF
-   kubectl -n gpu-operator logs nvidia-smi-test       # TU106 / RTX 2070, driver 595.112.13 (Talos 1.15.0-beta.1)
+   kubectl -n gpu-operator logs nvidia-smi-test       # TU106 / RTX 2070
    kubectl -n gpu-operator delete pod nvidia-smi-test   # [ASK: delete]
    ```
 
@@ -109,8 +109,7 @@ llmkube (`accelerator: cuda`, one time-slice each), image
 `server-cuda13`. Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
 image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
 ([llama.cpp #31503](https://github.com/ggml-org/llama.cpp/issues/31503)). All three services were
-tested on the extension's v1.19.1; Talos 1.15 moves the toolkit to the GPU Operator's (v1.20.2 in
-chart v26.7.3). The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
+tested on the extension's v1.19.1; Talos 1.15 moves the toolkit to the GPU Operator's. The first run used `server-cuda` (CUDA 12.8, b12407) and is kept
 below for comparison; rolling back means pinning that image again.
 
 ### Decider Flash v1.3, 2026-11-23

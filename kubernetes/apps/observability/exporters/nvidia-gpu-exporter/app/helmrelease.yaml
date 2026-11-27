@@ -16,7 +16,7 @@ spec:
     # The chart requests no nvidia.com/gpu, so the exporter does not take a time-slice from the workloads.
     # The NRI plugin injects the whole GPU instead (gpu-operator NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES).
     podAnnotations:
-      nvidia.cdi.k8s.io/container.nvidia-gpu-exporter: management.nvidia.com/gpu=all
+      nvidia.cdi.k8s.io/pod: management.nvidia.com/gpu=all
     priorityClassName: homelab-critical
     resources:
       requests:

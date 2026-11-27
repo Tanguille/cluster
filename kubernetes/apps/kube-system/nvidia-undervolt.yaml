@@ -17,7 +17,7 @@ spec:
       annotations:
         # Not a GPU request: the time-sliced replicas belong to the workloads. The NRI plugin injects
         # the whole GPU for this namespace (gpu-operator NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES).
-        nvidia.cdi.k8s.io/container.app: management.nvidia.com/gpu=all
+        nvidia.cdi.k8s.io/pod: management.nvidia.com/gpu=all
     spec:
       priorityClassName: system-node-critical
       nodeSelector:
