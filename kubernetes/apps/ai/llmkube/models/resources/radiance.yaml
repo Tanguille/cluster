@@ -22,14 +22,14 @@ models:
     aliases:
       - default # A request without a model field still gets inkling.
     model: /models/f047232a7c24db73/inkling-2-mini-iq4r-v4.rad
-    max-num-seqs: 8 # 12 x ~52K production sessions (~624K) overflowed the old container's ~483K pool (15 preemptions); 12 is not re-measured on this one.
+    max-num-seqs: 8 # 12 x ~52K sessions overflowed the old container's ~483K pool; not re-measured since.
     num-speculative-tokens: 7 # The DFlash2 block drafter; adaptive verifies only what pays.
     draft-window: adaptive
-    checkpoint-draft-window: true # Keeps the drafter's 2048-token window in the checkpoint slots: +46-68% at 4-8 sessions on code context.
+    checkpoint-draft-window: true # A prefix hit restores the drafter's 2048-token window from its checkpoint slot instead of refilling it.
     flex:
       kv:
-        # Sizes the KV claim, which the cache never grows past. ~17.5 KiB a token: 864K tokens is ~14.7 GiB, the
-        # card's room beside the 13.2 GiB of weights and 2 GiB of headroom (alone, the engine took 910K).
+        # Sizes the KV claim, which the cache never grows past: ~17.5 KiB a token, ~14.7 GiB beside 13.2 GiB of weights
+        # and the 2 GiB headroom (alone, the engine took 909,808 tokens). Recompute on a .rad or headroom change.
         min-tokens: 884736
   qwen-3.8:
     model: /models-qwen/914951ec7d617dec/qwen3.8-27b-iq4r-s-v4.rad
