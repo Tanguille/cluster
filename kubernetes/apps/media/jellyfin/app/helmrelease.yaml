@@ -76,6 +76,8 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
+              # Writable paths are the config PVC and the tmpfs mounts below.
+              readOnlyRootFilesystem: true
     service:
       app:
         ports:
