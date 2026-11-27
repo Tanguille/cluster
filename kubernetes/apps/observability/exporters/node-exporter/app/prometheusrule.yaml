@@ -19,6 +19,19 @@ spec:
               kubelet starvation follows if this keeps falling
           labels:
             severity: critical
+        - alert: NodeMemoryMajorPagesFaults
+          # The chart rule at 500/s, except TrueNAS: ZFS's 1 MiB slab allocations wake kswapd on its fragmented memory
+          # (VMs pin 78 GiB), which evicts program pages at 200-900/s without harm. 1500 still catches a thrash storm.
+          expr: |-
+            rate(node_vmstat_pgmajfault{job="node-exporter", instance!="192.168.0.27:9100"}[5m]) > 500
+            or rate(node_vmstat_pgmajfault{job="node-exporter", instance="192.168.0.27:9100"}[5m]) > 1500
+          for: 15m
+          annotations:
+            summary: >-
+              {{ $labels.instance }} has {{ printf "%.0f" $value }} major page faults per second; check that it has
+              enough memory for its page cache
+          labels:
+            severity: warning
         - alert: NodeRebooted
           # No `for:` because uptime crosses 600s once; both clocks are the node's own, so NTP skew cannot bias it.
           expr: |-
