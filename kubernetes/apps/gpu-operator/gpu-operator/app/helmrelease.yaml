@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gpu-operator
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: v26.7.3
+      url: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
+  values:
+    # Talos 1.15 ships the driver (modules and userspace) as extensions on control-1, and no container
+    # runtime: the operator's toolkit registers with containerd through NRI, so no RuntimeClass is used.
+    driver:
+      enabled: false
+    toolkit:
+      # Writable /var; the chart default /usr/local/nvidia is read-only on Talos.
+      installDir: /var/lib/nvidia
+      env:
+        # Namespaces besides the operator's that may request the whole GPU by pod annotation
+        # (nvidia-undervolt, nvidia-gpu-exporter) instead of taking a time-slice.
+        - name: NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES
+          value: kube-system,observability
+    hostPaths:
+      driverInstallDir: /usr/local
+    cdi:
+      nriPluginEnabled: true
+    # GPU metrics come from nvidia_gpu_exporter, not DCGM.
+    dcgmExporter:
+      enabled: false
+      serviceMonitor:
+        # The chart default {} merges to null against the live ClusterPolicy and fails the server-side apply.
+        additionalLabels: null
+    devicePlugin:
+      config:
+        create: true
+        name: device-plugin-config
+        default: default
+        data:
+          default: |-
+            version: v1
+            sharing:
+              timeSlicing:
+                resources:
+                  - name: nvidia.com/gpu
+                    replicas: 8

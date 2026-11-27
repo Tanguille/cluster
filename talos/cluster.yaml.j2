@@ -28,11 +28,9 @@ machine:
         memory.available: 1Gi
       evictionMinimumReclaim:
         memory.available: 1Gi
-      # Trigger image GC before Ceph's mon_data_avail_warn default (30% free) fires.
-      imageGCHighThresholdPercent: 70
-      imageGCLowThresholdPercent: 55
-      # Reap images unused for 7d regardless of disk pressure.
-      imageMaximumGCAge: 168h
+      # Reap images unused for 2d regardless of disk pressure: Renovate and Paseo leave a superseded
+      # image almost daily, and control-1's /var climbed ~13 GiB/day until the 70% GC (2026-11-17).
+      imageMaximumGCAge: 48h
       # Left at 2Gi despite being under-reserved: measured /podruntime is 2.89GB steady-state on
       # control-2 and peaked at 14.1GB on control-3. Raising it to the truth costs allocatable on
       # nodes that have none to spare, so the under-reservation is accepted deliberately.
@@ -62,14 +60,21 @@ machine:
   install:
     wipe: false
     grubUseUKICmdline: true
+    # Schematic id resolved per node (control-1 has its own). tuppr re-tags the RUNNING node's install-image
+    # repo, so this drives upgrades only once apply-node has landed it.
+    image: factory.talos.dev/metal-installer/{{ schematic }}:{{ talosVersion }}
   time:
     disabled: false
     servers: [{{ gateway }}]
+  # Kernel log rides along as service "kernel", so no KmsgLogConfig (it would send it twice).
+  # Cilium socket LB serves talos-log-relay's ClusterIP to host-network senders. TCP, not UDP: Talos
+  # connects once at boot, before Cilium, and only redials on a write error, which UDP never returns.
+  logging:
+    destinations:
+      - endpoint: tcp://{{ log_relay_ip }}:6050/
+        format: json_lines
   features:
     diskQuotaSupport: true
-    kubePrism:
-      enabled: true
-      port: 7445
     hostDNS:
       enabled: true
       forwardKubeDNSToHost: false
@@ -173,3 +178,13 @@ params:
   net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
   net.ipv4.tcp_slow_start_after_idle: "0"
   user.max_user_namespaces: "11255"
+---
+# Replaces machine.features.kubePrism (the two are mutually exclusive). No readinessCheck: it probes
+# /readyz anonymously, and the legacy cluster.apiServer section runs --anonymous-auth=false (401).
+apiVersion: v1alpha1
+kind: KubePrismConfig
+port: 7445
+---
+# Talos-native SMART, read via the SMARTStatus resource. smartctl-exporter stays the alerting source.
+apiVersion: v1alpha1
+kind: DiskSMARTConfig

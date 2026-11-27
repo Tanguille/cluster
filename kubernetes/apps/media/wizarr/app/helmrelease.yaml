@@ -20,6 +20,8 @@ spec:
               tag: v2026.10.1@sha256:08f2c6de534ec7d36d39a4f55b7c5c379021ca881dc519c702aad0ddafbdc67a
             env:
               TZ: ${TIMEZONE}
+              # UID 1000 has no passwd entry, so HOME is /; gunicorn puts its control socket under $HOME.
+              HOME: /tmp
               UV_CACHE_DIR: /tmp/.uv-cache
             probes:
               liveness:
@@ -33,6 +35,9 @@ spec:
                   periodSeconds: 5
             securityContext:
               allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
             resources:
               requests:
                 cpu: 15m
@@ -40,6 +45,12 @@ spec:
               limits:
                 cpu: 500m
                 memory: 500Mi
+    # Started as root, the entrypoint only creates PUID 1000 and su-execs to it.
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
     service:
       app:
         ports:

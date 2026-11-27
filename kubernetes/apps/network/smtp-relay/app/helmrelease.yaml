@@ -53,6 +53,9 @@ spec:
                   initialDelaySeconds: 5
                   periodSeconds: 5
                   failureThreshold: 30
+            # Postfix starts as root and switches users itself, so no capability drop or read-only root.
+            securityContext:
+              allowPrivilegeEscalation: false
             resources:
               requests:
                 cpu: 10m
@@ -60,6 +63,10 @@ spec:
               limits:
                 cpu: 500m
                 memory: 128Mi
+
+    defaultPodOptions:
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
 
     service:
       app:

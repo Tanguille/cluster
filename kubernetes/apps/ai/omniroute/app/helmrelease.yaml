@@ -22,15 +22,17 @@ spec:
           app:
             image:
               repository: diegosouzapw/omniroute
-              tag: 3.8.53@sha256:b52a17661a1aff42ffb78f349f423e986dfc55b57274f28559f8387622ef8ee4
+              tag: 3.8.54@sha256:2c4c755a54f8ce5341bc1856580b71f47a0f16a9afab4a55f84d540810631f68
             env:
               TZ: ${TIMEZONE}
               REQUIRE_API_KEY: "false"
               # V8 heap ceiling; chat sheds 503 at 85% of it.
               OMNIROUTE_MEMORY_MB: "1536"
-              # First-event wait per combo step (default adapts up to 180s for tool-heavy calls); a stalled free provider fails over inside agentgateway's 150s.
+              # First-event wait per combo step (default adapts up to 180s for tool-heavy calls); a stalled free provider is cut by agentgateway's 240s.
               STREAM_READINESS_TIMEOUT_MS: "60000"
               STREAM_READINESS_MAX_TIMEOUT_MS: "60000"
+              # Default 10000 files of up to 512 KB each can outgrow the 4Gi volume; 4000 tops out at 2 GiB.
+              CALL_LOG_MAX_ENTRIES: "4000"
               # envoy-internal terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
             envFrom:

@@ -57,14 +57,20 @@ name = "checks"
 parallel = true
 
 [[pre-commit.jobs.group.jobs]]
-name = "shellcheck"
+name = "shuck"
 glob = ["*.sh"]
-run = "shellcheck {staged_files}"
+run = "shuck check {staged_files}"
 
 [[pre-commit.jobs.group.jobs]]
 name = "zizmor"
 glob = [".github/workflows/*.yaml"]
 run = "zizmor --offline {staged_files}"
+
+# compile(), not py_compile: no __pycache__ written next to read-only-mounted sources; catches what ast.parse misses (top-level return).
+[[pre-commit.jobs.group.jobs]]
+name = "python-syntax"
+glob = ["*.py"]
+run = "python3 -c 'import sys; [compile(open(f).read(), f, \"exec\") for f in sys.argv[1:]]' {staged_files}"
 
 # Reads the index after every mutator has re-staged.
 [[pre-commit.jobs.group.jobs]]

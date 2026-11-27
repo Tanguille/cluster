@@ -1,0 +1,101 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app maintainerr
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    controllers:
+      maintainerr:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/maintainerr/maintainerr
+              tag: 3.33.0@sha256:b122b719d48decb82ab09606089b7e1b8323f3ab9eb5d0646f5bdc95d1c7d9e6
+            env:
+              TZ: ${TIMEZONE}
+              # The app also sends an anonymous weekly usage report by default.
+              TELEMETRY: "off"
+            probes:
+              # A rule run blocks the event loop, so the default 1 s timeout killed the pod mid-run.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health/live
+                    port: &port 6246
+                  timeoutSeconds: 10
+                  periodSeconds: 20
+                  failureThreshold: 6
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health/ready
+                    port: *port
+                  timeoutSeconds: 10
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health/live
+                    port: *port
+                  failureThreshold: 30
+                  periodSeconds: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: 25m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                # Node sizes its heap from this limit (about half); the ~256 MB heap at 512Mi
+                # was exhausted once after 13 h of uptime (exit 139).
+                memory: 1Gi
+    # The image bakes User: node (uid 1000); run as the same user so /opt/data lands 1000:1000.
+    # fsGroup: a fresh ceph-block volume is root-owned, so the app could not stage its UI into /opt/data.
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Maintainerr
+          gethomepage.dev/description: Media stack maintenance
+          gethomepage.dev/group: Management
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /opt/data

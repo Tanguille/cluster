@@ -10,17 +10,12 @@ spec:
   path: ./kubernetes/apps/ai/opencode/app
   targetNamespace: *namespace
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   components:
     - ../../../../components/kopiur
   postBuild:
     substitute:
       APP: *app
       PVC_CAPACITY: 20Gi
-      KOPIUR_PUID: "0"
-      KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
+      KOPIUR_PUID: "1000"
       # plugin package and npm caches, re-fetched on demand
       KOPIUR_IGNORE_RULES: "[/lost+found, /.cache/*, /.npm/*]"

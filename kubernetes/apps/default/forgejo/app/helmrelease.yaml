@@ -26,7 +26,7 @@ spec:
           app:
             image:
               repository: codeberg.org/forgejo/forgejo
-              tag: 17.0.1-rootless
+              tag: 17.0.2-rootless
             env:
               TZ: ${TIMEZONE}
               FORGEJO__server__ROOT_URL: https://forgejo.${SECRET_DOMAIN}/
@@ -42,6 +42,12 @@ spec:
               FORGEJO__actions__ENABLED: "false"
               FORGEJO__federation__ENABLED: "false"
               FORGEJO__mirror__DEFAULT_INTERVAL: 10m
+              # The relay trusts the pod CIDR without auth, and Forgejo refuses auth over plain SMTP, so none is set.
+              FORGEJO__mailer__ENABLED: "true"
+              FORGEJO__mailer__PROTOCOL: smtp
+              FORGEJO__mailer__SMTP_ADDR: smtp-relay.network.svc.cluster.local
+              FORGEJO__mailer__SMTP_PORT: "25"
+              FORGEJO__mailer__FROM: ${SECRET_CONTACT_EMAIL}
             probes:
               liveness:
                 enabled: true
@@ -64,7 +70,7 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
+                memory: 64Mi
               limits:
                 memory: 1Gi
     service:

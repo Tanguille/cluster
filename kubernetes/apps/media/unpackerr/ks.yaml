@@ -13,10 +13,6 @@ spec:
   wait: true
   path: ./kubernetes/apps/media/unpackerr/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:

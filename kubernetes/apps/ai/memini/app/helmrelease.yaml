@@ -38,29 +38,19 @@ spec:
               MEMINI_EMBED_DOC_PREFIX: "title: none | text: "
               # Re-embed rather than silently mixing vector spaces if the model ever changes.
               MEMINI_REEMBED_ON_MODEL_CHANGE: "true"
-              # Short serial batches keep capture/dedup embedding from creating a recall tail under load.
-              MEMINI_EMBED_MAX_CONCURRENCY: "1"
-              MEMINI_EMBED_MAX_BATCH: "8"
-              MEMINI_EMBED_MAX_BATCH_CHARS: "12000"
+              # Only long query prompts get cut (every memory is under 1.7K); embedding more of a 30-99K-char prompt does not focus it.
               MEMINI_EMBED_MAX_ITEM_CHARS: "4000"
-              # The 5s default drops writes to vectorless whenever the shared iGPU embedder is busy.
-              MEMINI_WRITE_EMBED_TIMEOUT: "15s"
-              # The 2s default degrades recall to keyword_only when the embedder is busy.
-              MEMINI_RECALL_EMBED_TIMEOUT: "20s"
               # Direct to the LLMKube reranker. Base URL is the API root, memini appends /rerank.
               MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
-              # One wider than the recall limit of 3. codingagent_v1 (166 q, EmbeddingGemma 2, 2026-10-15): pools 4-24 all
-              # give R@3 88.0% (86.1% unranked) and R@1 65.1-65.7%, while bench wall time grows 69s (4) -> 112s (8) -> 327s (24).
+              # One wider than the recall limit of 3. codingagent_v1 on the 2070 (2026-11-20): pool 3/4/6/8 give R@1 65.1/65.7/65.1/65.1%
+              # and R@3 86.1/88.0/88.0/88.0%; pool 12 and 24 gave no more (86.1% unranked).
               MEMINI_RERANK_POOL: "4"
-              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); 5s fits pool-4 (~1.2s) and limit-10 MCP (~2.5s) reranks and leaves time for the fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
-              MEMINI_RERANK_TIMEOUT: "5s"
-              # /rerank payload cap (query + docs): the 6000 default fits 5 worst-case docs, splitting a 10-doc recall in 2.
-              MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
-              # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
-              MEMINI_RERANK_MAX_CONCURRENCY: "1"
-              # Default 2048; the iGPU scores each pair serially, so a pool of 12 worst-case docs takes 10.0s at 2048 chars vs 5.1s at 1024. 79% of memories fit in 1024.
-              MEMINI_RERANK_MAX_DOC_CHARS: "1024"
+              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); the 2s default recall embed plus 2s here leaves room for the
+              # fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
+              MEMINI_RERANK_TIMEOUT: "2s"
+              # /rerank payload cap (512-char query + docs): 26000 keeps a limit-10 MCP recall of 2048-char docs in one call; the 6000 default fits 2.
+              MEMINI_RERANK_MAX_BATCH_CHARS: "26000"
             probes:
               # Startup re-embed (MEMINI_REEMBED_ON_MODEL_CHANGE) blocks the listener; without this the 45s liveness window kills it mid-run.
               startup:
@@ -75,7 +65,7 @@ spec:
             resources:
               requests:
                 cpu: 50m
-                memory: 64Mi
+                memory: 16Mi
               limits:
                 cpu: 1
                 memory: 512Mi

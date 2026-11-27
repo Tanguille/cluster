@@ -11,12 +11,14 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.29.1
+        tag: 0.29.2
       url: oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg
   values:
+    priorityClassName: homelab-critical
     monitoring:
+      podMonitorEnabled: true
       grafanaDashboard:
         create: true
     resources:
       requests:
-        memory: 256Mi
+        memory: 64Mi

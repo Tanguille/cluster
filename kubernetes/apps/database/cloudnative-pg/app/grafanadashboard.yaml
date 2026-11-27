@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: cnpg
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   configMapRef:
     name: cnpg-grafana-dashboard
     key: cnp.json

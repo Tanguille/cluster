@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: agentgateway
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   configMapRef:
     # Rendered by the chart (monitoring.grafanaDashboard).
     name: agentgateway-controller-dashboard

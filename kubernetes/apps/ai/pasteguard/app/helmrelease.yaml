@@ -1,0 +1,98 @@
+---
+# Masks secrets in requests to omniroute's free cloud providers and restores them in the reply
+# (agentgateway -> pasteguard -> omniroute). Other models don't route through here.
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pasteguard
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: ndots-1
+  values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      pasteguard:
+        # No volumes to hand over, so a rollout starts the new pod first.
+        strategy: RollingUpdate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/sgasser/pasteguard
+              tag: 0.9.11@sha256:399c0537bd4442ad8311ce356e88ec6bed7453d1e0338fc4ea6b13a609d6c4a5
+            # Proxy only: the image's supervisord also starts the GLiNER PII detector, unused with PII detection off.
+            command: ["bun", "run", "src/index.ts"]
+            workingDir: /pasteguard
+            env:
+              TZ: ${TIMEZONE}
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 3000
+              readiness: *probe
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    configMaps:
+      config:
+        data:
+          config.yaml: |
+            mode: mask
+            secrets_detection:
+              # Default caps each span at 200k chars, leaving a long tool result's tail unmasked; 0 scans it whole.
+              max_scan_chars: 0
+            server:
+              # Past agentgateway's 240s on the omniroute route.
+              request_timeout: 300
+            providers:
+              openai:
+                base_url: http://omniroute.ai.svc.cluster.local:20128/v1
+              anthropic:
+                base_url: http://omniroute.ai.svc.cluster.local:20128
+            pii_detection:
+              enabled: false
+              # Startup waits for <detector_url>/health even with detection off; the proxy's own /health
+              # answers it, as Bun listens before that wait.
+              detector_url: http://127.0.0.1:3000
+            logging:
+              database: /tmp/pasteguard.db
+              log_masked_content: false
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /pasteguard/config.yaml
+            subPath: config.yaml
+            readOnly: true
+      tmp:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 64Mi

@@ -10,8 +10,7 @@
   merging a change to `talos/` only changes what `render-config` produces.
 - A node rejects the whole config if it contains a document its version does not know, so during
   any mixed-version window a new document in `cluster.yaml.j2` breaks `diff-node` fleet-wide.
-- A new node must declare its own `machine.install.image`. There is no cluster-layer fallback:
-  every node pins a custom-kernel installer, so an unpinned node renders with no image rather than
-  falling back to a stock-kernel Factory build.
-- `control-1` is the TrueNAS VM and the only dGPU host. Upgrade it last, and never taint it or
+- `machine.install.image` is the node's Image Factory installer, rendered in the cluster layer
+  ([Schematics](README.md#schematics)).
+- `control-1` is the TrueNAS VM and the only GPU host (R9700 and RTX 2070). Upgrade it last, and never taint it or
   GPU workloads have nowhere to schedule.

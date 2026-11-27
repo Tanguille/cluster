@@ -1,6 +1,6 @@
 # Learned Workspace Facts
 
-**When to use:** HTTPRoute, ToolHive, MCPServer, Flux substituteFrom, cluster-secrets, Talos, Reloader, in-cluster URL, CNPG, Rook, or continual learning.
+**When to use:** HTTPRoute, ToolHive, MCPServer, Flux substituteFrom, cluster-secrets, app-template, kopiur, openebs-hostpath, Talos, Reloader, in-cluster URL, CNPG, Rook, or continual learning.
 
 Stable, non-sensitive facts about this cluster and tooling.
 
@@ -41,25 +41,39 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 ## Talos
 
-- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them from a rebuilt installer (`just talos kernel-build`) plus an upgrade.
-- Large Talos `/var/lib/containerd` usage is often old image layers. Kubelet image GC thresholds are already tuned in `talos/cluster.yaml.j2`; confirm Talos apply mode before assuming a reboot is unnecessary.
+- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them through an upgrade to the new schematic's Factory installer.
+- Large Talos `/var/lib/containerd` usage is often old image layers. Kubelet image GC runs at the Talos 1.15 defaults (75/65) plus `imageMaximumGCAge` in `talos/cluster.yaml.j2`; confirm Talos apply mode before assuming a reboot is unnecessary.
 
 ## Storage
 
 - With `ceph-block` RWO storage, use Deployment strategy `Recreate`; RollingUpdate is unsupported.
 - The app-template chart defaults to `Recreate`. If it emits `rollingUpdate` too, fix the chart, postRenderer, or patch.
-- CSI `readAffinity` is off: with it, every CephFS kernel write fails silently on Ceph v21 (files read back as zeros). Re-enable only on a kernel with libceph `d6c7a5fcd088`; the condition is in the rook-ceph cluster HelmRelease.
+- `openebs-hostpath` does not enforce PVC size; the node disk is the only limit, so a volume holding more than its request is not an overflow.
+- The shared kopiur SnapshotPolicy's `sourcePathOverride: /data` is the path recorded in the snapshot identity, not the app's mount path: the mover mounts the PVC itself, so apps mounting it elsewhere (`/app/data`, `/config`) are backed up.
+- CSI `readAffinity` is on: never run a node below Linux 7.3.4 (libceph `d6c7a5fcd088`; reason in the rook-ceph cluster HelmRelease), including a node held back by the tuppr nodeSelector.
 
 ## Flux
 
 - Flux `postBuild.substituteFrom` replaces `${...}` in rendered manifests. Escape literals with Flux/Kustomize `$$` patterns, or Flux may empty unintended matches.
+- The cluster-apps patch (`kubernetes/flux/cluster/ks.yaml`) gives every child Kustomization `substituteFrom` cluster-settings and cluster-secrets, so `${SECRET_DOMAIN}` resolves in all child output, `configMapGenerator` data included.
+
+## app-template
+
+- A workload is named after the release alone when it has one controller (`opencode`, not `opencode-app`); the controller name is appended only with several controllers.
+- `automountServiceAccountToken` defaults to `false`; an app that omits it mounts no token.
+- A route without `rules` gets its backend from the service matching the route identifier.
+- Chart-made `configMaps` roll the pod through a `checksum/configMaps` annotation over their `data` (not `binaryData`); Reloader is only for ConfigMaps and Secrets made outside the chart.
+- Images are pinned as `tag: <version>@sha256:<digest>` in every chart, also where the chart has a `digest` field, so Renovate bumps both in one value.
 
 ## CNPG
 
+- CNPG ignores `priorityClassName` in its pod diff; roll it out with the `kubectl.kubernetes.io/restartedAt` annotation on the Cluster. Flux strips a kubectl-set annotation within minutes; the suspend/annotate/resume sequence is in `docs/useful_commands.md` § PostgreSQL (CNPG).
 - CloudNativePG postgres16 and the barman-cloud plugin run in namespace `database`. The plugin Deployment is `barman-cloud-plugin-barman-cloud`; its Service is `barman-cloud`. To re-add an instance after its join job was deleted, delete its PVC and force-reconcile.
 
 ## Operations
 
 - Annotate relevant deployments with Reloader (e.g. `reloader.stakater.com/auto: "true"`) so pods restart when referenced ConfigMaps or Secrets change.
+- Memory requests sit just below the 7-day average and round down (64Mi steps below 1Gi; pods averaging under 64Mi use powers of two, floor 8Mi), so a request under the average its comment cites is intended.
 - For one-shot privileged pods, use a YAML manifest and `kubectl apply -f`; complex `kubectl run --overrides` JSON is unreliable. Delete an existing pod before reapplying because pod specs are largely immutable.
 - Follow KISS principles; avoid init containers or extra complexity unless needed.
+- Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kubernetes/apps/kube-system/priorityclass.yaml`); the `DaemonSetPodWithoutPriorityClass` alert catches unclassed DaemonSets.

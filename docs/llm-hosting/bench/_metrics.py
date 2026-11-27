@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""One /metrics scrape (running/waiting + spec-decode counters) shared by walltime.py,
-toolbench.py and prodshape.py; one call per check because port-forwarded scrapes wedged."""
+"""One /metrics scrape (running/waiting + spec-decode counters) shared by the bench scripts;
+one call per check because port-forwarded scrapes wedged."""
+import math
 import time
 import urllib.request
 
@@ -12,7 +13,7 @@ class Sample:
 
     __slots__ = ("running", "waiting", "drafts", "draft_tokens", "accepted")
 
-    def __init__(self, running=0.0, waiting=0.0, drafts=0.0, draft_tokens=0.0,
+    def __init__(self, running=None, waiting=None, drafts=0.0, draft_tokens=0.0,
                  accepted=0.0):
         self.running = running
         self.waiting = waiting
@@ -38,15 +39,19 @@ def sample(port, timeout=8):
             except ValueError:
                 continue
             if ln.startswith("vllm:num_requests_running{"):
-                s.running += v
+                s.running = (s.running or 0) + v
             elif ln.startswith("vllm:num_requests_waiting{"):
-                s.waiting += v
+                s.waiting = (s.waiting or 0) + v
             elif ln.startswith(SPEC + "drafts_total"):
                 s.drafts = v
             elif ln.startswith(SPEC + "draft_tokens_total"):
                 s.draft_tokens = v
             elif ln.startswith(SPEC + "accepted_tokens_total"):
                 s.accepted = v
+    if s.running is not None and not math.isfinite(s.running):
+        s.running = None
+    if s.waiting is not None and not math.isfinite(s.waiting):
+        s.waiting = None
     return s
 
 
@@ -57,7 +62,7 @@ def wait_idle(port, tries=60, delay=5):
     pre-run counter baseline instead of scraping again. Benchmarks must gate on
     0 running / 0 waiting -- production traffic contaminates the numbers.
 
-    TWO consecutive idle scrapes, matching longctx.py: a single one can land in
+    TWO consecutive idle scrapes: a single one can land in
     the gap between two production requests and read idle on a busy engine.
 
     On timeout this returns a NON-idle Sample rather than raising; every caller
@@ -75,4 +80,4 @@ def wait_idle(port, tries=60, delay=5):
             continue
         time.sleep(delay)
         s = sample(port)
-    return s
+    return Sample()

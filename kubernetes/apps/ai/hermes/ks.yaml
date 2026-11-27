@@ -10,10 +10,6 @@ spec:
   interval: 30m
   path: ./kubernetes/apps/ai/hermes/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   components:
     - ../../../../components/kopiur
   postBuild:
@@ -21,5 +17,6 @@ spec:
       APP: *app
       PVC_CAPACITY: 32Gi
       KOPIUR_PUID: "10000"
-      # lazy_deps install target, npm/pnpm/uv/cargo caches, rustup and mise toolchains: all re-fetched on demand
-      KOPIUR_IGNORE_RULES: "[/lost+found, /lazy-packages/*, /home/.npm/*, /home/.local/share/pnpm/store/*, /cache/uv/*, /home/.cargo/registry/*, /home/.rustup/toolchains/*, /home/.local/share/mise/installs/*]"
+      # npm/pnpm/uv/cargo caches, rustup and mise toolchains, Hermes-managed LSP servers: all re-fetched on demand
+      # After a restore run `pnpm install --frozen-lockfile` in /opt/data/mo and `uv python install 3.11`.
+      KOPIUR_IGNORE_RULES: "[/lost+found, /.npm/*, /home/.npm/*, /profiles/*/home/.npm/*, /home/.cache/*, /home/.local/share/pnpm/store/*, /home/.local/share/pnpm/package-manager-store/*, /cache/uv/*, /home/.cargo/registry/*, /home/.rustup/toolchains/*, /home/.local/share/mise/installs/*, /lsp/node_modules/*, /profiles/*/lsp/node_modules/*, /mo/node_modules/*, /home/.local/share/uv/python/*]"

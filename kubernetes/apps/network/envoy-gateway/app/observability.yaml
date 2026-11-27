@@ -9,6 +9,11 @@ spec:
     - port: metrics
       path: /stats/prometheus
       honorLabels: true
+      metricRelabelings:
+        # Histograms no dashboard or rule reads: ~20k series, ~4% of all ingestion.
+        - action: drop
+          sourceLabels: [__name__]
+          regex: envoy_(cluster_update_duration|cluster_upstream_rq_per_cx|cluster_upstream_cx_connect_ms|cluster_upstream_cx_length_ms|cluster_external_upstream_rq_time|http_downstream_cx_length_ms|sds_update_duration|listener_connections_accepted_per_socket_event|listener_downstream_cx_length_ms|cluster_http2_(cookie_count|header_count|header_list_size|cookie_size)|http_rds_update_duration)_(bucket|sum|count)
   selector:
     matchLabels:
       app.kubernetes.io/component: proxy

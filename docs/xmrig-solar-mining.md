@@ -87,6 +87,21 @@ removing three hardcoded numbers that had to stay consistent with `threshold: 50
 The gate itself is a separate factor in the same query: cardinality must be exactly 1 and the
 sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
+A last `unless` drops every miner once the tech cave UPS load has peaked at 80 % or more in the past 5
+minutes, before Pearl's 85 % stop. Pearl starts below 65 % (its ~15 point step plus a margin), so xmrig can only
+lock Pearl out while the base load plus all xmrig nodes (about 15 points) stays at or above 65 %, i.e. a base of
+about 50 % or more. Missing UPS data leaves the other factors in charge. It is the first stage
+of the UPS load shed in `kubernetes/apps/ai/llmkube/models/ups-load-shed.yaml`, together with the
+R9700 dropping to its efficiency power profile at 85 % (`kubernetes/apps/kube-system/amdgpu-undervolt.yaml`).
+
+xmrig no longer mines for room heat: only exported solar starts a miner. Pearl still uses `tech_cave_cold`.
+
+### Other solar consumers
+
+`web3/pearl-miner` ([pearl-solar-mining.md](pearl-solar-mining.md)) draws from the same export and comes
+first: its query counts running xmrig draw as available, and `resourceset.yaml` has no add-back for
+the miner, so xmrig sheds while it runs. xmrig also stops first on UPS load, at 80 % against Pearl's 85 %.
+
 ## Measured
 
 Replayed against 180d of `node_hwmon_temp_celsius` (VM retention) at the native 20s cadence.
@@ -125,6 +140,13 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   The KEDA query therefore also requires allocatable memory minus Pending/Running pod requests,
   excluding the miner itself, to cover the 2Gi request, so a full node scales to 0 instead of
   leaving a miner Pending.
+  Requests now sit below usage, so the query also wants 4Gi of `MemAvailable`, counting the
+  miner's own use.
+- **The chain yields too.** On a full cluster regular pods preempt monerod and p2pool
+  (`low-priority-chain`). Both request a 64Mi token, so preemption rarely needs them. Under real memory pressure the kubelet
+  evicts by priority and use over request: a running miner first, then these. Once a node has room, a preempted monerod was observed Ready again in
+  30-92s and p2pool in 7-108s; without room it stays Pending, and `MoneroChainUnavailable` fires
+  after 2h.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
   node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
   idle but only ~320Mi while mining, since xmrig then requests 2Gi of regular pages instead.

@@ -7,9 +7,11 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie@sha256:03d91d7e0d9bc84be41ed3dc654080eed30233a45d6fbdb523d2091c4dafc37e
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-standard-trixie@sha256:864f6c9626b93c04f4cd2b684f95b0625b1ae54129ed4330f9f1b60f2ff8a629
   instances: 3
   primaryUpdateMethod: switchover
+  # Hostpath PVs pin each instance; a preempted one never returns and deadlocks drains.
+  priorityClassName: homelab-critical
   storage:
     size: 30Gi
     storageClass: openebs-hostpath
@@ -23,10 +25,6 @@ spec:
         login: true
         passwordSecret:
           name: bitmagnet-db
-      - name: jellystat
-        login: true
-        passwordSecret:
-          name: jellystat-db
       - name: radarr
         login: true
         passwordSecret:
@@ -98,24 +96,34 @@ spec:
         login: true
         passwordSecret:
           name: mealie-db
+      - name: tracearr
+        login: true
+        passwordSecret:
+          name: tracearr-db
+      - name: orbit
+        login: true
+        passwordSecret:
+          name: orbit-db
   postgresql:
     parameters:
       wal_level: replica
-      # Cluster-wide cap: backends stack per database + overlap if one DB uses both rw poolers.
-      # Keep above Σ(pooler instances × max_db_connections) for worst-case same-DB paths + replication/autovacuum/admin.
+      # Pool ceilings are per database and user (rw 3x20, session 2x20 each), so they sum above this across ~19 databases; demand bounds it (30d peak 104 backends).
       max_connections: "150"
-      # nextcloud hot set is ~3GB (oc_filecache alone 2GB); at 1GB the daily hit ratio sat at 99.1-99.4%, ~19GiB/day misses
+      # nextcloud hot set is ~3GB; at 1GB the hit ratio sat at 99.1-99.4%.
       shared_buffers: 2GB
-      # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
+      # off: no hugepages are reserved, so try would log a failure every start.
       huge_pages: "off"
-      # io_method: "io_uring" # Needs a custom seccomp profile (RuntimeDefault returns EPERM, cloudnative-pg/cloudnative-pg#9948); not worth it at 99.4% hit ratio and ~7.7 GB reads per 18d.
+      # io_method io_uring: RuntimeDefault seccomp returns EPERM (cloudnative-pg#10446); not worth it at a 99.5% hit ratio.
       work_mem: 16MB
       # End idle-in-xact sessions so xmin can advance (ORM leaks, forgotten BEGIN).
       idle_in_transaction_session_timeout: "600000"
       # Peak maintenance memory ≈ maintenance_work_mem × max_parallel_maintenance_workers (here ~1GB).
       maintenance_work_mem: 512MB
+      # Default -1 lets each of the 3 autovacuum workers take maintenance_work_mem; 128MB covers these small DBs.
+      autovacuum_work_mem: 128MB
       max_parallel_workers: "4"
-      max_parallel_workers_per_gather: "4"
+      # Each parallel worker builds its own relcache and work_mem; tracearr's chunk relcache is ~0.7GiB per backend.
+      max_parallel_workers_per_gather: "2"
       min_wal_size: 2GB
       max_wal_size: 8GB
       # All checkpoints are timed (0 requested/day); each one restarts full-page images in the WAL shipped to R2.
@@ -138,35 +146,42 @@ spec:
       effective_io_concurrency: "200"
       maintenance_io_concurrency: "200"
       pg_stat_statements.max: "7500"
-      # pg_stat_io and pg_stat_wal timings were all 0, so IO and fsync stalls could not be measured; 23.6 ns/loop timer cost.
+      # pg_stat_io and pg_stat_wal timings were 0, so IO and fsync stalls were invisible.
       track_io_timing: "on"
       track_wal_io_timing: "on"
-      # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
+      # Advisory-lock waits reached 9.6 s (kguardian) unlogged; not log_min_duration_statement, it ships literals into logs.
       log_lock_waits: "on"
+      # tracearr's TimescaleDB; values from the official README.
+      timescaledb.telemetry_level: "off"
+      # TimescaleDB needs more lock slots than the 64 default.
+      max_locks_per_transaction: "128"
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"
+      - "timescaledb"
     # pgvector is bundled in the image; a mounted copy would be shadowed ($system leads extension_control_path).
     extensions:
       - name: vchord
         image:
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
-        # vchord-scratch mirrors the base image's real install tree (usr/lib/postgresql/18/lib,
-        # usr/share/postgresql/18/extension) instead of CNPG's default extension-image layout
-        # (lib/, share/ at the image root), so the default search path never finds vchord.so.
-        # These paths are resolved relative to this extension's own mount.
+        # vchord-scratch mirrors the base image's install tree, not CNPG's lib/ share/ layout, which never finds vchord.so.
         dynamic_library_path:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
+      # Community TSL build from docker/timescaledb: the Apache-2.0 edition lacks the continuous aggregates and compression tracearr needs.
+      - name: timescaledb
+        image:
+          reference: ghcr.io/tanguille/timescaledb:2.32.1-18-trixie
   resources:
     requests:
       cpu: 500m
+      # 7d p95 2.8GiB; 3Gi x3 instances does not fit the nodes.
       memory: 2Gi
     limits:
       cpu: 4
-      # working set peaked 3.47GiB (7d) at 2GB shared_buffers
-      memory: 4Gi
+      # Temporary: tracearr's 4,339 one-day chunks load ~0.7GiB of relcache per backend; 4Gi OOM-killed 3 times on 2026-11-17. Back to 4Gi after the chunk drop.
+      memory: 6Gi
   monitoring:
     enablePodMonitor: true
     customQueriesConfigMap:

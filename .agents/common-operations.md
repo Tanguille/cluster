@@ -6,9 +6,9 @@ Also serves as the authoritative command reference linked from `docs/useful_comm
 
 ## Validation and tooling
 
-- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `minijinja-cli`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
+- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `minijinja-cli`, `yq`, `jq`, and `shuck` through `mise exec -- <command>`.
 - Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (renders Helm charts, not just Kustomization YAML).
-- Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
+- Shell-only changes: `mise exec -- shuck check` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
 ## Ceph: `crash ls-new` hides archived crashes, not old ones
@@ -65,7 +65,7 @@ For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` wit
 ## Secrets management (SOPS)
 
 1. Create unencrypted file first
-2. Encrypt with: `sops --encrypt --in-place <file>`
+2. Encrypt with: `just kube encrypt` (every unencrypted `*.sops.*` under `kubernetes/`), or `sops --encrypt --in-place <file>` for one file or anything under `talos/`
 3. Or create with: `sops <file>.yaml` (edits encrypted)
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.

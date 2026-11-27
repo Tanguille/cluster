@@ -40,7 +40,7 @@ else
 fi
 echo ""
 
-# Phase 2: Shellcheck
+# Phase 2: Shuck
 echo "[2/3] Shell Script Validation..."
 # Include tracked and new non-ignored scripts, never ignored clones or nested worktrees.
 # Git paths are relative to REPO_ROOT, so its own path may safely contain /worktrees/.
@@ -51,7 +51,7 @@ SHELL_SCRIPTS=()
 if git -C "${REPO_ROOT}" ls-files --cached --others --exclude-standard -z -- '*.sh' \
     ':(exclude).slim/**' ':(exclude)*worktrees/*' >"${SHELL_LIST}"; then
     while IFS= read -r -d '' script; do
-        # Deleted worktree files and symlinks are not shellcheck inputs.
+        # Deleted worktree files and symlinks are not shuck inputs.
         if [[ -f "${REPO_ROOT}/${script}" && ! -L "${REPO_ROOT}/${script}" ]]; then
             SHELL_SCRIPTS+=("${REPO_ROOT}/${script}")
         fi
@@ -59,21 +59,25 @@ if git -C "${REPO_ROOT}" ls-files --cached --others --exclude-standard -z -- '*.
 else
     fail "Unable to discover repository shell scripts"
 fi
-if ! command -v shellcheck &>/dev/null; then
-    fail "shellcheck not installed (run via mise exec)"
-elif shellcheck "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
-    pass "shellcheck passed"
+if ! command -v shuck &>/dev/null; then
+    fail "shuck not installed (run via mise exec)"
+elif shuck check "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
+    pass "shuck passed"
 else
-    fail "shellcheck found issues"
+    fail "shuck found issues"
 fi
 echo ""
 
 # Phase 3: Fail closed on secret-check/parser/test failures. No decryption or private files.
 echo "[3/3] Repository Secret Guardrails..."
-if (cd "${REPO_ROOT}" && python3 scripts/secret-check.py --all && python3 -m unittest discover -s scripts -v); then
+# mise exec puts the real binaries ahead of the shims: a test that runs lefthook from a temp dir
+# outside .mise.toml otherwise hits a shim with no version.
+if ! command -v mise &>/dev/null; then
+    fail "mise not installed: secret guardrails and tests NOT run"
+elif (cd "${REPO_ROOT}" && mise exec -- python3 scripts/secret-check.py --all && mise exec -- python3 -m unittest discover -s scripts -v); then
     pass "Secret guardrails and regression tests passed"
 else
-    fail "Secret guardrails or regression tests failed (run via mise exec)"
+    fail "Secret guardrails or regression tests failed"
 fi
 echo ""
 

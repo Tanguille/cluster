@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://kritika.home-operations.com/kritika.schema.json
-# Agent files are optional references; Kritika does not discover them automatically.
+# Context files are not discovered; skills under .agents/skills are, read from the merge base.
 context:
   - path: AGENTS.md
     description: Repository architecture and conventions; coding-agent workflows are not review tasks.
@@ -12,7 +12,12 @@ context:
 # Install flate from the aqua registry to check effective Helm values.
 tools:
   # renovate: datasource=github-releases depName=home-operations/flate
-  "aqua:home-operations/flate": "v0.6.5"
+  "aqua:home-operations/flate": "v0.8.0"
+# Load pr-review on every PR; admin scopes leave it unset.
+skills:
+  scope:
+    pr-review:
+      load: true
 rules:
   - id: ceph-csi-lockstep
     paths: ["kubernetes/apps/rook-ceph/**"]

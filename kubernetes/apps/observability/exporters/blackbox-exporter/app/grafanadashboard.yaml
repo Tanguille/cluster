@@ -5,9 +5,5 @@ kind: GrafanaDashboard
 metadata:
   name: blackbox-exporter
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: network
   url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/blackbox_exporter/dashboards/blackbox-exporter.json

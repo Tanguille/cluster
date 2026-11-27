@@ -9,7 +9,7 @@ spec:
   # + dragonfly operators) except the dragonfly instances: Cilium policies are
   # additive, so this all-ports allow would void the 9999 fence in
   # dragonfly/cluster/networkpolicy.yaml. Egress stays default-allow (backups
-  # to NFS/S3, operator->apiserver keep working).
+  # to S3, operator->apiserver keep working).
   endpointSelector:
     matchExpressions:
       - key: app

@@ -54,9 +54,11 @@ Two conventions keep the layers honest:
 
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
-`vip` and `gateway` are defined once in `mod.just` and passed to every layer. Node addresses and
-the `192.168.0.0/24` subnet are still literals in the files that use them; only these two are
-centralised.
+`vip` is defined once in `mod.just` and passed to every layer. `gateway` and `log_relay_ip` are
+read from `OPNSENSE_IP` and `TALOS_LOG_RELAY_IP` in
+`kubernetes/components/common/cluster-settings.yaml`, the values Flux uses for the router and
+the relay's Service. Node addresses and the `192.168.0.0/24` subnet are still
+literals in the files that use them; only these three are centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is
@@ -66,11 +68,12 @@ documents that are identical per node but would reorder the stream stay put.
 ## Schematics
 
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID, which `download-image` uses to fetch the ISO. Installers are not keyed by it.
+content-addressed ID. `render-config` puts it in `machine.install.image`
+(`factory.talos.dev/metal-installer/<id>:<version>`), and `download-image` uses it to fetch the ISO.
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
 `schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
-overrides, because it is the TrueNAS VM and the only dGPU host.
+overrides, because it is the TrueNAS VM and the only GPU host (R9700 and RTX 2070).
 
 Schematics are plain YAML, deliberately not templates. Routing them through `template` would
 decrypt the secrets bundle to render a file that references no secrets. If a schematic ever needs a
@@ -78,9 +81,8 @@ variable, add the extension back.
 
 **The ID is content-addressed, so any change to a schematic's fields moves it** — including a
 one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
-the YAML before hashing, verified by stripping a comment and getting the same id back. Installer
-repos are keyed by node or `shared`, never by ID (see `docker/talos-kernel/README.md`), so an edit
-moves no installer ref; only the Factory ISO from `download-image` follows the new ID.
+the YAML before hashing, verified by stripping a comment and getting the same id back. A running
+node only picks up a new ID through an upgrade (`just talos upgrade-node` reads the rendered image).
 
 ## Gotchas
 
@@ -111,7 +113,7 @@ after tuppr has rolled every node, and re-run `diff-node` on all three before ap
 | `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
 | `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default |
 | `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates |
-| `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
+| `UdevRulesConfig` | caps NVMe (and control-1's virtio `vd*`) `discard_max_bytes` at 256 MiB; the 2 TiB NVMe and 2 GiB virtio limits let weekly trim send multi-second discards |
 | `EtcFileConfig` | `/etc/gvisor/runsc-hostnet.toml` for the `runsc-hostnet` handler (`cri/` is a forbidden prefix). Upstream's `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize) is still unadopted; our five NFS mounts run at kernel defaults |
 
 Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
@@ -139,6 +141,34 @@ Evaluate separately rather than adopting blindly: NRI is enabled by default in 1
 `net.ipv4.conf.*.send_redirects` defaults to `0`, and etcd's HTTP endpoints move `2379` → `2383`
 (we are unaffected, `listen-metrics-urls` is pinned to `2381`).
 
+## Talos 1.15 adoption
+
+Same rule as 1.14: apply only after a node runs 1.15, since a 1.14 node rejects the whole config
+over `DiskSMARTConfig`.
+
+**Rollout order.** tuppr builds a node's target from the install image in its *live* config, which
+still names the self-built `ghcr.io/tanguille/installer/*` repos that no longer get new tags. So
+merging first parks tuppr on an image nothing publishes. Move the nodes by hand from this branch
+before merging, one at a time (control-1 last), waiting for `Ready` and a running Cilium agent:
+
+```sh
+just talos upgrade-node <node> <ip>   # reads the rendered Factory image for v1.15.0-beta.1
+```
+
+Then merge (tuppr finds every node at its target and completes), run `diff-node` on all three, and
+`apply-node` one node at a time (etcd config changes now restart etcd without a reboot) to land the
+Factory install image and `DiskSMARTConfig`. A 1.14 UKI cannot read that config, so `talosctl
+rollback` is off the table from here. Only then drop the `talosctl.image.tag` pins.
+
+| Document | Replaces / adds |
+| --- | --- |
+| `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive). Not `readinessCheck`: anonymous `/readyz` is 401 with `cluster.apiServer` |
+| `DiskSMARTConfig` | Talos-native SMART collection (`SMARTStatus`); off on upgraded clusters until the document exists |
+
+The kernel is stock (the self-built pipeline is in git at `a9ed961f5f`); the schematics set
+`preempt=full` over its `PREEMPT_LAZY`. containerd config moves to version 4; our
+`CRICustomizationConfig` documents only use `plugins."io.containerd.cri.v1.*"`, which did not move.
+
 ## Common tasks
 
 These use the repo's pinned `talosctl` and `minijinja-cli`. `.envrc` puts them on `PATH` via mise,
@@ -150,7 +180,7 @@ picked up from the system `PATH` is a different version than this pipeline is te
 just talos render-config <node>          # render a node's full machine config to stdout
 just talos diff-node <node> <ip>         # dry-run the rendered config against the running node
 just talos apply-node <node> <ip>        # render and apply
-just talos upgrade-node <node> <ip>      # upgrade Talos to the node's pinned installer
+just talos upgrade-node <node> <ip>      # upgrade Talos to the node's rendered install image
 just talos upgrade-k8s                   # upgrade Kubernetes to the version in the tuppr CR
 just talos talosconfig                   # regenerate the client config from the secrets bundle
 just talos download-image <node> <ver>   # fetch a metal ISO from the Image Factory

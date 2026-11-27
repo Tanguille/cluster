@@ -12,15 +12,8 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 9.4.1
+        tag: 9.4.6
       url: oci://ghcr.io/nextcloud/helm/nextcloud
-  # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
-  valuesFrom:
-    - kind: Secret
-      name: nextcloud-secret
-      valuesKey: FROM_ADDRESS
-      targetPath: nextcloud.mail.fromAddress
-
   # Chart has no automountServiceAccountToken value, and this internet-exposed pod needs no SA token.
   postRenderers:
     - kustomize:
@@ -39,10 +32,10 @@ spec:
               - op: add
                 path: /spec/jobTemplate/spec/template/spec/automountServiceAccountToken
                 value: false
-              # Chart has no TTL value; a failed run otherwise keeps KubeJobFailed firing until the next failure.
+              # Chart has no TTL value. 24h keeps finished jobs past a multi-hour outage; a failed run keeps KubeJobFailed up to a day.
               - op: add
                 path: /spec/jobTemplate/spec/ttlSecondsAfterFinished
-                value: 3600
+                value: 86400
 
   values:
     prometheus:
@@ -65,7 +58,7 @@ spec:
                     - control-1
     image:
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:a95dee2ba3e6be69840baac100dc81741f145427a92d0489711a85819d8cb448
+      tag: 35.0.3-fpm@sha256:d94f573f34403c0ffa4292a244d572a53cae17963c44078636e2e64ef234e75b
 
     lifecycle:
       postStartCommand:
@@ -75,8 +68,17 @@ spec:
     nginx:
       enabled: true
       image:
-        repository: nginx
-        tag: 1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+        repository: nginxinc/nginx-unprivileged
+        tag: 1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
+      # containerd allows unprivileged ports, so the chart's listen 80 still binds.
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -85,13 +87,15 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
-      # 256Mi OOMKilled mid-upload of the nightly HA backup (08-23, 09-04, 09-05); 30d scraped peak 101Mi.
+          # Nothing scrapes the native /metrics, and any pod can spoof X-Forwarded-For into its loopback allowlist, so PHP never sees it.
+          location ~ ^/(?:index\.php/)?metrics(?:/|$) { return 404; }
       resources:
         requests:
-          cpu: 50m
-          memory: 256Mi
+          cpu: 5m
+          memory: 8Mi
         limits:
           cpu: 2
+          # 7d scraped peak 32Mi; upload spikes fall between scrapes, and a 256Mi limit OOMKilled the nightly HA backup (08-23, 09-04, 09-05).
           memory: 512Mi
 
     nextcloud:
@@ -100,23 +104,35 @@ spec:
         # libpq: covers the replica connections too, which pgsql_ssl does not reach.
         - name: PGSSLMODE
           value: require
+        # No client certs: with PGSSLMODE, libpq stats $HOME/.postgresql/postgresql.crt and fails fatally when HOME=/root is unreadable to www-data (fpm workers, occ via `su -p`; 503s after the 2026-11-04 image re-release).
+        - name: PGSSLCERTMODE
+          value: disable
+        # Mail goes through the in-cluster smtp-relay (plain SMTP, no auth, it holds the Gmail credentials).
+        # Set here instead of nextcloud.mail: the chart makes the SMTP username and password secret keys mandatory, and the image
+        # only reads these env vars (smtp.config.php), with no SMTP_NAME meaning no auth.
+        - name: SMTP_HOST
+          value: smtp-relay.network.svc.cluster.local
+        - name: SMTP_PORT
+          value: "25"
+        - name: MAIL_DOMAIN
+          value: gmail.com
+        - name: MAIL_FROM_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secret
+              key: FROM_ADDRESS
 
       existingSecret:
         enabled: true
         secretName: nextcloud-secret
         usernameKey: NEXTCLOUD_USERNAME
         passwordKey: NEXTCLOUD_PASSWORD
-        smtpUsernameKey: SMTP_USERNAME
-        smtpPasswordKey: SMTP_PASSWORD
-        smtpHostKey: SMTP_HOST
 
       host: nextcloud.${SECRET_DOMAIN}
 
-      mail:
-        enabled: true
-        domain: gmail.com
-        smtp:
-          secure: starttls
+      # Nothing scrapes the native /metrics; an empty list makes the chart omit OPENMETRICS_ALLOWED_CLIENTS, so Nextcloud's loopback-only default (127.0.0.0/16, ::1/128) applies.
+      openmetrics:
+        allowedClients: []
 
       # Root only for post-start.sh's apt-get; the entrypoint drops to www-data itself
       securityContext:
@@ -137,13 +153,17 @@ spec:
         - name: scripts
           configMap:
             name: nextcloud-scripts
-            defaultMode: 0755
         - name: replica-config
           secret:
             secretName: nextcloud-secret
             items:
               - key: replica.config.php
                 path: replica.config.php
+        # Share root for files_external Local mounts; never mount /mnt/nas or /mnt/nas/Shared (the data dir).
+        - name: nas
+          nfs:
+            server: "${TRUENAS_IP}"
+            path: /mnt/TanguilleServer/TanguilleSMB
 
       extraVolumeMounts:
         - name: scripts
@@ -153,6 +173,8 @@ spec:
           mountPath: /var/www/html/config/replica.config.php
           subPath: replica.config.php
           readOnly: true
+        - name: nas
+          mountPath: /mnt/nas
 
       phpConfigs:
         www.conf: |
@@ -160,13 +182,6 @@ spec:
           user = www-data
           group = www-data
           listen = 127.0.0.1:9000
-          ; The container runtime gives the fpm master - and thus the www-data workers -
-          ; HOME=/root. With PGSSLMODE=require, libpq's default client-cert lookup
-          ; ($HOME/.postgresql/postgresql.crt) then fails fatally (EACCES on the 0700 /root)
-          ; and every DB connection errors, 503-ing all web requests (seen after the
-          ; 35.0.2-fpm image re-release of 2026-11-04). Pin the workers' HOME to a
-          ; directory they can stat; verified connect OK from www-data with HOME=/var/www.
-          env[HOME] = /var/www
           pm = dynamic
           ; php-fpm ini: only ';' comments are valid here, '#' fails the parser
           ; 4 workers starved /status.php past the 5s probe under a thumbnail burst; ~175MB RSS/worker measured
@@ -181,14 +196,13 @@ spec:
           php_admin_value[fatal_error_backtraces] = 0
 
       configs:
+        # Pod network only (cloudflared, Envoy); trusting LAN ranges made Nextcloud see Envoy, not the LAN client, in logs and brute-force throttling.
         proxy.config.php: |-
           <?php
           $CONFIG = array (
             'trusted_proxies' => array(
               0 => '127.0.0.1',
-              1 => '10.0.0.0/8',
-              2 => '172.16.0.0/12',
-              3 => '192.168.0.0/16',
+              1 => '${POD_CIDR}',
             ),
             'trusted_domains' => array(
               0 => 'nextcloud.${SECRET_DOMAIN}',
@@ -205,6 +219,9 @@ spec:
             'loglevel' => 1,
             'logdateformat' => 'F d, Y H:i:s',
             'allow_local_remote_servers' => true,
+            // config.php on the PVC keeps the install-time dbhost (the primary); this file overrides it.
+            // Session pooler: the pgsql adapter reads inserted ids with a separate SELECT lastval(), which transaction pooling can route to another backend.
+            'dbhost' => 'pgbouncer-session.database.svc.cluster.local:5432',
           );
         performance.config.php: |-
           <?php
@@ -247,7 +264,7 @@ spec:
 
     externalDatabase:
       type: postgresql
-      host: pgbouncer-rw.database.svc.cluster.local:5432
+      host: pgbouncer-session.database.svc.cluster.local:5432
       existingSecret:
         secretName: nextcloud-secret
         usernameKey: INIT_POSTGRES_USER
@@ -339,8 +356,9 @@ spec:
       enabled: true
       type: cronjob
       cronjob:
-        failedJobsHistoryLimit: 1
-        successfulJobsHistoryLimit: 2
+        # Keeps a window of silent skips visible; failedJobsHistoryLimit stays at the
+        # chart default (5), an explicit value is flagged redundant by deadvalues.
+        successfulJobsHistoryLimit: 10
         affinity:
           podAffinity:
             requiredDuringSchedulingIgnoredDuringExecution:
@@ -356,17 +374,20 @@ spec:
         securityContext:
           # cron.sh runs as www-data, not via the root entrypoint.
           allowPrivilegeEscalation: false
-          capabilities: { drop: [ALL] }
+          capabilities:
+            drop:
+              - ALL
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
         resources:
           requests:
             cpu: 100m
-            memory: 500Mi
+            # Affinity pins it to the app pod's node; a large request there went Pending.
+            memory: 256Mi
           limits:
             cpu: "2"
-            # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
+            # 2Gi was hit (cron OOMKilled); 30d max 2.71GiB
             memory: 4Gi
 
     # nginx's probes hit /status.php via fpm, so a saturated pool restarted nginx; readiness still gates traffic.
@@ -382,9 +403,9 @@ spec:
 
     resources:
       requests:
-        cpu: 100m
-        memory: 500Mi
+        cpu: 10m
+        memory: 192Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        # 30d max WSS 1.22GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi

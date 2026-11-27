@@ -11,14 +11,8 @@ spec:
     - ../../../../components/kopiur
   path: ./kubernetes/apps/default/changedetection/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m
   postBuild:
     substitute:
       APP: *app
       PVC_CAPACITY: 2Gi
-      KOPIUR_PUID: "0"
-      KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"

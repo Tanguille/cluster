@@ -1,6 +1,6 @@
 ---
 # control-1 diverges from the fleet: TrueNAS VM (qemu-guest-agent) and the only
-# dGPU host, so it carries the amdgpu tuning args the Chuwi boxes do not need.
+# GPU host (R9700 plus RTX 2070), so it carries the amdgpu tuning args the Chuwi boxes do not need.
 # Overrides are complete files, not deltas.
 customization:
   extraKernelArgs:
@@ -20,6 +20,7 @@ customization:
     - amdgpu.ras_enable=0
     - pcie_aspm.policy=performance
     - mitigations=off
+    - preempt=full # see schematic.yaml
     - security=none
   systemExtensions:
     officialExtensions:
@@ -28,3 +29,7 @@ customization:
       - siderolabs/qemu-guest-agent
       - siderolabs/nfsrahead
       - siderolabs/gvisor
+      # Modules and driver userspace for the same driver version; the container runtime comes from
+      # the GPU Operator through NRI (kubernetes/apps/gpu-operator).
+      - siderolabs/nvidia-open-gpu-kernel-modules-production
+      - siderolabs/nvidia-container-toolkit-production

@@ -1,0 +1,21 @@
+# mesh-organiser fork's built-in MCP server (ENABLE_MCP, stateless streamable HTTP at /mcp);
+# MCPServerEntry proxies the running instance in place, no bridge pod.
+# Auth is the library owner's sync token (fork docs/mcp.md "Getting the token"); rotating it also
+# unlinks the desktop apps. MESH_ORGANISER_MCP_TOKEN holds 'Bearer <token>' in toolhive-secrets (sops-encrypted).
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserverentry_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServerEntry
+metadata:
+  name: mesh-organiser
+spec:
+  remoteUrl: http://mesh-organiser.maker.svc:3000/mcp
+  transport: streamable-http
+  groupRef:
+    name: all
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          key: MESH_ORGANISER_MCP_TOKEN

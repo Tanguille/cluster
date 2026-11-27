@@ -22,6 +22,8 @@ spec:
           backoffLimit: 1
           # A kept failed Job holds KubeJobFailed until it is deleted.
           ttlSecondsAfterFinished: 3600
+          # Bounds a hung run (same as etcd-defrag).
+          activeDeadlineSeconds: 3600
         containers:
           app:
             image:

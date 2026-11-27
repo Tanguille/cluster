@@ -18,9 +18,9 @@ spec:
       terminationGracePeriodSeconds: 90
       # Terminal tool and headless Chromium run model-directed code.
       runtimeClassName: gvisor
+      # No fsGroup: the root entrypoint chowns /opt/data, and Hermes chmods it 0700, so every
+      # OnRootMismatch mount re-walked the PVC adding g+rw and ssh then refused the 0660 key.
       securityContext:
-        fsGroup: 10000
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
 
@@ -33,7 +33,7 @@ spec:
           app:
             image: &image
               repository: nousresearch/hermes-agent
-              tag: v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002
+              tag: v0.23.4@sha256:ef0650d523ee1b5ab32c779acabc446d9936869a9932591553688a62bcf0c42f
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -85,9 +85,9 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 2Gi
+                memory: 896Mi
+              # No CPU limit: under gVisor only the pod cgroup gets a quota, and only when every container sets one.
               limits:
-                cpu: 2
                 memory: 6Gi
           # Holds the Google token away from the agents; serves the digest on 127.0.0.1:8765 (resources/google_digest.py).
           google-digest:
@@ -157,14 +157,26 @@ spec:
           hermes:
             app:
               - path: /opt/data/.cache
-      dshm:
-        type: emptyDir
-        medium: Memory
-        sizeLimit: 1Gi
+      # Overlays the job's PVC script path; the PVC copy stays as the rollback.
+      cron-health:
+        type: configMap
+        name: hermes-cron-health
         advancedMounts:
           hermes:
             app:
-              - path: /dev/shm
+              - path: /opt/data/scripts/cron_health_export.py
+                subPath: cron_health_export.py
+                readOnly: true
+      # subPath only: the image bakes chromium-executable-path and image-provenance.json into /etc/hermes.
+      managed-config:
+        type: configMap
+        name: hermes-managed-config
+        advancedMounts:
+          hermes:
+            app:
+              - path: /etc/hermes/config.yaml
+                subPath: config.yaml
+                readOnly: true
       google-digest:
         type: configMap
         name: hermes-google-digest

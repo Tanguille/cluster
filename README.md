@@ -78,7 +78,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
 | **DNS**         | external-dns                   | Record sync                              |
 | **TLS**         | cert-manager                   | Certificate lifecycle                    |
-| **GPU**         | AMD R9700 (full passthrough)   | LLM inference on control-1               |
+| **GPU**         | AMD R9700 + NVIDIA RTX 2070 (full passthrough) | LLM inference on control-1 (R9700), time-sliced media/inference (2070) |
 | **Storage**     | Rook-Ceph, OpenEBS Hostpath    | Tiered by durability requirement         |
 | **Databases**   | CloudNative-PG, Dragonfly      | Postgres clusters, in-memory store       |
 | **Secrets**     | SOPS + age                     | Encrypted manifests, zero plain-text     |
@@ -91,11 +91,11 @@ or replicated data where performance is critical (e.g. postgres).
 
 | Role      | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
 |-----------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
-| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
+| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 + NVIDIA RTX 2070 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
 | control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Samsung 980 Pro 1 TB |
 | control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Micron 7450 Pro 960 GB |
 
-All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
+All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU and the RTX 2070 is shared by time-slicing.
 Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 
 ---
@@ -114,6 +114,10 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **OmniRoute**| LLM routing                                                |
 | **LLMKube**  | K8s-native LLM model management (radiance/llama.cpp)       |
 | **Memini**   | Long-term memory for agents                                |
+| **Paseo**    | Web UI to run and manage coding agents                     |
+| **PasteGuard** | Masks secrets in requests to free cloud models           |
+| **8-ball**   | Decisions with Decider Flash v1.3 and Qwen escalation      |
+| **Pearl miner** | Solar-gated miner on the RTX 2070                       |
 
 Tuning constraints and benchmark history for the inference stack live in
 [`docs/llm-hosting/`](docs/llm-hosting/).
@@ -124,8 +128,8 @@ Tuning constraints and benchmark history for the inference stack live in
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
-Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr ·
-Unpackerr · BRRPolice · FileFlows · Qui
+Wizarr · Bazarr · Recyclarr · Cleanrr · Unpackerr ·
+FlareSolverr · BRRPolice · FileFlows · Qui · Bitmagnet · Maintainerr · Tracearr
 
 </details>
 
@@ -133,7 +137,22 @@ Unpackerr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisfactory
+Ghostfolio · IT-Tools · PicoShare · DumbAssets · Forgejo · Mealie · Wakapi ·
+Continuwuity · Sable · rsume · family-blog
+
+</details>
+
+<details>
+<summary>🎮 <b>Games</b> (namespace <code>games/</code>)</summary>
+
+Satisfactory
+
+</details>
+
+<details>
+<summary>🖨️ <b>Maker</b> (namespace <code>maker/</code>)</summary>
+
+Obico · Spoolman · Mesh Organiser
 
 </details>
 
@@ -177,7 +196,8 @@ Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
 generic-device-plugin · AMD GPU undervolt · actions-runner-controller (self-hosted
 GitHub runners) · Flux · Konflate · Rook-Ceph · OpenEBS · cert-manager ·
-kopiur (backup machinery) · system-upgrade (Talos upgrades) · renovate-operator ·
+kopiur (backup machinery) · Kopia (backup browser) · system-upgrade (Talos upgrades) ·
+renovate-operator · NVIDIA GPU Operator · TrueNAS CSI ·
 Kritika (namespace kritika/) · Monero node + P2Pool (namespace web3/)
 
 </details>
@@ -268,6 +288,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | radiance runbook, vLLM-era tuning constraints + benchmark history |
+| [NVIDIA RTX 2070](docs/nvidia-gpu-control-1.md) | control-1 setup, change checks and GPU workloads |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |

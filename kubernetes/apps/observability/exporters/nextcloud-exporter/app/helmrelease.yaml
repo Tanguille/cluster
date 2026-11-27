@@ -9,6 +9,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: ndots-1
 
   values:
     controllers:
@@ -33,7 +36,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 64Mi
+                memory: 8Mi
               limits:
                 memory: 128Mi
             securityContext:
@@ -55,5 +58,5 @@ spec:
       app:
         endpoints:
           - port: http
-            # each scrape triggers Nextcloud's DB-heavy serverinfo API; upstream examples use 5m
+            # each scrape queries Nextcloud's serverinfo API; the exporter README says to raise the interval to cut that load
             interval: 5m

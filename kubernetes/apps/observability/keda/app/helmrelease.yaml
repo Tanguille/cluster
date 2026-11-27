@@ -9,11 +9,15 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 2.21.0
+        tag: 2.21.1
       url: oci://ghcr.io/home-operations/charts-mirror/keda
   interval: 1h
   values:
     enableServiceLinks: false
+    resources:
+      operator:
+        requests:
+          memory: 64Mi
     prometheus:
       metricServer:
         enabled: true

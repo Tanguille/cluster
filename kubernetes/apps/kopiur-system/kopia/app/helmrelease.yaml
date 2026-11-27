@@ -48,7 +48,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 1Gi
+                memory: 512Mi
               limits:
                 memory: 1Gi
     defaultPodOptions:
@@ -92,7 +92,7 @@ spec:
     configMaps:
       config:
         data:
-          # readonly: kopiur owns every write; in-pod CLI repair needs its own --config-file under /tmp.
+          # readonly: frozen NFS history (docs/kopiur-s3.md); in-pod CLI repair needs its own --config-file under /tmp.
           repository.config: |-
             {
               "storage": {

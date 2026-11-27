@@ -9,6 +9,14 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  # low-priority-chain pods may sit Pending on a full cluster; waiting on them fails the upgrade and
+  # its rollback alike.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
   values:
     controllers:
       monerod:
@@ -16,10 +24,12 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: v0.18.5.4@sha256:0c0b9b0fd35507e5c5c843732c433657f4a64b6d7c1cc709807fed45d7e8c024
+              tag: v0.18.5.4@sha256:1d48b2b2fb22e7dff04f97132495bdc7b83608faffd3b2c213a09d72a4f7f99c
             securityContext:
-              # Entrypoint chowns data as root then su-execs to the app UID, so capabilities stay.
               allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -32,13 +42,12 @@ spec:
               - "--enable-dns-blocklist"
               - "--out-peers=32"
               - "--in-peers=64"
-              - "--add-priority-node=nodes.hashvault.pro:18080"
               - "--prune-blockchain"
               - "--sync-pruned-blocks"
             resources:
               requests:
                 cpu: 50m
-                memory: 1Gi
+                memory: 64Mi
               limits:
                 cpu: 500m
                 memory: 1Gi
@@ -51,6 +60,12 @@ spec:
                     path: /get_info
                     port: 18089
                   periodSeconds: 30
+                  # app-template defaults (timeoutSeconds: 1, failureThreshold: 3) kill a healthy
+                  # node about 60s into a restricted-RPC stall (sync bursts on the 150Gi Ceph RBD):
+                  # 4 liveness kills in 6 minutes on 2026-11-18 after the 166106b rollout.
+                  # 10s per probe and 5 failures tolerate about 130s.
+                  timeoutSeconds: 10
+                  failureThreshold: 5
               readiness:
                 enabled: true
                 custom: true
@@ -63,10 +78,15 @@ spec:
                   httpGet: *get-info
                   failureThreshold: 60
     defaultPodOptions:
+      priorityClassName: low-priority-chain
       # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s
       # default risks killing it mid-write.
       terminationGracePeriodSeconds: 120
+      # Started as 1000, the entrypoint skips its root chown + su-exec.
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
     service:

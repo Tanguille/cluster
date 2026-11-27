@@ -9,6 +9,13 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  # homelab-optional pods may sit Pending; don't wait on them.
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  rollback:
+    disableWait: true
 
   values:
     controllers:
@@ -20,7 +27,7 @@ spec:
             image:
               # Same binary as upstream's image, which has no git and runs as root.
               repository: ghcr.io/joryirving/opencode
-              tag: 2.2.6@sha256:37ffa7afb179207c4e5a2f0368345e47debec7176ec3920142b094df54f1a4a0
+              tag: 2.4.2@sha256:659cae8eb5c4756f27d0a27d42bc76d10e3f7fa1bc292c20b7431da20f623b39
             env:
               TZ: ${TIMEZONE}
               # Sessions migrated from the VM store absolute paths under this home.
@@ -61,13 +68,13 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
+                memory: 64Mi
               limits:
                 cpu: 1
                 memory: 2Gi
 
     defaultPodOptions:
-      priorityClassName: homelab-important
+      priorityClassName: homelab-optional
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
       securityContext:

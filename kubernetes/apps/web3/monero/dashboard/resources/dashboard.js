@@ -831,7 +831,7 @@ function updateTrueLuck(payouts, newestPayoutTime, xmrPerDayAvg, totalXMR) {
   try {
     // The window has to span the payouts being compared. Anchoring it to the
     // 24h log's first sample made it negative whenever the newest payout was
-    // more than a day old — which, on a solar-gated miner, is most of the time.
+    // more than a day old.
     const oldestPayoutTime = payouts?.length
       ? Math.min(...payouts.map((p) => p.timestamp))
       : 0;
@@ -934,28 +934,28 @@ function updateWorkersList() {
   const workers = state.oldStatsData?.workers;
   if (!Array.isArray(workers) || workers.length === 0) {
     workersList.innerHTML =
-      '<div class="no-workers">No miners connected. xmrig is scaled to zero until there is surplus solar.</div>';
+      '<div class="no-workers">No miners connected.</div>';
     return;
   }
 
-  workersList.innerHTML = workers
-    .map((workerStr) => {
-      const parts = workerStr.split(",");
-      const ipPort = parts[0] || "Unknown";
-      const hashrate = parseInt(parts[1], 10);
-      const name =
-        parts[4]?.trim() && parts[4] !== "x"
-          ? parts[4]
-          : `Miner @ ${ipPort.split(":")[0]}`;
-
-      return `
-      <div class="worker-item">
-        <span class="worker-name">${name}</span>
-        <span class="worker-hash">${scaleHashrate(hashrate)}</span>
-      </div>
-    `;
+  workersList.replaceChildren(
+    ...workers.map((workerStr) => {
+      const [ipPort, hash, , , workerName] = workerStr.split(",");
+      const row = document.createElement("div");
+      row.className = "worker-item";
+      const name = document.createElement("span");
+      name.className = "worker-name";
+      name.textContent =
+        workerName?.trim() && workerName !== "x"
+          ? workerName
+          : `Miner @ ${(ipPort || "Unknown").split(":")[0]}`;
+      const rate = document.createElement("span");
+      rate.className = "worker-hash";
+      rate.textContent = scaleHashrate(parseInt(hash, 10));
+      row.append(name, rate);
+      return row;
     })
-    .join("");
+  );
 }
 
 function updateOldDashboardStats(poolData) {
@@ -976,7 +976,7 @@ function updateOldDashboardStats(poolData) {
 // ==============================
 // TIDE TABLE
 // ==============================
-// KEDA runs xmrig only on surplus solar, so history reads per calendar day:
+// KEDA runs xmrig intermittently, so history reads per calendar day:
 // when the miners ran, for how long, and what the day yielded.
 
 function startOfDay(ms) {
@@ -1262,7 +1262,7 @@ function renderStateBand() {
     );
     setTextContent(
       "stateDetail",
-      `${state.live.miners.map((m) => m.name).join(", ")} on surplus solar${running ? ` since ${whenText(last.start)}` : ""}.`
+      `${state.live.miners.map((m) => m.name).join(", ")}${running ? ` since ${whenText(last.start)}` : ""}.`
     );
     return;
   }
@@ -1272,12 +1272,12 @@ function renderStateBand() {
   setTextContent(
     "stateDetail",
     last
-      ? `Last mined ${clockTime(lastDay.runs[0].start)}–${clockTime(last.end)}, ${hoursMinutes(lastDay.minedMs)} in total. The miners start when there is surplus solar.`
-      : "No mining in the last 7 days. The miners start when there is surplus solar."
+      ? `Last mined ${clockTime(lastDay.runs[0].start)}–${clockTime(last.end)}, ${hoursMinutes(lastDay.minedMs)} in total.`
+      : "No mining in the last 7 days."
   );
 }
 
-/** One miner per node, each gated on its own surplus: name every one that is running. */
+/** One miner per node, each with its own gate: name every one that is running. */
 function renderMiners(miners) {
   setTextContent(
     "minersCount",
@@ -1287,7 +1287,7 @@ function renderMiners(miners) {
     "minersList",
     miners.length
       ? miners.map((m) => `${m.name} ${scaleHashrate(m.hashrate)}`).join("\n")
-      : "They start on surplus solar"
+      : "Surplus solar can trigger mining"
   );
 }
 

@@ -4,7 +4,7 @@ kind: MCPServer
 metadata:
   name: homeassistant
 spec:
-  image: ghcr.io/homeassistant-ai/ha-mcp:9.1.1@sha256:af672ec0957ae6ac53acf633ea30d8337bfe70b75366dcd5da711b9a55e608e7
+  image: ghcr.io/homeassistant-ai/ha-mcp:9.3.0@sha256:8da893a58da84be7c6e2a8057dfac4fc74821bc5bf17676b5223e439e914db2b
   transport: streamable-http
   mcpPort: 8086
   groupRef:
@@ -13,6 +13,10 @@ spec:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
     - name: ENABLE_BETA_FEATURES
+      value: "true"
+    - name: HAMCP_ENABLE_FILESYSTEM_TOOLS
+      value: "true"
+    - name: ENABLE_YAML_CONFIG_EDITING
       value: "true"
     - name: HAMCP_ENABLE_DASHBOARD_SCREENSHOT
       value: "true"
@@ -24,7 +28,6 @@ spec:
       targetEnvName: HOMEASSISTANT_TOKEN
   podTemplateSpec:
     spec:
-      automountServiceAccountToken: false
       volumes:
         - name: tmp
           emptyDir: {}

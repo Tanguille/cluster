@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nvidia-gpu-exporter
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: 3.0.0
+      url: oci://ghcr.io/utkuozdemir/charts/nvidia-gpu-exporter
+  values:
+    # The chart requests no nvidia.com/gpu, so the exporter does not take a time-slice from the workloads.
+    # The NRI plugin injects the whole GPU instead (gpu-operator NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES).
+    podAnnotations:
+      nvidia.cdi.k8s.io/pod: management.nvidia.com/gpu=all
+    priorityClassName: homelab-critical
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    nodeSelector:
+      nvidia.com/gpu: "true"
+    serviceMonitor:
+      enabled: true

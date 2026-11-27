@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.0.117
+        tag: 0.0.127
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -34,6 +34,12 @@ spec:
       podTemplate:
         spec:
           runtimeClassName: gvisor
+          # gh telemetry (cafe.github.com) was the most refused host; kritika refuses GH_* env names.
+          containers:
+            - name: runner
+              env:
+                - name: DO_NOT_TRACK
+                  value: "1"
           resources:
             requests:
               cpu: 10m
@@ -98,11 +104,8 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      # PRs reviewed at once; 6 drained the free omniroute tiers (Logfare 20/min, 3 concurrent) in bursts.
-      reviewWorkers: 4
-      limits:
-        # Model calls in flight, split-review parts included; matches reviewWorkers so bursts stay off the free tiers.
-        concurrency: 4
+      # PRs reviewed at once; a split review takes every free llm slot, so llm has more.
+      reviewWorkers: 12
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
@@ -114,23 +117,45 @@ spec:
           privateKey: { env: GITHUB_APP_PRIVATE_KEY }
           webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
       providers:
-        llm:
+        llm: &llm
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
+          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen.
+          concurrency: 16
+          # Logfare 429/503 cooldowns clear in seconds to ~2 min; without retries each one sent a 150K-token call to qwen.
+          # Backoff 1s doubling to 30s (~7s for 3); the fallback runs only after these are spent.
+          retries: 3
+        # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
+        local:
+          <<: *llm
+          # One of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
+          # At 4, queueing behind Hermes pushed 64-188K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
+          # At 2, a failover burst held radiance in 150K-token cold prefills (~80 s each) while interactive sessions queued (2026-11-15).
+          concurrency: 1
+          # A retry would resend a call of up to 25m.
+          retries: 0
+          # Fallback calls took up to 807s (p95 387s) unqueued; 5m default abandoned them and resent the step.
+          # 25m rides out queueing and stays under the engine's 1800s backend timeout.
+          timeout: 25m
+        # Own provider so the embedder doesn't scale with llm: index runs hold all but one slot.
+        embed:
+          <<: *llm
+          concurrency: 3
       review:
         model: llm/omniroute
-        # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
-        fallback: llm/qwen-3.8
+        # The only inkling-2-mini fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
+        fallback: local/inkling-2-mini
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
-      # Keep default step/token limits: 1M tokens stopped a 98-file PR with 42 files unread.
       agent:
         parts: 16
-        # 60 default steps at omniroute's ~80s p95 per call need over an hour; 45m canceled 98- and 28-file reviews.
-        timeout: 90m
+        steps: 100
+        tokens: 12000000
+        # 100 steps at omniroute's ~80s p95 per call need over 2h; the cap is 2h35m.
+        timeout: 150m
       rules:
         - id: verify-effective-behavior
           rule: >-
@@ -138,35 +163,64 @@ spec:
             and pinned dependency defaults; for Helm, inspect templates or
             rendered output. Cite evidence of changed behavior, not just a
             removed explicit value. Put unverified concerns in the summary as
-            checks, and report concrete defects even when tests pass.
+            checks: a finding whose case rests on "if", "may" or "verify
+            whether" is one. Report concrete defects even when tests pass.
         - id: renovate
           when:
             - expr: pr.headRef.startsWith("renovate/")
           rule: >-
             This is a Renovate dependency update. Read what changed from the
-            release notes in the PR body, or from upstream's release notes or
-            compare view with gh (one call per release, never the releases
-            list). Then search this repository for uses of the package,
-            including the comments in those files, and report each breaking
-            change, deprecation, rename or changed default that affects it,
-            and any version it must stay in lockstep with. Start with a
-            verdict, safe to merge or not, and name the sources you read.
+            release notes in the PR body. Only when they are missing, cut
+            short or skip versions, read upstream's with gh in one releases
+            call filtered to the range's tags (gh api
+            'repos/OWNER/REPO/releases?per_page=100' --jq '.[] |
+            select(.tag_name | test("TAG_REGEX")) | "## \(.tag_name)\n\(.body)"'),
+            never the unfiltered list. Anchor TAG_REGEX on the chart name
+            (^chart-) in a repository that publishes several charts; add
+            &page=2 when the old version is not in the first 100. When every
+            commit is a release (tags like b12627) or the bodies are mostly
+            asset lists, read the commit titles once instead (gh api
+            repos/OWNER/REPO/compare/OLD...NEW --jq '.total_commits,
+            (.commits[].commit.message | split("\n")[0])'). The compare lists
+            at most 250 commits: when the first line is larger, name how many
+            titles you did not read. With no GitHub upstream, try the project's
+            changelog page and say when none is reachable. Then search this
+            repository for uses of the package, including the comments in
+            those files, and report each breaking change, deprecation, rename
+            or changed default that affects it, and any version it must stay
+            in lockstep with. Name the range as from-version to to-version and
+            list any release in it you did not read. A target published before
+            the current version lacks that version's later fixes: compare the
+            two release dates and name what is lost. Start with a verdict, safe
+            to merge or not, and name the sources you read. End with the
+            release-note entries worth knowing here, patch and digest bumps
+            included, each with a line on what it could mean for this
+            repository: a fix for a bug it shows, a workaround comment that
+            can go, or a new feature, API or option that would simplify code
+            or config here (name the file and line it would replace). Notes,
+            not findings. A digest-only
+            bump's rebuild reason is its note. Mark upstream's speedup claims
+            as upstream's. Write "nothing notable" when there is none.
         - id: radiance-bump
           when:
-            - expr: pr.headRef.startsWith("renovate/radiance")
+            # renovate/radiance, and renovate/major-radiance for majors.
+            - expr: pr.headRef.startsWith("renovate/") && pr.headRef.endsWith("radiance")
           rule: >-
-            radiance engine bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ .rad,
-            k6_v4 KV, host prefix tier): config
-            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, whose Job
-            reconverts the .rad on every image change. The body has digests
+            radiance engine bump on the gfx1201 card. Production runs our own
+            build (image in kubernetes/apps/ai/llmkube/models/inkling2-mini.yaml),
+            so a Renovate radiance PR moves only the GrafanaDashboard URL: judge
+            the release for when that build rebases on it. One process serves
+            the fleet in
+            kubernetes/apps/ai/llmkube/models/resources/radiance.yaml.
+            The body has digests
             only and Codeberg has no releases: the changelog is the body of the
             commit the new tag points at. Read it and the commits between the
             previous and new version at codeberg.org/StillDeadcode/radiance
             (its API with curl; gh does not reach Codeberg), one path per call.
-            Check every flag in
-            extraArgs against renamed, removed or re-defaulted options (a gone
-            flag fails the boot), the .rad container or recipe format
-            (q38-27b-w4a16.recipe), prefix cache, checkpoint policy and KV
+            Check every key of that file against renamed, removed or
+            re-defaulted options (an unknown key fails the boot of both
+            models), the .rad container format, fleet scheduling (park,
+            priority, ttl, warm-up), prefix cache, checkpoint policy and KV
             dtype changes, and the vllm:* and radiance:* metrics read by
             kubernetes/apps/ai/llmkube/models/prometheusrule.yaml. Start with a verdict: nothing
             relevant, needs a clone test, or needs a config change. Then list
@@ -210,8 +264,13 @@ spec:
       # Benchmark output the default globs miss.
       ignore:
         - "**/*.out"
+      # The repo is public: a stranger's fork PR would otherwise take review slots.
+      trigger:
+        exclude:
+          - name: forks
+            expr: pr.fork
       embedding:
-        model: llm/embeddinggemma-2
+        model: embed/embeddinggemma-2
         dims: 768
         # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
         maxBatchChars: 50000
@@ -221,16 +280,15 @@ spec:
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
       # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs).
-      # github.com and api.github.com are implicit; cafe.github.com (gh telemetry) stays refused.
+      # github.com and api.github.com are implicit. CONNECT tunnels carry any method, so add no host that takes
+      # uploads from self-registered accounts (npm, public forges); the self-hosted forges below are trusted.
       egress:
         allow:
-          # GitHub source archives, registry and release assets (redirects/fallbacks).
-          - raw.githubusercontent.com
-          - release-assets.githubusercontent.com
-          - objects.githubusercontent.com
-          - pkg-containers.githubusercontent.com
+          # GitHub content hosts: source archives, registry and release assets, Actions results, Pages docs.
+          - "*.githubusercontent.com"
           - codeload.github.com
-          # GHCR registry endpoint (blobs use pkg-containers above).
+          - "*.github.io"
+          # GHCR registry endpoint (blobs come from pkg-containers.githubusercontent.com).
           - ghcr.io
           # Docker registry/auth and blob CDN hosts.
           - "*.docker.io"
@@ -245,20 +303,36 @@ spec:
           - "*.pkg.dev"
           - gcr.io
           - mirror.gcr.io
+          - nvcr.io
+          # Never *.blob.core.windows.net (gsoci and Actions log blobs): anyone can register a storage account there.
           - gsoci.azurecr.io
-          - registry.erwanleboucher.dev
-          # Rust package index and downloads.
+          # Self-hosted forges of home-operations community members.
+          - forgejo.ellis.link
+          - git.sable.moe
+          - git.enoent.fr
+          - "*.erwanleboucher.dev"
+          - docker.dragonflydb.io
+          - mcr.microsoft.com
+          - "*.data.mcr.microsoft.com"
+          # Package indexes and downloads.
           - crates.io
           - static.crates.io
+          - index.crates.io
+          - get.helm.sh
           # Historical review documentation and source hosts.
           - codeberg.org
+          # fileflows.com/docs/versions is the only changelog for revenz/fileflows (no public repo).
+          - fileflows.com
           - grafana.com
           - huggingface.co
+          - "*.cdn.hf.co"
+          - continuwuity.org
+          - modelcontextprotocol.io
+          - k8s-schemas.home-operations.com
           - cloudnative-pg.io
           - nginx.org
-          - rook.github.io
+          - prowlarr.servarr.com
           - "*.kernel.org"
-          - rocm.github.io
           - doc.rust-lang.org
           - pypi.org
           # SQLite documentation, shadcn docs/assets, and Flathub metadata.

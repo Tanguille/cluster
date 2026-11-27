@@ -8,9 +8,5 @@ metadata:
 spec:
   path: ./kubernetes/apps/default/searxng/app
   targetNamespace: *namespace
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   prune: true
   interval: 30m

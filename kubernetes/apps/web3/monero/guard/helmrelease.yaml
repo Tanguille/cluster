@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: python
-              tag: 3.15-slim@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
+              tag: 3.15.2-slim-trixie@sha256:63bb298d2b7b88f176f51b5189f54ce6535c997682ea70885d2132f5d473a8a5
             command: [python3, /config/controller.py]
             ports:
               - name: http
@@ -46,7 +46,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 32Mi
+                memory: 16Mi
               limits:
                 cpu: 100m
                 memory: 128Mi

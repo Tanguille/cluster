@@ -10,9 +10,5 @@ spec:
   path: ./kubernetes/apps/network/agentgateway/crds
   # The chart ships its CRDs as templates: pruning the release would delete every Agentgateway* object.
   prune: false
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   targetNamespace: *namespace
   wait: true

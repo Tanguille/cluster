@@ -8,8 +8,8 @@ components:
   - ../../components/common
   - ../../components/dragonfly-auth
   - ../../components/ndots-1
+  # The radiance engine (inkling2-mini) runs seccomp Unconfined (io_uring, NUMA binding); baseline rejects it.
   - ../../components/psa-privileged
-  - ../../components/kopiur/privileged-movers
 
 resources:
   - ./agentgateway/ks.yaml
@@ -21,5 +21,6 @@ resources:
   - ./llmkube/ks.yaml
   - ./opencode/ks.yaml
   - ./paseo/ks.yaml
+  - ./pasteguard/ks.yaml
   - ./toolhive/ks.yaml
   - ./networkpolicy.yaml

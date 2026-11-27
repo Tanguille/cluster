@@ -5,8 +5,9 @@ metadata:
   name: cluster-settings
 data:
   TIMEZONE: "Europe/Brussels"
+  # Also read by talos/mod.just render-config (node gateway)
   OPNSENSE_IP: 192.168.0.1
-  # Cilium LB pool; every LoadBalancer *_IP below must fall inside it
+  # Cilium LB pool; every LoadBalancer *_IP below must fall inside it or have its own block in cilium networking.yaml
   LB_POOL_START: 192.168.0.3
   LB_POOL_STOP: 192.168.0.10
   K8S_GATEWAY_IP: 192.168.0.3
@@ -17,10 +18,12 @@ data:
   ENVOY_GATUS_PROBE_IP: 192.168.0.9
   MONEROD_IP: 192.168.0.8
   SATISFACTORY_IP: 192.168.0.10
+  FENRIR_IP: 192.168.0.14
   CLUSTER_NODE_1_IP: 192.168.0.11
   CLUSTER_NODE_2_IP: 192.168.0.12
   CLUSTER_NODE_3_IP: 192.168.0.13
   HOME_ASSISTANT_IP: 192.168.0.16
+  DESKTOP_IP: 192.168.0.26
   TRUENAS_IP: 192.168.0.27
   IPMI_IP: 192.168.0.45
   CENTAURI_CARBON_IP: 192.168.0.95
@@ -28,6 +31,8 @@ data:
   LAN_CIDR: "192.168.0.0/24"
   POD_CIDR: "10.42.0.0/16"
   COREDNS_IP: "10.43.0.10"
+  # Also read by talos/mod.just render-config
+  TALOS_LOG_RELAY_IP: "10.43.0.20"
   # NFS exports on TrueNAS (${TRUENAS_IP})
   MEDIA_NFS_PATH: /mnt/BIGHDDZ1/Media
   BACKUP_NFS_PATH: /mnt/TanguilleServer/VolsyncKopia

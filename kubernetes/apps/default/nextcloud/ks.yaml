@@ -17,10 +17,6 @@ spec:
       namespace: database
   path: ./kubernetes/apps/default/nextcloud/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   wait: true
   interval: 30m
   postBuild:
@@ -41,8 +37,4 @@ spec:
     - name: nextcloud
   path: ./kubernetes/apps/default/nextcloud/notify-push
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   interval: 30m

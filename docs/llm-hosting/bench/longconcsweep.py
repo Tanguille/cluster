@@ -7,12 +7,11 @@ and what we measure is decode. Concurrency is the only variable.
 """
 import json, re, sys, threading, time, urllib.request
 
+from prodshape import WORDS
+
 URL = "http://127.0.0.1:18000/v1/completions"
 METRICS = "http://127.0.0.1:18000/metrics"
 GEN = 128
-WORDS = ("storage replication consensus quorum latency throughput partition ledger "
-         "checkpoint compaction manifest snapshot heartbeat gossip shard rebalance "
-         "durability coordinator epoch lease tombstone compress index segment").split()
 
 
 def build_prompt(nwords):

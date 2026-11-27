@@ -9,9 +9,5 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/flux-system/flux-operator/app
   prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: *namespace
   targetNamespace: *namespace
   wait: true

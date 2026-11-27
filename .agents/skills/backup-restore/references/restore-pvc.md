@@ -16,22 +16,19 @@ spec:
       # never trust the helmrelease's own securityContext alone (entrypoint privilege
       # drops are invisible to it — see docs/kopiur-restore.md "Identity").
       # KOPIUR_PUID: "1000"
-      # Root apps additionally need the capability (backup only, not restore) and the
-      # namespace-level kopiur.home-operations.com/privileged-movers: "true" annotation
-      # (ai and default compose components/kopiur/privileged-movers plus psa-privileged; media
-      # enforces PSA baseline and has neither, so check the target namespace's kustomization.yaml).
-      # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
+      # Movers run in kopiur-system (PSA baseline, no privileged-movers annotation), so a root
+      # mover is rejected there. Run apps as a non-root uid.
       # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
       # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
-      # `kopia policy set <id> --remove-ignore` (not in the read-only kopia browser pod; use a separate --config-file).
+      # `kopia policy set <id> --remove-ignore` (not from the kopia browser pod, which reads only the NFS history; use a separate --config-file against S3).
       # Example: kubernetes/apps/media/jellyfin.
       # KOPIUR_IGNORE_RULES: "[/lost+found, /<dir>/cache/*]"
 ```
 
 `PVC_ACCESSMODES`/`PVC_STORAGECLASS`/`BACKUP_SNAPSHOTCLASS` are also available (defaults:
 `ReadWriteOnce`/`ceph-block`/`csi-ceph-blockpool`) — only set them when deviating. Example
-apps: `kubernetes/apps/media/qui` (plain 568 default), `kubernetes/apps/default/changedetection`
-(root, `KOPIUR_MOVER_CAPS_ADD`), `kubernetes/apps/ai/hermes` (one-off uid 10000).
+apps: `kubernetes/apps/media/qui` (plain 568 default), `kubernetes/apps/ai/hermes` (one-off
+uid 10000).
 
 This single component renders `SnapshotPolicy`, `SnapshotSchedule`, `PersistentVolumeClaim`
 (with `dataSourceRef` pointing at the `Restore` below), and `Restore` — no separate
@@ -59,8 +56,6 @@ spec:
     populator: {}
   policy:
     onMissingSnapshot: Continue
-  credentialProjection:
-    enabled: true
   mover:
     securityContext:
       runAsUser: <app's real uid>

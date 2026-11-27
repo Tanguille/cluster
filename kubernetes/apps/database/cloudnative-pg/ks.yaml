@@ -8,10 +8,6 @@ metadata:
 spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/database/cloudnative-pg/app
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   prune: true
   wait: true
   interval: 30m
@@ -28,10 +24,6 @@ spec:
     - name: cert-manager
       namespace: cert-manager
   path: ./kubernetes/apps/database/cloudnative-pg/barman-cloud
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   prune: true
   wait: true
   interval: 30m
@@ -45,10 +37,6 @@ metadata:
 spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/database/cloudnative-pg/cluster
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   dependsOn:
     - name: cloudnative-pg
     - name: cloudnative-pg-barman-cloud
@@ -70,10 +58,6 @@ spec:
   # failure can't stall cloudnative-pg-cluster (wait: true). Apps depend on this one, so a bad
   # Database CR blocks their applies (not their running pods).
   path: ./kubernetes/apps/database/cloudnative-pg/databases
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   dependsOn:
     - name: cloudnative-pg-cluster
   prune: true
