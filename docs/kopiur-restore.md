@@ -34,6 +34,23 @@ Check `volumeMounts`/`volumes` first for the real PVC `claimName` and mount path
 mount more than one PVC (e.g. nextcloud has a second, unrelated 500Gi NFS volume at the
 "obvious" `/var/www/data` path; the migrated one is elsewhere).
 
+## Recover a blocked Hermes RBD attachment
+
+A replacement pod can stay Pending for hours while the old node still holds the `ai/hermes` volume (25 November: four hours). Check which node owns it:
+
+```bash
+kubectl -n ai get pods -l app.kubernetes.io/name=hermes -o wide
+pv=$(kubectl -n ai get pvc hermes -o jsonpath='{.spec.volumeName}')
+kubectl get volumeattachments -o json | jq --arg pv "$pv" \
+  '.items[] | select(.spec.source.persistentVolumeName == $pv) | {node: .spec.nodeName, attached: .status.attached}'
+```
+
+- **For a planned shutdown**, drain while the kubelet can unmount the volume. Wait for the replacement to become Ready and verify Ceph health before shutting down the host. TrueNAS also hosts a Ceph OSD and the Kopia repository.
+- **If the node is unreachable**, restore connectivity or recover the kubelet first. Force-deleting the pod, attachment or RBD lock risks two SQLite writers.
+- **After confirming power-off**, make sure the old node cannot restart during handover (including TrueNAS VM autostart) and check its other workloads and the remaining Ceph quorum. Then, with approval, follow the [non-graceful node shutdown](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/#non-graceful-node-shutdown-handling) procedure (out-of-service taint).
+
+Verify one ready replica, one attachment of the original PV on that pod’s node, and two consecutive ten-minute exporter heartbeats. If data integrity is uncertain, use the separate-claim drill below.
+
 ## Verify a Hermes snapshot on a separate claim
 
 For a recovery drill, keep the production claim mounted and the gateway running.

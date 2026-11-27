@@ -8,7 +8,7 @@ metadata:
 spec:
   # Default-deny ingress for every pod in the namespace; egress stays default-allow. Allows
   # union, so a narrower per-pod allow enforces nothing here: only a deny fences inside this
-  # list (toolhive-ingress-deny).
+  # list (toolhive-ingress-deny, memini-ingress-deny).
   endpointSelector: {}
   ingress:
     # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo):

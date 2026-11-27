@@ -27,9 +27,8 @@ spec:
   modelRef: bge-reranker-v2-m3
   # mode: rerank auto-appends --reranking --embedding --pooling rank --cache-ram 0; no hand-wired flags.
   mode: rerank
-  # Image, runtime class and JIT cache: see d3-nano.
+  # Image and JIT cache: see d3-nano.
   image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:ef8785623dbd5c82eca35679592add50cbb70558b41652a4188835ced8722dfd
-  runtimeClassName: nvidia
   env:
     - name: CUDA_CACHE_PATH
       value: /cuda-cache/.nv-compute-cache
