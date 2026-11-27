@@ -65,4 +65,4 @@ cluster:
       listen-metrics-urls: http://0.0.0.0:2381
     # Exclude the VIP: on 1.15 every VIP move changed the etcd spec, and the uncoordinated
     # etcd restart dropped the VIP again, looping all three members (2026-11-27).
-    advertisedSubnets: [192.168.0.0/24, "!192.168.0.2/32"]
+    advertisedSubnets: [192.168.0.0/24, "!{{ vip }}/32"]
