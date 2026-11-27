@@ -388,6 +388,20 @@ spec:
       spec:
         securityContext: *vm-security-context
         priorityClassName: homelab-critical # sole scrape path
+        # Best-effort spread from vmsingle so vmagent keeps queueing scrapes while that node restarts.
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: vmsingle
+                  topologyKey: kubernetes.io/hostname
+        extraArgs:
+          # Upstream flipped the default to false; true saves RAM per discovered target at the cost of
+          # pre-relabel labels on the targets page.
+          "promscrape.dropOriginalLabels": "true"
         resources:
           requests:
             cpu: 100m
