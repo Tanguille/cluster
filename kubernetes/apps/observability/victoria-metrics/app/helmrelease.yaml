@@ -386,7 +386,7 @@ spec:
       spec:
         securityContext: *vm-security-context
         priorityClassName: homelab-critical # sole scrape path
-        # Apart from vmsingle, vmagent keeps scraping into its queue while the vmsingle node restarts.
+        # Best-effort spread from vmsingle so vmagent keeps queueing scrapes while that node restarts.
         affinity:
           podAntiAffinity:
             preferredDuringSchedulingIgnoredDuringExecution:
