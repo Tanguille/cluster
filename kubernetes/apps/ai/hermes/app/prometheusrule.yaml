@@ -43,7 +43,7 @@ spec:
           for: 15m
           annotations:
             summary: >-
-              Hermes cron {{ $labels.profile }}/{{ $labels.name }} could not deliver its output within the last 6h
+              Hermes cron {{ $labels.profile }}/{{ $labels.name }} ({{ $labels.id }}) could not deliver its output within the last 6h
             runbook_url: https://github.com/Tanguille/cluster/blob/main/docs/useful_commands.md#hermes-cron-delivery-failures
           labels:
             severity: warning
