@@ -1,0 +1,75 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo-cache
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      forgejo-cache:
+        # The cache index is bbolt, which allows a single writer.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: data.forgejo.org/forgejo/runner
+              tag: 13.2.2@sha256:a8543a45fe62bebef0534d5c223cf485d3294e6dd2e42a82dbcbfd40c54a6a22
+            # An empty secret makes cache-server exit 0, so a missing key shows as restarts.
+            command:
+              - forgejo-runner
+              - cache-server
+              - --dir
+              - /data
+              - --port
+              - "4000"
+              - --secret
+              - $(CACHE_SECRET)
+            env:
+              CACHE_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: forgejo-runner-secret
+                    key: cache-secret
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 4000 }
+              readiness: *probe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 512Mi
+    service:
+      app:
+        controller: forgejo-cache
+        ports:
+          http:
+            port: 4000
+    persistence:
+      data:
+        existingClaim: forgejo-cache
+        globalMounts:
+          - path: /data

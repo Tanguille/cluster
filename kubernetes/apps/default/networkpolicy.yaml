@@ -6,7 +6,7 @@ metadata:
   name: default-ingress-allowlist
 spec:
   # Default-deny ingress (egress open).
-  # Allows union, so a per-pod CNP only adds sources not listed here: forgejo (flux-system).
+  # Allows union, so a per-pod CNP only adds sources not listed here: forgejo (flux-system, forgejo-runner).
   endpointSelector: {}
   ingress:
     # ai: ToolHive MCP backends; observability: nextcloud-exporter; network: envoy gateways; default: intra-namespace.

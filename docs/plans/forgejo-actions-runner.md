@@ -1,7 +1,7 @@
 # Forgejo Actions Runner Implementation Plan
 
 **Created:** 2026-11-28
-**Status:** Approved
+**Status:** In Progress
 **Complexity:** Medium
 **Estimated Chunks:** 3
 **Branch:** `feat/forgejo-actions`
@@ -78,7 +78,7 @@ Re-check every version and digest from the registry at execution time; do not co
 | File | Purpose |
 |------|---------|
 | `kubernetes/apps/forgejo-runner/kustomization.yaml` | Namespace kustomization: `namespace: forgejo-runner`, components common, deny-lan-egress, deny-apiserver-egress; resources `./forgejo-runner/ks.yaml` |
-| `kubernetes/apps/forgejo-runner/forgejo-runner/ks.yaml` | One Flux Kustomization `forgejo-runner` (path `app`, `dependsOn: [{name: forgejo, namespace: default}]`, cross-namespace dependsOn as in `kritika/kritika/ks.yaml`) |
+| `kubernetes/apps/forgejo-runner/forgejo-runner/ks.yaml` | One Flux Kustomization `forgejo-runner` (path `app`). No dependsOn on `forgejo`: `scripts/test_flux_wait.py` requires dependsOn targets to set `wait`/`healthChecks`, and the runner retries Forgejo anyway |
 | `kubernetes/apps/forgejo-runner/forgejo-runner/app/{kustomization,helmrelease,networkpolicy}.yaml` | Runner HelmRelease, runner + job-pod CNPs |
 | `kubernetes/apps/forgejo-runner/forgejo-runner/app/{cache-helmrelease,cache-pvc,cache-networkpolicy}.yaml` | Cache server (app-template) + 50Gi ceph-block PVC (`kustomize.toolkit.fluxcd.io/prune: disabled`, as `family-blog/app/pvc.yaml`) + CNP |
 | `kubernetes/apps/forgejo-runner/forgejo-runner/app/secret.sops.yaml` | `forgejo-runner-secret`: `token`, `uuid`, `cache-secret`; owner generates before merge (Chunk 3) |
@@ -136,8 +136,8 @@ Kueue vs runner `capacity: 3` + realistic requests. **Chosen:** capacity. The sc
 ### Progress Tracker
 
 #### Wave 1 (parallel) — Manifests
-- [ ] Chunk 1: Enable Actions on Forgejo + ingress from the runner namespace
-- [ ] Chunk 2: `forgejo-runner` namespace: cache server, runner, policies
+- [x] Chunk 1: Enable Actions on Forgejo + ingress from the runner namespace
+- [x] Chunk 2: `forgejo-runner` namespace: cache server, runner, policies
 
 #### Wave 2 (sequential) — Roll out and prove
 - [ ] Chunk 3: Register, apply, end-to-end Rust test, docs (depends on Chunks 1, 2)
@@ -152,7 +152,7 @@ Kueue vs runner `capacity: 3` + realistic requests. **Chosen:** capacity. The sc
 ---
 
 ### Chunk 1: Enable Actions on Forgejo
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 1
 **Estimated Context:** ~10k tokens
 **Complexity:** Low
@@ -182,7 +182,7 @@ feat(forgejo): enable Actions and admit the runner namespace
 ---
 
 ### Chunk 2: forgejo-runner namespace
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 1
 **Estimated Context:** ~40k tokens
 **Complexity:** Medium
@@ -195,7 +195,7 @@ None (Wave 1)
 
 #### Detailed Steps
 1. **Namespace kustomization**: copy `kubernetes/apps/kritika/kustomization.yaml`, set `namespace: forgejo-runner`, components `common`, `deny-lan-egress`, `deny-apiserver-egress`. Comment: own namespace because job pods run untrusted code. Confirm that `common` creates the Namespace (it includes `namespace.yaml`) and that `kubernetes/apps` is discovered automatically (`kubernetes/flux/cluster/ks.yaml` path `./kubernetes/apps`).
-2. **ks.yaml**: one Kustomization `forgejo-runner` (path `.../app`, `dependsOn: [{name: forgejo, namespace: default}]`), shaped like `kritika/kritika/ks.yaml`.
+2. **ks.yaml**: one Kustomization `forgejo-runner` (path `.../app`), shaped like `kritika/kritika/ks.yaml`, no dependsOn (see New Files).
 3. **Cache** (`app/cache-helmrelease.yaml`, `chartRef: {kind: OCIRepository, name: app-template}` as Forgejo does):
    - No initContainer: the runner image holds `/bin/forgejo-runner` and runs as 1000:1000 (v13.2.2 Dockerfile). Container image `data.forgejo.org/forgejo/runner:<tag>@sha256:<digest>`, `command: [forgejo-runner, cache-server, --dir, /data, --port, "4000", --secret, $(CACHE_SECRET)]`, env `CACHE_SECRET` from `forgejo-runner-secret` key `cache-secret`. An empty secret makes it exit 0 (restart loop, no error crash).
    - `strategy: Recreate` (bbolt single writer), non-root securityContext matching Forgejo's (uid/gid 1000, fsGroup 1000, drop ALL, RuntimeDefault seccomp).

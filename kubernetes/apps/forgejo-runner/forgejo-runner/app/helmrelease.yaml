@@ -1,0 +1,136 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo-runner
+spec:
+  chart:
+    kind: OCIRepository
+    spec:
+      url: oci://git.erwanleboucher.dev/eleboucher/charts/forgejo-runner
+      ref:
+        tag: 13.3.1
+  interval: 1h
+  values:
+    forgejo:
+      url: http://forgejo.default.svc.cluster.local:3000
+      existingSecret: forgejo-runner-secret
+    image:
+      repository: data.forgejo.org/forgejo/runner
+      tag: 13.2.2@sha256:a8543a45fe62bebef0534d5c223cf485d3294e6dd2e42a82dbcbfd40c54a6a22
+    plugin:
+      image:
+        repository: git.erwanleboucher.dev/eleboucher/runner-k8s-plugin
+        # Moves with the chart version.
+        tag: 13.3.1@sha256:efb3dedcdd60ce99243dd3d560bf1fad2a06bb1f27a689feb9a220b84e3497e2
+      # The chart default of 128Mi OOMKills the sidecar at capacity 3.
+      resources:
+        requests:
+          cpu: 5m
+          memory: 64Mi
+        limits:
+          memory: 512Mi
+    podLabels:
+      # The plugin creates job pods through the API server.
+      egress.home.arpa/kube-apiserver: allow
+    runnerConfig: |
+      cache:
+        enabled: true
+        external_server: http://forgejo-cache.forgejo-runner.svc.cluster.local:4000/
+        secret_url: file:/etc/forgejo-runner-secret/cache-secret
+        proxy_port: 8089
+      container:
+        docker_host: "-"
+        workdir_parent: shared/workdir
+      host:
+        workdir_parent: /data/act
+      log:
+        level: info
+      plugins:
+        k8s:
+          address: "unix:///plugin/forgejo-runner-k8s.sock"
+          options:
+            namespace: forgejo-runner
+            # Jobs that don't fit a node wait Pending instead of failing.
+            poll_timeout: 1h
+            # Service containers carry no resources of their own.
+            resources: |
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+      runner:
+        capacity: 3
+        labels:
+          - ubuntu-latest:k8s:///config/podspec-default.yaml
+          - default:k8s:///config/podspec-default.yaml
+          - rust:k8s:///config/podspec-rust.yaml
+        timeout: 3h
+        shutdown_timeout: 3m
+    podSpecs:
+      podspec-default.yaml: |
+        # Root in a job is nobody on the node.
+        hostUsers: false
+        automountServiceAccountToken: false
+        priorityClassName: homelab-optional
+        containers:
+          - name: main
+            image: ghcr.io/bjw-s-labs/forgejo-runner:ubuntu-26.04@sha256:6aa1045f63d248cf6984f5c4073bf996e87b8e57c6cc8b03d2f7e0b9df577eec
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: DEBIAN_FRONTEND
+                value: noninteractive
+              # tar as root restores owners, and ids above 65535 do not exist in the pod.
+              - name: TAR_OPTIONS
+                value: --no-same-owner
+            resources:
+              requests:
+                cpu: 500m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+        restartPolicy: Never
+      podspec-rust.yaml: |
+        hostUsers: false
+        automountServiceAccountToken: false
+        priorityClassName: homelab-optional
+        # 3 jobs request 12Gi; only control-1 has that free, and a burst to 8Gi
+        # would push control-2 or control-3 into OOM.
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values: [control-1]
+        containers:
+          - name: main
+            image: ghcr.io/bjw-s-labs/forgejo-runner:ubuntu-26.04@sha256:6aa1045f63d248cf6984f5c4073bf996e87b8e57c6cc8b03d2f7e0b9df577eec
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: DEBIAN_FRONTEND
+                value: noninteractive
+              - name: TAR_OPTIONS
+                value: --no-same-owner
+              # Bounds rustc/linker parallelism, and with it the memory peak.
+              - name: CARGO_BUILD_JOBS
+                value: "4"
+              # Incremental artifacts bloat the cache, and CI builds from clean.
+              - name: CARGO_INCREMENTAL
+                value: "0"
+            resources:
+              requests:
+                cpu: "2"
+                memory: 4Gi
+                ephemeral-storage: 20Gi
+              limits:
+                memory: 8Gi
+        # Replaces the plugin's 10Gi shared volume: checkout plus target/ live here.
+        volumes:
+          - name: shared
+            emptyDir:
+              sizeLimit: 30Gi
+        restartPolicy: Never

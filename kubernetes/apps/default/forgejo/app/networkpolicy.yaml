@@ -3,7 +3,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: forgejo-ingress-flux
+  name: forgejo-ingress
 spec:
   endpointSelector:
     matchLabels:
@@ -14,6 +14,8 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: flux-system
             app: source-controller
+        - matchLabels:
+            io.kubernetes.pod.namespace: forgejo-runner
       toPorts:
         - ports:
             - port: "3000"
