@@ -18,6 +18,8 @@ available="$(yq -r '.. | select(tag != "!!map" and tag != "!!seq") | path | join
     echo "no keys read from talsecret.sops.yaml" >&2
     exit 1
 }
+# The root `template` recipe adds `pem`, a base64-decoded copy of `certs`.
+available="$(printf '%s\n%s\n' "${available}" "$(sed -n 's/^certs\./pem./p' <<<"${available}")" | sort -u)"
 
 # Names the render context injects, read from the -D flags themselves so this cannot drift.
 # Both files inject: .justfile passes the versions, talos/mod.just the cluster-wide addresses.

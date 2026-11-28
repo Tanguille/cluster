@@ -49,15 +49,6 @@ cluster:
     image: registry.k8s.io/kube-proxy:{{ kubernetesVersion }}
   coreDNS:
     disabled: true
-  etcd:
-    ca:
-      crt: {{ certs.etcd.crt }}
-      key: {{ certs.etcd.key }}
-    extraArgs:
-      listen-metrics-urls: http://0.0.0.0:2381
-    # Exclude the VIP: on 1.15 every VIP move changed the etcd spec, and the uncoordinated
-    # etcd restart dropped the VIP again, looping all three members (2026-11-27).
-    advertisedSubnets: [192.168.0.0/24, "!{{ vip }}/32"]
 ---
 # The legacy shim added the control-plane label itself and a NoSchedule taint unless scheduling was
 # allowed; the document is used as written, so the label is explicit and there are no taints.
@@ -71,3 +62,17 @@ apiVersion: v1alpha1
 kind: KubeTalosAPIAccessConfig
 allowedRoles: ["os:admin", "os:reader"]
 allowedKubernetesNamespaces: [actions-runner-system, system-upgrade, ai]
+---
+apiVersion: v1alpha1
+kind: EtcdCAConfig
+issuingCA:
+  cert: {{ pem.etcd.crt | tojson }}
+  key: {{ pem.etcd.key | tojson }}
+---
+apiVersion: v1alpha1
+kind: EtcdMemberConfig
+extraArgs:
+  listen-metrics-urls: http://0.0.0.0:2381
+# Exclude the VIP: on 1.15 every VIP move changed the etcd spec, and the uncoordinated
+# etcd restart dropped the VIP again, looping all three members (2026-11-27, siderolabs/talos#15121).
+advertisedSubnets: [192.168.0.0/24, "!{{ vip }}/32"]

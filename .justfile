@@ -35,7 +35,9 @@ template file *args:
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
-    just talsecret | minijinja-cli --format=yaml \
+    # `pem` holds the certs base64-decoded: 1.15 documents (EtcdCAConfig, Kube*CAConfig, ...) take raw
+    # PEM, and minijinja-cli has no b64decode filter. Copied first so `certs` stays base64 for v1alpha1.
+    just talsecret | yq '.pem = .certs | .pem |= map_values(map_values(@base64d))' | minijinja-cli --format=yaml \
         -D "kubernetesVersion=${kubernetes_version}" \
         -D "talosVersion=${talos_version}" \
         {{ args }} "{{ file }}" -
