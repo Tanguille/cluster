@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: forgejo-cache
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: forgejo-cache
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: forgejo-runner
+      toPorts:
+        - ports:
+            - port: "4000"
+              protocol: TCP

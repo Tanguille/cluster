@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Own namespace: job pods run untrusted build code, kept away from the apps in default.
+namespace: forgejo-runner
+components:
+  - ../../components/common
+  - ../../components/deny-apiserver-egress
+  - ../../components/deny-lan-egress
+resources:
+  - ./forgejo-runner/ks.yaml
