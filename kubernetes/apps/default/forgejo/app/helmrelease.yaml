@@ -42,6 +42,9 @@ spec:
               FORGEJO__actions__ENABLED: "false"
               FORGEJO__federation__ENABLED: "false"
               FORGEJO__mirror__DEFAULT_INTERVAL: 10m
+              # anthracite follows the browser's light/dark preference.
+              FORGEJO__ui__THEMES: forgejo-auto,forgejo-light,forgejo-dark,anthracite,anthracite-dark,anthracite-light
+              FORGEJO__ui__DEFAULT_THEME: anthracite
               # The relay trusts the pod CIDR without auth, and Forgejo refuses auth over plain SMTP, so none is set.
               FORGEJO__mailer__ENABLED: "true"
               FORGEJO__mailer__PROTOCOL: smtp
@@ -96,3 +99,9 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /var/lib/gitea
+      themes:
+        type: configMap
+        name: forgejo-themes
+        globalMounts:
+          - path: /var/lib/gitea/custom/public/assets/css
+            readOnly: true
