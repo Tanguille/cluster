@@ -20,3 +20,14 @@ spec:
               `kubectl -n media logs deploy/recyclarr`
           labels:
             severity: warning
+
+        # The schedule runs daily; a series that stops growing means syncs stopped while the pod looks healthy.
+        - alert: RecyclarrSyncMissing
+          expr: |-
+            sum(increase(recyclarr_sync_job_duration_seconds_count{recyclarr_sync_job_status="succeeded"}[26h])) == 0
+          annotations:
+            summary: >-
+              No recyclarr sync has succeeded in 26 hours; check
+              `kubectl -n media logs deploy/recyclarr`
+          labels:
+            severity: warning
