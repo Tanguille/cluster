@@ -29,29 +29,26 @@ spec:
             probes:
               liveness:
                 enabled: true
-                custom: true
+                type: HTTP
+                path: /livez
                 spec:
-                  httpGet: &livez
-                    path: /livez
-                    port: &port 7983
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
               readiness:
                 enabled: true
-                custom: true
+                type: HTTP
+                path: /readyz
                 spec:
-                  httpGet:
-                    path: /readyz
-                    port: *port
+                  periodSeconds: 60
                   timeoutSeconds: 5
                   failureThreshold: 5
               # No port opens until the first guide download finishes.
               startup:
                 enabled: true
-                custom: true
+                type: HTTP
+                path: /livez
                 spec:
-                  httpGet: *livez
                   periodSeconds: 10
                   failureThreshold: 60
             securityContext:
@@ -59,9 +56,10 @@ spec:
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
+              # Upstream's server suggestion; resize from measured idle usage. v8 syncs broke 512Mi, hence the limit.
               requests:
                 cpu: 10m
-                memory: 500Mi
+                memory: 256Mi
               limits:
                 memory: 1Gi
 
@@ -78,12 +76,14 @@ spec:
       app:
         ports:
           management:
-            port: *port
+            port: 7983
 
     serviceMonitor:
       app:
         endpoints:
           - port: management
+            # State changes about once a day.
+            interval: 5m
 
     persistence:
       config:
