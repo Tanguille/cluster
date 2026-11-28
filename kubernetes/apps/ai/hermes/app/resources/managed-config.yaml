@@ -38,3 +38,8 @@ gateway:
 skills:
   # Defaults to false, so named profiles wrote skills unscanned; root already had it on.
   guard_agent_created: true
+agent:
+  # Unlike SOUL.md, this block also reaches delegate_task subagents, which trip the breaker most.
+  environment_hint: >-
+    ToolHive: never guess a tool name or argument; call find_tool first when unsure. Three failed
+    call_tool calls in a row pause every ToolHive tool for 60 s for all sessions of this profile.
