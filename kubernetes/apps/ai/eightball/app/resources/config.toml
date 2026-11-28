@@ -1,10 +1,10 @@
 # 8-ball configuration, mounted at /etc/eightball/config.toml (chart default).
 # Reference: https://github.com/Tanguille/8-ball/blob/main/docs/configuration.md
 
-default = "d3"
+default = "decision"
 
-[endpoints.d3]
-url = "http://d3-nano.ai.svc.cluster.local:8080"
+[endpoints.decision]
+url = "http://decision.ai.svc.cluster.local:8080"
 kind = "systemone"
 
 # Keep unsure answers until a local model can answer a one-token logprob request.
