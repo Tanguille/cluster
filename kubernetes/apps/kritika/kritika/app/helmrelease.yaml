@@ -121,18 +121,23 @@ spec:
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
-          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen.
-          concurrency: 16
-          # Logfare 429/503 cooldowns clear in seconds to ~2 min; without retries each one sent a 150K-token call to qwen.
-          # Backoff 1s doubling to 30s (~7s for 3); the fallback runs only after these are spent.
-          retries: 3
+          # Per model; 24 (omniroute's Logfare cap) put abandoned calls over it and sent 12% to qwen. 16 sent ~2x what
+          # smart-free's working slots served on 2026-11-27 (HMS allows 5 in flight, Munito a few calls a minute), so the
+          # excess pushed providers into cooldown; at 8 the excess queues here instead.
+          concurrency: 8
+          # One retry, then the fallback: a smart-free attempt can run to the 90 s target timeout, so 3 retries kept a
+          # failing review away from inkling for minutes. Also applies to embed, which inherits it.
+          retries: 1
         # Same endpoint as llm, its own provider so the fallback gets its own slots and timeout.
         local:
           <<: *llm
-          # One of radiance's 8 slots, shared with Hermes (8 sessions); caps what a Logfare outage shifts here.
+          # Two of radiance's 8 slots, shared with Hermes (8 sessions); caps what an omniroute outage shifts here.
           # At 4, queueing behind Hermes pushed 64-188K-token reviews past the timeout: 187 of 205 calls aborted and were resent.
           # At 2, a failover burst held radiance in 150K-token cold prefills (~80 s each) while interactive sessions queued (2026-11-15).
-          concurrency: 1
+          # Back to 2 on 2026-11-27: inkling decodes ~45% faster since 11-24, averaged 0.2 busy slots over 24 h, and two calls
+          # (~300K) fit its 477K-token KV pool beside Hermes; at 1, reviews queued behind a single slot while smart-free failed.
+          # 3 can overfill the pool.
+          concurrency: 2
           # A retry would resend a call of up to 25m.
           retries: 0
           # Fallback calls took up to 807s (p95 387s) unqueued; 5m default abandoned them and resent the step.
@@ -144,8 +149,8 @@ spec:
           concurrency: 3
       review:
         model: llm/omniroute
-        # The only inkling-2-mini fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
-        fallback: local/inkling-2-mini
+        # The only inkling fallback: agentgateway's omniroute backend has a single group (ai/agentgateway/app/models/omniroute.yaml).
+        fallback: local/inkling-2-mini-auto
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.

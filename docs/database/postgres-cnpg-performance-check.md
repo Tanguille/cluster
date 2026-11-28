@@ -80,12 +80,6 @@ With the Grafana MCP (via the ToolHive vMCP) connected, run the section 1 PromQL
 
 Current tuning and the reason for each value live in `cluster.yaml`. If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers is not paying off — the working set is larger than shared_buffers or not very cache-friendly, so more RAM doesn’t improve hit rate.
 
-**What the optimization clearly helps** (24h observations, also from the previous config):
-
-- **Checkpoints:** 2 requested in 24h (WAL/checkpoint tuning is effective).
-- **Temp files:** Low overall; only jfstat showed moderate temp usage (~185 files in 24h). work_mem is likely reducing spill elsewhere.
-- **No long-running transactions** in observed snapshots.
-
 **To compare over a longer period** (e.g. 7d), run these with the Grafana MCP (via the ToolHive vMCP) or Grafana (range queries, `startTime`: `now-7d`, `endTime`: `now`, `stepSeconds`: `3600`):
 
 | Goal | PromQL |
@@ -96,12 +90,3 @@ Current tuning and the reason for each value live in `cluster.yaml`. If cache hi
 | Throughput trend | `sum(rate(cnpg_pg_stat_database_xact_commit[5m]))` |
 
 **work_mem** and **WAL/checkpoint** settings were kept, as they show measurable benefit. If you have a baseline from before tuning, compare blks_read rate and temp_files; lower blks_read or temp_files after tuning would indicate the optimization did help despite the modest cache hit ratio.
-
-**Example 7d snapshot (from observability MCP), measured under an earlier shared_buffers 2GB / work_mem 12MB config:**
-
-- **Cache hit (cluster):** 52–95% over 7d (hourly); often in the 70–90% band; latest ~80%. No sustained >99%.
-- **blks_read by pod:** The **primary** (whichever pod) consistently shows 1.5–6k blocks/s read; replicas near 0. So disk read is inherent to the primary; 2GB shared_buffers is not eliminating it.
-- **Temp files (7d):** jfstat ~236–301 per instance; crowdsec 1–3; all other DBs 0. work_mem is containing spill except for jfstat.
-- **Throughput (xact_commit):** 1–4k/s depending on load and role changes; latest ~2.3k/s.
-
-**Takeaway:** Cache hit and primary blks_read showed no clear win from 2GB shared_buffers over 7d, so it was cut to 1GB; #5140 restored 2GB once the nextcloud hot set was measured (see `cluster.yaml`).

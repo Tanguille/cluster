@@ -46,7 +46,6 @@ spec:
       config:
         data:
           vector.yaml: |
-            data_dir: /var/lib/vector
             sources:
               # host is the sending node's IP.
               talos:
@@ -83,7 +82,6 @@ spec:
                 buffer:
                   type: disk
                   max_size: 536870912
-                  when_full: block
                 uri: http://victoria-logs.observability.svc.cluster.local:9428/insert/jsonline?_stream_fields=host,talos-service&_msg_field=msg&_time_field=talos-time
                 encoding:
                   codec: json
