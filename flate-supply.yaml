@@ -11,3 +11,12 @@ metadata:
 stringData:
   SECRET_DOMAIN: example.invalid
   SECRET_CONTACT_EMAIL: contact@example.invalid
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-secrets
+  namespace: media
+stringData:
+  # The recyclarr chart refuses an empty or short key.
+  RECYCLARR_API_KEY: flate-placeholder-api-key-of-32-chars
