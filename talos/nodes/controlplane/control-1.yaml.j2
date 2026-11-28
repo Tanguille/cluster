@@ -3,11 +3,14 @@
 machine:
   install:
     disk: /dev/vda
-  nodeLabels:
-    # GPU label for applications; the amdgpu kernel module is loaded
-    # automatically by the siderolabs/amdgpu system extension
-    amd.com/gpu: "true"
-    nvidia.com/gpu: "true"
+---
+# GPU label for applications; the amdgpu kernel module is loaded
+# automatically by the siderolabs/amdgpu system extension
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  amd.com/gpu: "true"
+  nvidia.com/gpu: "true"
 ---
 apiVersion: v1alpha1
 kind: HostnameConfig

@@ -6,9 +6,12 @@ machine:
     # Only a fresh install reads this; upgrades reuse the running system disk.
     diskSelector:
       model: Micron_7450_MTFDKBA480TFR
-  nodeLabels:
-    amd.com/igpu: "true"
-    kepler-node: "true"
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  amd.com/igpu: "true"
+  kepler-node: "true"
 ---
 apiVersion: v1alpha1
 kind: HostnameConfig

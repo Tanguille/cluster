@@ -7,13 +7,6 @@ machine:
   ca:
     crt: {{ certs.os.crt }}
     key: {{ certs.os.key }}
-  features:
-    kubernetesTalosAPIAccess:
-      enabled: true
-      allowedRoles: ["os:admin", "os:reader"]
-      allowedKubernetesNamespaces: [actions-runner-system, system-upgrade, ai]
-  nodeLabels:
-    node.kubernetes.io/exclude-from-external-load-balancers: ""
 cluster:
   # ca merges as a cert+key unit; crt must be repeated alongside key or it is blanked.
   ca:
@@ -24,7 +17,6 @@ cluster:
     key: {{ certs.k8saggregator.key }}
   serviceAccount:
     key: {{ certs.k8sserviceaccount.key }}
-  allowSchedulingOnControlPlanes: true
   apiServer:
     image: registry.k8s.io/kube-apiserver:{{ kubernetesVersion }}
     certSANs:
@@ -66,3 +58,16 @@ cluster:
     # Exclude the VIP: on 1.15 every VIP move changed the etcd spec, and the uncoordinated
     # etcd restart dropped the VIP again, looping all three members (2026-11-27).
     advertisedSubnets: [192.168.0.0/24, "!{{ vip }}/32"]
+---
+# The legacy shim added the control-plane label itself and a NoSchedule taint unless scheduling was
+# allowed; the document is used as written, so the label is explicit and there are no taints.
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  node-role.kubernetes.io/control-plane: ""
+  node.kubernetes.io/exclude-from-external-load-balancers: ""
+---
+apiVersion: v1alpha1
+kind: KubeTalosAPIAccessConfig
+allowedRoles: ["os:admin", "os:reader"]
+allowedKubernetesNamespaces: [actions-runner-system, system-upgrade, ai]
