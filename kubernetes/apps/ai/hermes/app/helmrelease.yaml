@@ -68,7 +68,8 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 5
-                  failureThreshold: 60
+                  # 610 s: stage2's default-plugins preflight alone may take 300 s before the dashboard listens.
+                  failureThreshold: 120
               liveness:
                 enabled: true
                 custom: true
