@@ -13,27 +13,50 @@ spec:
   values:
     controllers:
       recyclarr:
-        type: cronjob
+        # v9 runs a server that syncs on its own schedule (default midnight daily).
+        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
-        cronjob:
-          timeZone: &timeZone ${TIMEZONE}
-          schedule: "@daily"
-          backoffLimit: 1
-          # A kept failed Job holds KubeJobFailed until it is deleted.
-          ttlSecondsAfterFinished: 3600
-          # Bounds a hung run (same as etcd-defrag).
-          activeDeadlineSeconds: 3600
         containers:
           app:
             image:
               repository: ghcr.io/recyclarr/recyclarr
               tag: 9.0.0@sha256:4973d11b18b5ef09fb226f4161eecb16434ff7e6b43c56d50fceb52fb22c66c7
             env:
-              TZ: *timeZone
+              TZ: ${TIMEZONE}
               RADARR_API_KEY: ${RADARR_API_KEY}
               SONARR_API_KEY: ${SONARR_API_KEY}
-            args: ["sync"]
+              RECYCLARR_API_KEY: ${RECYCLARR_API_KEY}
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /livez
+                    port: &port 7983
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: *port
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              # No port opens until the first guide download finishes.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /livez
+                    port: *port
+                  periodSeconds: 10
+                  failureThreshold: 60
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -54,6 +77,17 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
 
+    service:
+      app:
+        ports:
+          management:
+            port: *port
+
+    serviceMonitor:
+      app:
+        endpoints:
+          - port: management
+
     persistence:
       config:
         storageClass: ceph-block
@@ -70,3 +104,6 @@ spec:
           - path: /config/includes/Sonarr_Standard_Custom_Formats.yaml
             subPath: Sonarr_Standard_Custom_Formats.yaml
             readOnly: true
+
+      tmp:
+        type: emptyDir
