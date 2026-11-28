@@ -14,7 +14,7 @@ spec:
   interval: 30m
   values:
     apiKey:
-      existingSecret: recyclarr-api-key
+      existingSecret: recyclarr-secret
     # The chart renders this into a configmap and rolls the pod when it changes.
     configs:
       files:
@@ -254,6 +254,11 @@ spec:
                   assign_scores_to:
                     - name: Any
                       score: -100
+    # The 5-minute default would cancel a slow first sync partway through.
+    settings:
+      content: |
+        server:
+          sync_timeout: 60
     env:
       - name: TZ
         value: ${TIMEZONE}
