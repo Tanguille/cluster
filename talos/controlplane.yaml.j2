@@ -40,8 +40,8 @@ config:
                 secret: {{ secrets.secretboxencryptionsecret }}
         - identity: {}
 ---
-# The Talos 1.15 default: anonymous only on the health endpoints, so the apiserver probes and
-# KubePrism's readinessCheck can reach them. The legacy section ran --anonymous-auth=false.
+# gen config's default, not an implicit one (no document means no authentication config): anonymous
+# only on the health endpoints, so the apiserver probes and KubePrism's readinessCheck can reach them.
 apiVersion: v1alpha1
 kind: KubeAuthenticationConfig
 configuration:
@@ -66,9 +66,6 @@ type: RBAC
 apiVersion: v1alpha1
 kind: KubeAPIServerConfig
 image: registry.k8s.io/kube-apiserver:{{ kubernetesVersion }}
-certExtraSANs:
-  - 127.0.0.1
-  - {{ vip }}
 extraArgs:
   # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
   enable-aggregator-routing: "true"

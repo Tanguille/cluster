@@ -170,20 +170,14 @@ rollback` is off the table from here. Only then drop the `talosctl.image.tag` pi
 Every deprecated v1alpha1 section moved to its document; v1alpha1 keeps only fields with no
 replacement (`machine.type/token/ca/certSANs/logging/features.diskQuotaSupport`, `cluster.token`) and
 `machine.kubelet` (blocked, see 1.14). Each document conflicts with its legacy field, so a section
-moves whole. Behaviour is unchanged except where noted:
+moves whole. Behaviour is unchanged; the moves that needed care:
 
 | Documents | Replace | Note |
 | --- | --- | --- |
-| `ResolverConfig`, `TimeSyncConfig` | `machine.network.nameservers` + `features.hostDNS`, `machine.time` | |
-| `DiscoveryServiceConfig`, `DiscoveryIdentityConfig` | `cluster.discovery`, `cluster.id/secret` | |
 | `KubeNodeConfig` | `kubelet.nodeIP`, `nodeLabels`, `allowSchedulingOnControlPlanes` | control-plane label set explicitly, no taints (the legacy shim added both) |
-| `KubeTalosAPIAccessConfig` | `features.kubernetesTalosAPIAccess` | |
 | `UnattendedInstallConfig` | `machine.install` | `wipe` defaults to true, so it is set; tuppr 0.5.14 reads `installer.image` |
-| `EtcdCAConfig`, `EtcdMemberConfig` | `cluster.etcd` | |
-| `KubeClusterConfig`, `KubeNetworkConfig`, `KubeServiceAccountConfig`, `KubeAPIServerCAConfig`, `KubeAggregatorCAConfig` | `clusterName`, `controlPlane`, `network`, `serviceAccount`, `ca`, `aggregatorCA` | |
 | `KubeEtcdEncryptionConfig` | `secretboxEncryptionSecret` | keeps key name `key2` and the `identity` provider |
 | `KubeAPIServerConfig` + `KubeAuthenticationConfig` + 2x `KubeAuthorizerConfig` | `cluster.apiServer` | anonymous now allowed on `/livez`, `/readyz`, `/healthz` (was `--anonymous-auth=false`); authorizers explicit |
-| `KubeControllerManagerConfig`, `KubeSchedulerConfig` | `controllerManager`, `scheduler` | |
 | `KubeProxyConfig`, `KubeCoreDNSConfig` (`enabled: false`) | `proxy`, `coreDNS` | missing means enabled |
 
 Not adopted: `KubeAdmissionControlConfig` (gen config's PodSecurity `baseline` would start enforcing

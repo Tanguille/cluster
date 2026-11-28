@@ -70,7 +70,6 @@ endpoint: https://{{ vip }}:6443
 # No KubeFlannelCNIConfig, so the built-in CNI stays off; Cilium is installed by Flux.
 apiVersion: v1alpha1
 kind: KubeNetworkConfig
-dnsDomain: cluster.local
 podSubnets: ["10.42.0.0/16"]
 serviceSubnets: ["10.43.0.0/16"]
 ---
@@ -88,7 +87,6 @@ nameservers:
   - address: {{ gateway }} # OPNsense Unbound
 hostDNS:
   enabled: true
-  forwardKubeDNSToHost: false
   resolveMemberNames: true
 ---
 apiVersion: v1alpha1
