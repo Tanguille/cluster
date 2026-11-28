@@ -69,7 +69,6 @@ def render(jobs, now):
             "completed": int(job.get("state") == "completed"),
             "paused": int(paused),
             "overdue_seconds": max(0, now - next_run) if next_run and enabled and not paused else 0,
-            "last_error_backend_unavailable": int("no backends available" in error.lower()),
         }
         lines.extend(f"hermes_cron_{metric}{{{series}}} {value}" for metric, value in metrics.items())
     return "\n".join(lines) + "\n"

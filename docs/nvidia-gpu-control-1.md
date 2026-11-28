@@ -104,7 +104,7 @@ Do not start unless all hold. Control-1 reboots and hosts osd.3.
 
 ## llama.cpp services on the 2070
 
-Perplexity Decider Flash v1.3 (Service `d3-nano`), bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
+Perplexity Decider Flash v1.3 (Service `decision`), bge-reranker-v2-m3 and the embedder (`embeddinggemma-2`) run on the card through
 llmkube (`accelerator: cuda`, one time-slice each), image
 `server-cuda13`. Its PTX loads on Turing because toolkit 1.19.1 or newer injects the
 image's forward-compat `libcuda`; an older toolkit fails with "unsupported PTX toolchain"
