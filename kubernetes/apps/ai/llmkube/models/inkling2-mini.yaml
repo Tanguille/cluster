@@ -9,7 +9,7 @@ spec:
   storageClassName: openebs-hostpath
   resources:
     requests:
-      # The .rad is 19.14 GB.
+      # The .rad is 15.5 GB.
       storage: 20Gi
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
@@ -18,15 +18,15 @@ kind: Model
 metadata:
   name: inkling2-mini
 spec:
-  # A ready radiance container (int8 trunk, NVFP4 experts as stored, DSpark drafter, bf16 vision tower), not a
-  # checkpoint: nothing to convert. Its layout is tied to the engine build, so no Renovate bump: move the revision
-  # and the image together, then the cache dir in resources/radiance.yaml (sha256 of this source, first 16 hex).
-  source: hf://gostar77/inkling2-mini-i8-dspark-radiance@f90eb3600834e93f959781fb1d5a4db6d89bb256
+  # Upstream's prebuilt radiance container (IQR-V4 experts, DFlash2 drafter, vision tower), not a checkpoint:
+  # nothing to convert. radiance 2.3.0 serves Inkling only from this layout. Move the revision and the image
+  # together, then the cache dir in resources/radiance.yaml (sha256 of this source, first 16 hex).
+  source: hf://StillDeadcode/inkling-2-mini-iq4r-v4@e1eca628d2c9b855d82e0e402a0f1e2d1c54f49e
   format: custom
-  quantization: i8-nvfp4
+  quantization: IQR-V4
   refreshPolicy: OnChange
   files:
-    - inkling2-mini-i8-vl-dspark.rad
+    - inkling-2-mini-iq4r-v4.rad
   hardware:
     accelerator: rocm
     gpu:
@@ -52,10 +52,10 @@ spec:
     - -c
     - exec radiance --config /etc/radiance/config.yaml
     - radiance
-  # Our own build until radiance ships Inkling (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
+  # Upstream 2.3.0 plus our PR #613 until it merges (docs/llm-hosting/inkling2-mini-2026-11.md). After a bump the owner runs
   # from docs/llm-hosting: python3 bench/qualitygate.py needle --model inkling-2-mini --chat-needles (and qwen-3.8)
   # and prodshape.py --levels 8 (0 preemptions). The card holds one engine, so a bench means stopping production.
-  image: ghcr.io/tanguille/radiance:attnrel-d34cc357@sha256:2257896e6239ff7f156d94ea7534c2d83b484ddc38e2ac6e0d51e2345330b237
+  image: ghcr.io/tanguille/radiance:attnrel-2c0ca6ea@sha256:7bec50bae24b09e3df677456ed24af09f376ea5a652802ed19d82efea1e34422
   # Variant 2 of the relative-attention kernel (reads K and V straight from memory). Unset, the build runs the older
   # kernel: same output, ~12% slower at 8 sessions.
   # COMPACT_MIN=1 lets one or two sessions' long verifies take the compact band too (default: 4 sessions and up).
@@ -109,7 +109,7 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Engine log pins 16.00 tier + ~7.1 checkpoints + 1.46 host pool GiB; qwen-3.8 pinned 26.4 GiB on 1.17. Only one of
+    # Engine log pins 16.00 tier + 7.8 checkpoints + 1.03 host pool GiB (25.0 in all); qwen-3.8 pinned 26.4 GiB on 1.17. Only one of
     # the two is loaded at a time (park ram: never in the radiance config).
     memory: 26Gi
     # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: 64Gi would pass

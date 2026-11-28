@@ -4,12 +4,14 @@
 
 ## Engine and model
 
-- Image: `ghcr.io/tanguille/radiance:attnrel-<sha>`, our own build. Upstream support is radiance PR [#584](https://codeberg.org/StillDeadcode/radiance/pulls/584) (merged) and [#608](https://codeberg.org/StillDeadcode/radiance/pulls/608) (open; it replaced #585/#586). The build is the #608 branch plus two local changes:
-  - host tests on, minus six that fail only inside BuildKit (`TEST_EXCLUDE`: `avx_check` needs io_uring, plus `dashboard_test`, `gbnf_test_shard2`, `quant_ggml_test`, `shipped_plugins_test`, `artifact_sums`);
-  - the `inkling-perf` patch: NVFP4 MoE takes the prefill tiles only from 16 routed rows an expert (`RADIANCE_NVFP4_PF_ROWS` overrides), and the sort writes `moe_gather_inv`'s slot table. +10% aggregate at 8 sessions in one run; upstream as [#613](https://codeberg.org/StillDeadcode/radiance/pulls/613), stacked on #608.
-  - local engine work, not upstream (private branches, no source in this repo): the replay-audit fix (relative attention declares live prefill splits; without it a mixed step could stop the engine), a short-verify band so 8-row verifies take the packed kernel, a Markov score grid that shares fold tiles, a compact packed-verify workgroup with more KV splits, a direct-from-memory relative-attention kernel (`RADIANCE_REL_VARIANT=2`), and a draft policy that skips the proposal below 4 decode rows only when a plain step wins. On top, spizzerp's [Tangenius/radiance#1](https://codeberg.org/Tangenius/radiance/pulls/1): `RADIANCE_REL_COMPACT_MIN=1` sends one or two sessions' long verifies to the compact band.
-  - Built with rootless BuildKit from the upstream Dockerfile (ccache mount). Move to the upstream image once the PRs merge.
-- Model: [gostar77/inkling2-mini-i8-dspark-radiance](https://huggingface.co/gostar77/inkling2-mini-i8-dspark-radiance), a ready `.rad` (int8 trunk, NVFP4 experts, DSpark drafter, vision tower). Its layout follows the engine build, so the revision is pinned and moves with the image.
+- Image: `ghcr.io/tanguille/radiance:attnrel-<sha>`, our own build: upstream radiance 2.3.0 (which ships Inkling) plus our PR [#613](https://codeberg.org/StillDeadcode/radiance/pulls/613) (open):
+  - the sort writes `moe_gather_inv`'s slot table;
+  - relative attention: `_short` gqa-3 rows so 8-row verifies take the packed kernel, live prefill splits declared (without it a recorded mixed pass could fail the replay audit and stop the engine), a compact packed-verify workgroup with more KV splits, and Inkling's mixed passes keyed when they take the WMMA path;
+  - `RADIANCE_REL_VARIANT=2` (a direct-from-memory verify kernel) and spizzerp's `RADIANCE_REL_COMPACT_MIN=1` ([Tangenius/radiance#1](https://codeberg.org/Tangenius/radiance/pulls/1)), both off by default;
+  - host tests on, minus seven that fail only inside BuildKit or on a loaded builder (`TEST_EXCLUDE`: `avx_check` needs io_uring, plus `dashboard_test`, `gbnf_test_shard2`, `quant_ggml_test`, `shipped_plugins_test`, `artifact_sums`, `trigger_test`).
+
+  Built with rootless BuildKit from the upstream Dockerfile (ccache mount); move to the upstream image once #613 merges.
+- Model: upstream's [StillDeadcode/inkling-2-mini-iq4r-v4](https://huggingface.co/StillDeadcode/inkling-2-mini-iq4r-v4), a ready `.rad` (IQR-V4 experts, DFlash2 drafter, vision tower). 2.3.0 refuses the older NVFP4/DSpark containers by name.
 
 ## Config and why
 
@@ -48,16 +50,45 @@ Quality against the #608 build: drafter-off greedy output identical token for to
 
 Gates with compact-min on: drafter-off agreement 100% (0/60, warm vs cold 20/20), GSM8K 146/150, tools 12/12 single and concurrent, vision 2/2, needles pass at 200K.
 
+## Measurements (2026-11-27, radiance 2.3.0, IQR-V4 + DFlash2, same card, 210 W cap)
+
+`attnrel-cf02edae` with `checkpoint-draft-window: true` against the 2.3.0 image and our previous production (`attnrel-d34cc357`, NVFP4 + DSpark). Benched alone on the card (KV pool 910K tokens).
+
+| Workload | Stock 2.3.0 | Production before | This build |
+| --- | --- | --- | --- |
+| Code context, 1 session at 42K / 101K | 120.6 / 83.0 | - | 161.5 / 119.9 |
+| Code context, 8 sessions at 50K | 145.3 | 226 | 318.0 |
+| prodshape aggregate, 1 / 8 sessions (TTFT p50 at 8) | 60.2 / 83.0 (4.14 s) | - / 109.7 | 62.4 / 125.7 (3.07 s) |
+
+- BetterBench single stream: combined 186.8 tok/s, TTFT p50 85 ms; 8 concurrent 460.5 tok/s aggregate; prefill 5,040-5,300 tok/s up to 16K, 4,470 at 64K.
+- Gates: GSM8K 144/150, tools 12/12 single and concurrent, vision 2/2, needles at 20K/60K/200K plus cached prefix. QualityBench quick against the previous container passes the paired gate on 7/7 tasks.
+- saber-engine on Inkling, same day and card: about half of this build's throughput and no tools or vision ([alt-engines-2026-11.md](alt-engines-2026-11.md#saber-engine-on-inkling-2-mini-2026-11-27)).
+
 ## qwen-3.8 on demand
 
 radiance 2.x serves several models from one process (upstream `docs/MULTIMODEL.md`). `qwen-3.8` is the second entry of the fleet config; agentgateway sends it to the same Service (`agentgateway/app/models/qwen-3.8.yaml`). Started from JJGadgets/Biohazard's `qwen3.8-27b-radiance.yaml`.
 
 - Weights: upstream's [StillDeadcode/qwen3.8-27b-iqr-v4](https://huggingface.co/StillDeadcode/qwen3.8-27b-iqr-v4) IQ4R-S-V4 container, prefetched by the `qwen38-27b` Model. It is base Qwen3.8-27B, not Swift 1.5 (which thinks less), with a DFlash2 drafter; KL 0.0064 against bf16. 2.x refuses Swift's M2XFP4 and block-FP8 containers and the 1.17 `.rad`, and the W4A16 checkpoint is gated.
 - The two never fit on the card together. A request for the one not loaded takes the card once the other has served its quantum (5-30 s) and drained (30 s; open streams are then cut). The leaving model unloads (`park: ram: never`), so its sessions prefill again and the pod pins one model's host memory at a time. Under mixed traffic the two swap back and forth.
-- Equal priority, no `ttl`: on this build every `/metrics` scrape counts as a use, so a model never goes idle (fixed in upstream 2.3.0, where a qwen `ttl` could hand the card back).
+- Equal priority, no `ttl`: on this build every `/metrics` scrape counts as a use, so a model never goes idle (2.3.0 fixed that, so a qwen `ttl` could now hand the card back; not set yet).
 - `warm-up: false`: nothing loads at start. The pod is ready before Inkling is, and the first request waits for its load (up to `load-timeout`, 120 s).
-- Untested on the card: qwen's first load on this build is the first time `qwen35_w8a8` runs here, and a device fault during it ends Inkling too. Run it in a bench window: the qualitygate modes with `--model qwen-3.8`, prodshape `--levels 1,4,6`, and the `kv:` line for the pool. Settings carried over from 1.17 (Swift, k6_v4) are not re-measured.
+- Measured on `attnrel-2c0ca6ea` in this fleet config (2026-11-27): qwen loads in 14 s, tools 12/12 single and 5 at once, and Inkling swaps back. prodshape on qwen and the settings carried over from 1.17 (Swift, k6_v4) are not re-measured.
 - Do not send `qwen-3.8` before the Model reads Ready: a missing file fails only qwen's load, but the attempt can still reclaim Inkling's free KV.
+
+### Against Inkling (2026-11-27, same build, same card)
+
+BetterBench 20 passes a category; QualityBench quick, thinking on at effort medium, on the same items (Inkling's run on `attnrel-495db507`).
+
+| | inkling-2-mini | qwen-3.8 |
+| --- | --- | --- |
+| Single stream, combined decode tok/s | 186.8 | 129.5 |
+| 1 / 2 / 4 / 8 concurrent, aggregate tok/s | 175 / 241 / 341 / 461 | 117 / 203 / 288 / 329 (6 slots) |
+| Prefill at 2K / 16K / 64K, tok/s | 5,036 / 5,242 / 4,472 | 2,424 / 2,285 / 1,970 |
+| GSM8K / IFEval / MMLU-Pro | 130/132, 46/55, 76/100 | 130/132, 47/55, 79/100 |
+| HumanEval+ / MBPP+ / LiveCodeBench v6 | 17/17, 29/38, 10/18 | 17/17, 31/38, 12/18 |
+| BFCL / needle | 36/40, 2/2 | 38/40, 2/2 |
+
+qwen scores equal or one to three items higher on every task; every paired 95% interval includes 0 (gate T5 7/7). Inkling decodes 45% faster and prefills twice as fast, but writes 2.5-3x the mean tokens on IFEval, MMLU-Pro and MBPP+. A QualityBench run against a bench pod needs a `/health` keepalive through the port-forward: its requests do not stream, and an idle tunnel dropped all of them at ~575 s.
 
 ## Outside git
 
