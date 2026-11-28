@@ -1,8 +1,8 @@
 ---
 # Reference-only, never applied: stand-in for the SOPS cluster-secrets flate cannot read.
 # It lives in `default` because the consuming apps do. Add a key here whenever an app's
-# values read one, or its render fails offline (rsume needs SECRET_DOMAIN as a bare
-# hostname, which otherwise renders null).
+# values read one, or its render fails offline. Konflate cannot read this file, so a bare secret
+# value needs a `${VAR:=placeholder}` default in the manifest itself (rsume's hostname).
 apiVersion: v1
 kind: Secret
 metadata:

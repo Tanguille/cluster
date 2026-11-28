@@ -66,7 +66,9 @@ spec:
             headers:
               Host: ${SECRET_DOMAIN}
         hostnames:
-          - "${SECRET_DOMAIN}"
+          # A bare secret renders null wherever cluster-secrets is absent (Konflate has no supply
+          # file); the default only applies there, Flux always has the real value.
+          - "${SECRET_DOMAIN:=example.invalid}"
         parentRefs:
           - name: envoy-internal
             namespace: network
