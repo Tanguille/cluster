@@ -5,9 +5,11 @@ kind: Kustomization
 resources:
   - helmrelease.yaml
 configMapGenerator:
-  - name: recyclarr-configmap
+  - name: recyclarr-configs
     files:
       - ./config/recyclarr.yaml
+  - name: recyclarr-includes
+    files:
       - ./includes/Sonarr_Standard_Custom_Formats.yaml
 generatorOptions:
   disableNameSuffixHash: true
