@@ -524,11 +524,6 @@ spec:
             memory: 2Gi
         storage:
           storageClassName: *blockStorageClass
-          # Clones the retired victoria-logs-single volume (StatefulSet retains it) to keep the 14d of logs.
-          # Drop once that PVC is deleted; only read when the PVC is first created.
-          dataSourceRef:
-            kind: PersistentVolumeClaim
-            name: server-volume-victoria-logs-0
 
     vlagent:
       enabled: true
