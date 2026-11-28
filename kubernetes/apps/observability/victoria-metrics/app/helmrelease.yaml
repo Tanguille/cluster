@@ -135,6 +135,9 @@ spec:
         # ZFS ARC counts as used memory (fired on truenas 57% of 7d); NodeMemoryAvailableLow and PSI cover k8s nodes.
         NodeMemoryHighUtilization:
           enabled: false
+        # Replaced by node-exporter-rules with a higher threshold for the TrueNAS host.
+        NodeMemoryMajorPagesFaults:
+          enabled: false
         # No inhibit rule consumes it.
         InfoInhibitor:
           enabled: false
@@ -385,6 +388,20 @@ spec:
       spec:
         securityContext: *vm-security-context
         priorityClassName: homelab-critical # sole scrape path
+        # Best-effort spread from vmsingle so vmagent keeps queueing scrapes while that node restarts.
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: vmsingle
+                  topologyKey: kubernetes.io/hostname
+        extraArgs:
+          # Upstream flipped the default to false; true saves RAM per discovered target at the cost of
+          # pre-relabel labels on the targets page.
+          "promscrape.dropOriginalLabels": "true"
         resources:
           requests:
             cpu: 100m

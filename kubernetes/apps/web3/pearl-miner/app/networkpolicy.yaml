@@ -12,14 +12,6 @@ spec:
   # LAN. Not limited to the pool port or FQDN because the dev fee may use
   # another pool endpoint.
   egress:
-    - toEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-      toPorts:
-        - ports:
-            - port: "53"
-              protocol: ANY
     - toCIDRSet:
         - cidr: 0.0.0.0/0
           except:

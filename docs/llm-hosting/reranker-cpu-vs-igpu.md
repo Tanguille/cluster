@@ -2,7 +2,7 @@
 
 Decision record: `bge-reranker-v2-m3` stayed on the iGPU (CPU is 2.5-3.2x slower and
 breaks memini's rerank timeout at 12 docs per request); since 2026-11-15 it runs on the RTX 2070
-(see the end). Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
+(see the end).
 
 ## Method (2026-10-06, control-3)
 
