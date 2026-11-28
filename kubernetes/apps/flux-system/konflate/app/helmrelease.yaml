@@ -31,8 +31,6 @@ spec:
       refreshInterval: 5m
       # 2 peaked at 1.6 GiB of heap; under 40 jobs per 3h, so serial renders cost no latency.
       maxDiffConcurrency: 1
-      # Auto is 256 MiB per orchestrator, two per render, all live heap the GC cannot reclaim.
-      helmTemplateCacheMb: "64"
       # GC target follows the request; automemlimit's 90% of the limit let the heap idle at ~600 MiB.
       extraEnv:
         - name: GOMEMLIMIT
