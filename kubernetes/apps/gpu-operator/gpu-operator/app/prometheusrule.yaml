@@ -9,9 +9,11 @@ spec:
     - name: nvidia-gpu-exporter
       rules:
         - alert: HighGpuUsage
-          # nvidia_smi_utilization_gpu_ratio is 0-1, so 0.85 is 85%.
+          # nvidia_smi_utilization_gpu_ratio is 0-1, so 0.85 is 85%. pearl-miner fills the 2070 by design;
+          # its own rules cover heat and VRAM while it runs.
           expr: |-
             avg_over_time(nvidia_smi_utilization_gpu_ratio[15m]) > 0.85
+            unless on () (sum(kube_deployment_status_replicas{namespace="web3", deployment="pearl-miner"}) > 0)
           for: 15m
           labels:
             severity: warning

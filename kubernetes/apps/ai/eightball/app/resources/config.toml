@@ -1,21 +1,28 @@
 # 8-ball configuration, mounted at /etc/eightball/config.toml (chart default).
 # Reference: https://github.com/Tanguille/8-ball/blob/main/docs/configuration.md
 
-default = "d3"
+default = "decision"
 
-[endpoints.d3]
-url = "http://d3-nano.ai.svc.cluster.local:8080"
+[endpoints.decision]
+url = "http://decision.ai.svc.cluster.local:8080"
 kind = "systemone"
 
-# Keep unsure answers until a local model can answer a one-token logprob request.
-# Inkling spends the token on reasoning (docs/llm-hosting/inkling2-mini-2026-11.md).
+# d3's unsure answers are re-asked here. Inkling always thinks, even at reasoning_effort none, so 8-ball scores the
+# first token after the thinking (needs 8-ball with Tanguille/8-ball#104). On 600 benchmark cases, 128 tokens ran out
+# on 83 and 512 on 3; p95 3.6 s. The cascade settled all 25 unsure cases of Flash: 18 right, 7 wrong.
+# Concurrency 2 leaves Inkling's other sequences to Hermes.
 [endpoints.local]
 url = "http://agentgateway.ai.svc.cluster.local:4000"
 kind = "logprob"
 model = "inkling-2-mini"
 extra_body = { chat_template_kwargs = { reasoning_effort = "none" } }
+reasoning_tokens = 512
 api_key_env = "LLM_API_KEY"
-concurrency = 8
+concurrency = 2
+
+# A spec opts out with escalate = false.
+[escalation]
+endpoint = "local"
 
 [specs.gitops-investigate]
 type = "noul"

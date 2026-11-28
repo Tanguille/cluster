@@ -10,7 +10,7 @@ of generating text. The decision reads the first user message, minus Hermes's ap
 is cached on it for 24 hours, so a conversation keeps one effort and the model's prefix cache stays warm. If the callout
 fails, plain `inkling-2-mini` answers with the client's effort.
 
-The Kubernetes Service retains the name `d3-nano` for existing clients. See the
+The Kubernetes Service is `decision`. See the
 [2070 Flash benchmark](../nvidia-gpu-control-1.md#decider-flash-v13-2026-11-23) for decision quality and latency.
 
 ## Evidence, 2026-11-01

@@ -214,9 +214,6 @@ spec:
         requests:
           cpu: 100m
           memory: 128Mi
-      # Native kubernetes source: the agent tails the envoy-external pods over the
-      # K8s API (pods + pods/log) instead of file-tailing containerd log files, so
-      # log capture no longer depends on the host /var/log layout the chart renders.
       additionalAcquisition:
         # Only the gateway the crowdsec-wasm EnvoyExtensionPolicy enforces on; envoy-internal/-tls have no
         # bouncer, so their alerts would ban at the external gateway only.
@@ -235,8 +232,6 @@ spec:
           value: >-
             crowdsecurity/base-http-scenarios
             crowdsecurity/http-cve
-        - name: PARSERS
-          value: crowdsecurity/cri-logs
         - name: TZ
           value: ${TIMEZONE}
       metrics:

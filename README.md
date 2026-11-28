@@ -116,7 +116,7 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **Memini**   | Long-term memory for agents                                |
 | **Paseo**    | Web UI to run and manage coding agents                     |
 | **PasteGuard** | Masks secrets in requests to free cloud models           |
-| **8-ball**   | Decisions with Decider Flash v1.3 and Qwen escalation      |
+| **8-ball**   | Decisions with Decider Flash v1.3 and Inkling escalation   |
 | **Pearl miner** | Solar-gated miner on the RTX 2070                       |
 
 Tuning constraints and benchmark history for the inference stack live in
@@ -138,7 +138,7 @@ FlareSolverr · BRRPolice · FileFlows · Qui · Bitmagnet · Maintainerr · Tra
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
 Ghostfolio · IT-Tools · PicoShare · DumbAssets · Forgejo · Mealie · Wakapi ·
-Continuwuity · Sable · rsume · family-blog
+Continuwuity · Sable · rsume · family-blog · Orbit
 
 </details>
 
