@@ -25,7 +25,7 @@ Answer “is the cluster OK?” and “who is using CPU?” with **correct units
 
 ## Tool usage (Grafana MCP)
 
-Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Datasource uid `prometheus` (default) — VictoriaMetrics behind `vmauth-victoria-metrics.observability:8427`; second uid `victoriametrics`.
+Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Datasource uid `prometheus` (default) — VictoriaMetrics behind `vmauth-victoria-metrics-internal.observability:8427`; second uid `victoriametrics`.
 
 **Before any call:** resolve real tool names in this session (may be prefixed, e.g. `grafana_query_prometheus`).
 

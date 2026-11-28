@@ -411,33 +411,42 @@ spec:
             cpu: 1
             memory: 1Gi
 
-    vmauth:
-      enabled: true
-      spec:
-        securityContext: *vm-security-context
-        priorityClassName: homelab-critical # Grafana's query path
-        # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
-        # 25Mi default, which its 39Mi peak already exceeds.
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            memory: 256Mi
-        extraArgs:
-          requestBufferSize: "65536"
-        unauthorizedUserAccessSpec:
-          url_map:
-            - src_paths:
-                - /api/v1/query.*
-                - /api/v1/labels.*
-                - /api/v1/series.*
-                - /api/v1/metadata.*
-                - /api/v1/label/.*
-              url_prefix: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-            - src_paths:
-                - /select/logsql/.*
-              url_prefix: http://vlsingle-victoria-metrics.observability.svc.cluster.local:9428
+    # The chart's internal VMAuth (vmalert's datasource once vlsingle is on) is the only one; it also serves Grafana
+    # and monero-guard.
+    internal:
+      vmauth:
+        spec:
+          securityContext: *vm-security-context
+          priorityClassName: homelab-critical # Grafana's and vmalert's query path
+          # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
+          # 25Mi default, which its 39Mi peak already exceeds.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          extraArgs:
+            requestBufferSize: "65536"
+          # Read-only paths; the chart default would proxy every vmsingle path, writes included.
+          unauthorizedUserAccessSpec:
+            targetRefs:
+              - crd:
+                  kind: VMSingle
+                  name: victoria-metrics
+                  namespace: observability
+                paths:
+                  - /api/v1/query.*
+                  - /api/v1/labels.*
+                  - /api/v1/series.*
+                  - /api/v1/metadata.*
+                  - /api/v1/label/.*
+              - crd:
+                  kind: VLSingle
+                  name: victoria-metrics
+                  namespace: observability
+                paths:
+                  - /select/logsql/.*
 
     vmsingle:
       route:
@@ -522,8 +531,6 @@ spec:
           limits:
             cpu: 1
             memory: 2Gi
-        storage:
-          storageClassName: *blockStorageClass
 
     vlagent:
       enabled: true

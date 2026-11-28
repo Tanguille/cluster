@@ -7,7 +7,7 @@ metadata:
   namespace: &namespace observability
 spec:
   dependsOn:
-    - name: victoria-metrics
+    - name: prometheus-operator-crds
   interval: 1h
   path: ./kubernetes/apps/observability/talos-log-relay/app
   prune: true
