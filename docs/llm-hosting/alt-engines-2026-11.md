@@ -98,6 +98,25 @@ saber exports `saber:*` metrics and has no `/tokenize`; it has no KV format belo
 Verdict: rejected. At 16K prefixes and up to 4 sessions it matches or slightly beats radiance and prefills about 30% faster, but it cannot
 hold our 40K+ sessions, 8 slots or 262144 context on one card.
 
+## saber-engine on Inkling 2 Mini (2026-11-27)
+
+Commit `ecf5839`, its one-card pack (`Launch80/Inkling-2-Mini-NVFP4-SABER` + DFlash2), 8 sequences of 16,384 tokens, against
+radiance `attnrel-cf02edae` (IQR-V4 + DFlash2, `checkpoint-draft-window`) in the same window. BetterBench, 20 passes:
+
+| | saber | radiance |
+| --- | --- | --- |
+| Single stream, combined decode tok/s | 106.7 | 186.8 |
+| Concurrency 1 / 2 / 4 / 8, aggregate tok/s | 94 / 110 / 162 / 208 | 175 / 241 / 341 / 461 |
+| Prefill tok/s at 2K / 8K / 16K | 3,017 / 3,221 / 3,217 | 5,036 / 5,302 / 5,242 |
+| Prefill at 32K / 64K | over its 16K context | 4,975 / 4,472 |
+
+- Tool requests get HTTP 400 ("auto tool choice requires --tool-call-parser"): the Inkling path has no tool or reasoning
+  parser, so thinking lands in `content`. Images get 400 (text only).
+- `--ink-prefix-cache` refuses on one card ("not at one card"): every turn prefills again.
+- 8 x 16K fills the card (27.2 of 31.9 GiB), so none of our 40K+ sessions fit.
+
+Verdict: rejected. Its published 175.3 combined is the two-card number.
+
 ## Conditions to re-test
 
 - sly: a release that keeps 8 sessions of 40K to 98K prefixes at agg tok/s of at least 96 with 0 preemptions, with a kv4 decode close to fp8.
