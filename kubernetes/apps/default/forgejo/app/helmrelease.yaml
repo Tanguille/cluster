@@ -39,6 +39,8 @@ spec:
                     key: SECRET_KEY
               FORGEJO__service__DISABLE_REGISTRATION: "true"
               FORGEJO__repository__DEFAULT_PRIVATE: "private"
+              # Actions is opt-in per repo: the upstream default minus repo.actions. Mirrors never get it.
+              FORGEJO__repository__DEFAULT_REPO_UNITS: repo.code,repo.issues,repo.pulls,repo.releases,repo.wiki,repo.projects,repo.packages
               FORGEJO__federation__ENABLED: "false"
               FORGEJO__mirror__DEFAULT_INTERVAL: 10m
               # The relay trusts the pod CIDR without auth, and Forgejo refuses auth over plain SMTP, so none is set.

@@ -31,15 +31,6 @@ spec:
         - ports:
             - port: "3000"
               protocol: TCP
-    # Checkout uses ROOT_URL, served by the internal gateway.
-    - toEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: network
-            gateway.networking.k8s.io/gateway-name: envoy-internal
-      toPorts:
-        - ports:
-            - port: "443"
-              protocol: TCP
     # actions/cache goes through the runner's cache proxy.
     - toEndpoints:
         - matchLabels:
