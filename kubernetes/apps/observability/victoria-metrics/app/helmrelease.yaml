@@ -437,7 +437,7 @@ spec:
               url_prefix: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
             - src_paths:
                 - /select/logsql/.*
-              url_prefix: http://victoria-logs.observability.svc.cluster.local:9428
+              url_prefix: http://vlsingle-victoria-metrics.observability.svc.cluster.local:9428
 
     vmsingle:
       route:
@@ -483,6 +483,70 @@ spec:
             requests:
               storage: 200Gi
           storageClassName: *blockStorageClass
+
+    vlsingle:
+      enabled: true
+      route:
+        enabled: true
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: VictoriaLogs
+          gethomepage.dev/description: Log aggregation & query
+          gethomepage.dev/group: Logs
+          gethomepage.dev/icon: mdi-file-document-outline-#ffffff
+          gethomepage.dev/pod-selector: app.kubernetes.io/name=vlsingle
+        hostnames:
+          - logs.${SECRET_DOMAIN}
+        parentRefs: *internalParentRefs
+        # The bare host opens the query UI instead of the landing page.
+        extraRules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: /
+            filters:
+              - type: RequestRedirect
+                requestRedirect:
+                  path:
+                    type: ReplaceFullPath
+                    replaceFullPath: /select/vmui/
+                  statusCode: 302
+      spec:
+        securityContext: *vm-security-context
+        retentionPeriod: 14d
+        resources:
+          requests:
+            cpu: 50m
+            # 14d peak 747Mi.
+            memory: 320Mi
+          limits:
+            cpu: 1
+            memory: 2Gi
+        storage:
+          storageClassName: *blockStorageClass
+
+    vlagent:
+      enabled: true
+      spec:
+        priorityClassName: homelab-critical
+        k8sCollector:
+          decolorizeFields:
+            - _msg
+          streamFields:
+            - kubernetes.pod_name
+            - kubernetes.pod_namespace
+            - kubernetes.container_name
+            - kubernetes.pod_labels.app.kubernetes.io/name
+        remoteWriteSettings:
+          maxDiskUsagePerURL: 10GB
+        resources:
+          requests:
+            cpu: 25m
+            # 30d peak 73Mi.
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
 
     extraRules:
       oom-rules:

@@ -36,7 +36,7 @@ Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Da
 | PromQL | **`query_prometheus`** (`queryType`, `startTime`, `endTime`, `stepSeconds`) |
 | Discovery | `list_prometheus_metric_names`, `list_prometheus_label_*` |
 | Dashboards | `search_dashboards`, `get_dashboard_summary`, `get_dashboard_panel_queries` |
-| Logs follow-up | `victorialogs-mcp_*` tools via the vMCP; raw fallback: vmauth :8427 `/select/logsql/*` or victoria-logs.observability:9428 |
+| Logs follow-up | `victorialogs-mcp_*` tools via the vMCP; raw fallback: vmauth :8427 `/select/logsql/*` or vlsingle-victoria-metrics.observability:9428 |
 
 **`query_prometheus`:** use `instant` + subquery PromQL from [references/promql-queries.md](references/promql-queries.md); for `range`, align `stepSeconds` with `$STEP` (60 for 1m, 300 for 5m).
 
