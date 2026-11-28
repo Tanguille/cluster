@@ -17,6 +17,10 @@ spec:
       count: 1
       enabled: true
       vendor: nvidia
+      # RTX 2070 (8 GiB) is shared with d3-nano/bge/embeddinggemma; all-layers
+      # (99) OOM-crashes the pod at model load (2026-11-28: cudaMalloc of ~3.2 GiB failed,
+      # 52 restarts). Offload only what fits; the rest streams from host RAM.
+      layers: 12
   refreshPolicy: OnChange
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
