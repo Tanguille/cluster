@@ -32,7 +32,7 @@ SENSORS = types.MappingProxyType({
 # Miner slot priority, best first: control-1's NVMe is properly cooled. Each ScaledObject subtracts one
 # miner's draw per safe node that outranks it, so this order decides who gets scarce watts.
 PRIORITY = ("control-1", "control-2", "control-3")
-ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
+ENDPOINT = "http://vmauth-victoria-metrics-internal.observability.svc.cluster.local:8427"
 EVALUATION_INTERVAL_SECONDS = 30
 SOURCE_SAMPLE_MAX_AGE_SECONDS = 120
 # The CPU path joins cadvisor, which scrapes at 60s where the other six sources scrape at 20s,

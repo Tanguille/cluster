@@ -411,11 +411,10 @@ spec:
             cpu: 1
             memory: 1Gi
 
-    # The chart's internal VMAuth (vmalert's datasource once vlsingle is on) is the only one: it also serves Grafana
-    # and monero-guard, under the vmauth-victoria-metrics service name they use.
+    # The chart's internal VMAuth (vmalert's datasource once vlsingle is on) is the only one; it also serves Grafana
+    # and monero-guard.
     internal:
       vmauth:
-        name: "{{ .fullname }}"
         spec:
           securityContext: *vm-security-context
           priorityClassName: homelab-critical # Grafana's and vmalert's query path
