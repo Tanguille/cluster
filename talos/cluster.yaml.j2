@@ -61,20 +61,18 @@ machine:
     diskQuotaSupport: true
 cluster:
   token: {{ secrets.bootstraptoken }}
-  secretboxEncryptionSecret: {{ secrets.secretboxencryptionsecret }}
-  ca:
-    crt: {{ certs.k8s.crt }}
-  clusterName: kubernetes
-  controlPlane:
-    endpoint: https://{{ vip }}:6443
-  network:
-    # Built-in CNI disabled; Cilium is installed by Flux.
-    cni:
-      name: none
-    dnsDomain: cluster.local
-    podSubnets: ["10.42.0.0/16"]
-    serviceSubnets: ["10.43.0.0/16"]
-
+---
+apiVersion: v1alpha1
+kind: KubeClusterConfig
+clusterName: kubernetes
+endpoint: https://{{ vip }}:6443
+---
+# No KubeFlannelCNIConfig, so the built-in CNI stays off; Cilium is installed by Flux.
+apiVersion: v1alpha1
+kind: KubeNetworkConfig
+dnsDomain: cluster.local
+podSubnets: ["10.42.0.0/16"]
+serviceSubnets: ["10.43.0.0/16"]
 ---
 # Replaces machine.kubelet.nodeIP; machine.kubelet itself stays legacy (KubeletConfig has no extraMounts).
 # Unnamed, so the control-plane and node layers merge their labels into it.
@@ -196,8 +194,8 @@ params:
   net.ipv4.tcp_slow_start_after_idle: "0"
   user.max_user_namespaces: "11255"
 ---
-# Replaces machine.features.kubePrism (the two are mutually exclusive). No readinessCheck: it probes
-# /readyz anonymously, and the legacy cluster.apiServer section runs --anonymous-auth=false (401).
+# Replaces machine.features.kubePrism (the two are mutually exclusive). No readinessCheck yet: it probes
+# /readyz anonymously, which KubeAuthenticationConfig only allows once it is applied on every node.
 apiVersion: v1alpha1
 kind: KubePrismConfig
 port: 7445
