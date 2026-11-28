@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: k8s-gpu-dra-driver
+spec:
+  interval: 1h
+  # ROCm publishes this chart only via GitHub Pages (no OCI package).
+  url: https://rocm.github.io/k8s-gpu-dra-driver

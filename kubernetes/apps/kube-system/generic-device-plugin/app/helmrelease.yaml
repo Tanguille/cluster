@@ -30,8 +30,8 @@ spec:
               - |
                 name: dri
                 groups:
-                  # vllm, jellyfin, fileflows and drm-exporter hold 4; the 5th is spare
-                  - count: 5
+                  # Only inkling2-mini (Recreate) holds one: media and drm-exporter claim the dGPU via DRA
+                  - count: 1
                     paths:
                       - path: /dev/dri
                       - path: /dev/kfd
