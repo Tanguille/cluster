@@ -39,7 +39,7 @@ jobs:
 
       # Only the formatters: the full tool set is a ~465 MB cache restore. No cache: this job runs on PRs
       # only, so every PR would save its own copy and crowd the repo's Actions cache quota.
-      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+      - uses: jdx/mise-action@3277a0f272901982804abc53abd93520db809be4 # v5.4.0
         with:
           cache: false
           install_args: aqua:evilmartians/lefthook oxfmt aqua:casey/just aqua:mvdan/sh
