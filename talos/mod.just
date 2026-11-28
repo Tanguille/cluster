@@ -130,8 +130,8 @@ schematic-id node:
 
 [private]
 machine-image node:
-    # Read back from the render rather than rebuilt from schematic+version: the field moves
-    # document under UnattendedInstallConfig, and this value becomes `talosctl upgrade -i`.
-    image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
+    # Read back from the render rather than rebuilt from schematic+version: this value becomes
+    # `talosctl upgrade -i`, so it must be exactly what apply-node lands.
+    image="$(just talos render-config "{{ node }}" | yq -er 'select(.kind == "UnattendedInstallConfig") | .installer.image')"
     [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
     echo "${image}"

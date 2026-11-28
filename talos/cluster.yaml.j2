@@ -3,7 +3,6 @@
 # which is passed to minijinja as the template context (see the root `template` recipe).
 version: v1alpha1
 debug: false
-persist: true
 machine:
   token: {{ trustdinfo.token }}
   ca:
@@ -43,9 +42,6 @@ machine:
         cpu: 500m
         # Measured /system + /init peak is 391MB on control-3, 203MB on control-2.
         memory: 512Mi
-    nodeIP:
-      validSubnets:
-        - 192.168.0.0/24
     extraMounts:
       - destination: /var/openebs/local
         type: bind
@@ -54,18 +50,6 @@ machine:
           - bind
           - rshared
           - rw
-  network:
-    nameservers:
-      - {{ gateway }} # OPNsense Unbound
-  install:
-    wipe: false
-    grubUseUKICmdline: true
-    # Schematic id resolved per node (control-1 has its own). tuppr re-tags the RUNNING node's install-image
-    # repo, so this drives upgrades only once apply-node has landed it.
-    image: factory.talos.dev/metal-installer/{{ schematic }}:{{ talosVersion }}
-  time:
-    disabled: false
-    servers: [{{ gateway }}]
   # Kernel log rides along as service "kernel", so no KmsgLogConfig (it would send it twice).
   # Cilium socket LB serves talos-log-relay's ClusterIP to host-network senders. TCP, not UDP: Talos
   # connects once at boot, before Cilium, and only redials on a write error, which UDP never returns.
@@ -75,33 +59,62 @@ machine:
         format: json_lines
   features:
     diskQuotaSupport: true
-    hostDNS:
-      enabled: true
-      forwardKubeDNSToHost: false
-      resolveMemberNames: true
 cluster:
-  id: {{ cluster.id }}
-  secret: {{ cluster.secret }}
   token: {{ secrets.bootstraptoken }}
-  secretboxEncryptionSecret: {{ secrets.secretboxencryptionsecret }}
-  ca:
-    crt: {{ certs.k8s.crt }}
-  clusterName: kubernetes
-  controlPlane:
-    endpoint: https://{{ vip }}:6443
-  network:
-    # Built-in CNI disabled; Cilium is installed by Flux.
-    cni:
-      name: none
-    dnsDomain: cluster.local
-    podSubnets: ["10.42.0.0/16"]
-    serviceSubnets: ["10.43.0.0/16"]
-  discovery:
-    enabled: true
-    registries:
-      kubernetes:
-        disabled: true
-      service: {}
+---
+apiVersion: v1alpha1
+kind: KubeClusterConfig
+clusterName: kubernetes
+endpoint: https://{{ vip }}:6443
+---
+# No KubeFlannelCNIConfig, so the built-in CNI stays off; Cilium is installed by Flux.
+apiVersion: v1alpha1
+kind: KubeNetworkConfig
+podSubnets: ["10.42.0.0/16"]
+serviceSubnets: ["10.43.0.0/16"]
+---
+# Replaces machine.kubelet.nodeIP; machine.kubelet itself stays legacy (KubeletConfig has no extraMounts).
+# Unnamed, so the control-plane and node layers merge their labels into it.
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+nodeIP:
+  validSubnets:
+    - 192.168.0.0/24
+---
+apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+  - address: {{ gateway }} # OPNsense Unbound
+hostDNS:
+  enabled: true
+  resolveMemberNames: true
+---
+apiVersion: v1alpha1
+kind: TimeSyncConfig
+ntp:
+  servers:
+    - {{ gateway }}
+---
+# Schematic id resolved per node (control-1 has its own). tuppr reads installer.image from the RUNNING
+# node's config and re-tags it, so this drives upgrades only once apply-node has landed it. The disk
+# selector lives in the node files; grubUseUKICmdline is implied by this document. wipe defaults to true.
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/metal-installer/{{ schematic }}:{{ talosVersion }}
+provisioning:
+  wipe: false
+---
+apiVersion: v1alpha1
+kind: DiscoveryServiceConfig
+name: default
+endpoint: https://discovery.talos.dev/
+---
+# The Kubernetes registry stays off: no document enables it.
+apiVersion: v1alpha1
+kind: DiscoveryIdentityConfig
+clusterID: {{ cluster.id }}
+clusterSecret: {{ cluster.secret }}
 ---
 # A document, not a machine.files drop-in: editing it restarts CRI without a reboot.
 # Spegel needs unpacked layers kept and exits if containerd discards them, which is the Talos default.
@@ -179,8 +192,8 @@ params:
   net.ipv4.tcp_slow_start_after_idle: "0"
   user.max_user_namespaces: "11255"
 ---
-# Replaces machine.features.kubePrism (the two are mutually exclusive). No readinessCheck: it probes
-# /readyz anonymously, and the legacy cluster.apiServer section runs --anonymous-auth=false (401).
+# Replaces machine.features.kubePrism (the two are mutually exclusive). No readinessCheck yet: it probes
+# /readyz anonymously, which KubeAuthenticationConfig only allows once it is applied on every node.
 apiVersion: v1alpha1
 kind: KubePrismConfig
 port: 7445

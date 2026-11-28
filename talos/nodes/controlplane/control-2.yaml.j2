@@ -1,14 +1,18 @@
 ---
 # Chuwi ubox. Runs in-cluster Kepler (has RAPL, unlike the control-1 VM).
-machine:
-  install:
-    # By model, not /dev/nvme1n1: enumeration order can swap, and the other NVMe is Ceph osd.0.
-    # Only a fresh install reads this; upgrades reuse the running system disk.
-    diskSelector:
-      model: Micron_7450_MTFDKBA480TFR
-  nodeLabels:
-    amd.com/igpu: "true"
-    kepler-node: "true"
+# By model, not /dev/nvme1n1: enumeration order can swap, and the other NVMe is Ceph osd.0.
+# Only a fresh install reads this; upgrades reuse the running system disk.
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.model == "Micron_7450_MTFDKBA480TFR"
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  amd.com/igpu: "true"
+  kepler-node: "true"
 ---
 apiVersion: v1alpha1
 kind: HostnameConfig

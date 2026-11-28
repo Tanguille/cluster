@@ -68,7 +68,7 @@ documents that are identical per node but would reorder the stream stay put.
 ## Schematics
 
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID. `render-config` puts it in `machine.install.image`
+content-addressed ID. `render-config` puts it in `UnattendedInstallConfig.installer.image`
 (`factory.talos.dev/metal-installer/<id>:<version>`), and `download-image` uses it to fetch the ISO.
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
@@ -86,8 +86,10 @@ node only picks up a new ID through an upgrade (`just talos upgrade-node` reads 
 
 ## Gotchas
 
-- `machine.ca` and `cluster.ca` merge as a cert+key **unit**: a layer supplying only `key` blanks
-  `crt`. This is why `controlplane.yaml.j2` repeats the `crt` alongside the keys.
+- `machine.ca` merges as a cert+key **unit**: a layer supplying only `key` blanks `crt`. This is why
+  `controlplane.yaml.j2` repeats the `crt` alongside the key.
+- The 1.15 CA documents (`EtcdCAConfig`, `Kube*CAConfig`, `KubeServiceAccountConfig`) take raw PEM,
+  v1alpha1 takes base64. The `template` recipe adds `pem`, a decoded copy of `certs`, for the former.
 - `minijinja-cli` must run with autoescape off and strict on. `.minijinja.toml` sets both, found via
   `MINIJINJA_CONFIG_FILE` (mise sets it; the `template` recipe refuses to run without it). The default
   JSON-escapes every substitution, which silently wraps certs and versions in quotes and produces a
@@ -130,7 +132,7 @@ namespaces), so its discards pass through to whatever the hypervisor does with t
 | --- | --- |
 | `OOMConfig` | a PSI-expression OOM handler. Real potential here given this cluster's OOM cascades, but it changes which cgroup dies under pressure. Needs a baseline first, not a blind default |
 | `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd) is a runtime change for every workload; wants its own change and its own rollback |
-| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
+| `KubeletConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is still `return nil` in v1.15.0-beta.1) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`. `KubeNodeConfig` is separate and adopted (1.15 section) |
 | `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
 | `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
 
@@ -162,8 +164,24 @@ rollback` is off the table from here. Only then drop the `talosctl.image.tag` pi
 
 | Document | Replaces / adds |
 | --- | --- |
-| `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive). Not `readinessCheck`: anonymous `/readyz` is 401 with `cluster.apiServer` |
+| `KubePrismConfig` | `machine.features.kubePrism` (mutually exclusive) |
 | `DiskSMARTConfig` | Talos-native SMART collection (`SMARTStatus`); off on upgraded clusters until the document exists |
+
+Every deprecated v1alpha1 section moved to its document; v1alpha1 keeps only fields with no
+replacement (`machine.type/token/ca/certSANs/logging/features.diskQuotaSupport`, `cluster.token`) and
+`machine.kubelet` (blocked, see 1.14). Each document conflicts with its legacy field, so a section
+moves whole. Behaviour is unchanged; the moves that needed care:
+
+| Documents | Replace | Note |
+| --- | --- | --- |
+| `KubeNodeConfig` | `kubelet.nodeIP`, `nodeLabels`, `allowSchedulingOnControlPlanes` | control-plane label set explicitly, no taints (the legacy shim added both) |
+| `UnattendedInstallConfig` | `machine.install` | `wipe` defaults to true, so it is set; tuppr 0.5.14 reads `installer.image` |
+| `KubeEtcdEncryptionConfig` | `secretboxEncryptionSecret` | keeps key name `key2` and the `identity` provider |
+| `KubeAPIServerConfig` + `KubeAuthenticationConfig` + 2x `KubeAuthorizerConfig` | `cluster.apiServer` | anonymous now allowed on `/livez`, `/readyz`, `/healthz` (was `--anonymous-auth=false`); authorizers explicit |
+| `KubeProxyConfig`, `KubeCoreDNSConfig` (`enabled: false`) | `proxy`, `coreDNS` | missing means enabled |
+
+Not adopted: `KubeAdmissionControlConfig` (gen config's PodSecurity `baseline` would start enforcing
+cluster-wide) and `KubeAuditPolicyConfig` (the fallback is already the default Metadata policy).
 
 The kernel is stock (the self-built pipeline is in git at `a9ed961f5f`); the schematics set
 `preempt=full` over its `PREEMPT_LAZY`. containerd config moves to version 4; our
@@ -187,4 +205,6 @@ just talos download-image <node> <ver>   # fetch a metal ISO from the Image Fact
 ```
 
 Verify any refactor of these templates by running `diff-node` against **every** node and confirming
-each reports `No changes.` before applying anything.
+each reports `No changes.` before applying anything. A section moving to a document is the exception:
+the text diff is never empty, so compare the derived resources (`apiserverconfigs`,
+`authorizationconfigs`, `schedulerconfigs`, node labels) before and after instead.
