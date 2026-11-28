@@ -13,11 +13,20 @@ model_overrides:
   custom:
     inkling-2-mini-auto:
       context_window: 262144
+providers:
+  custom:
+    stale_timeout_seconds: 600
 mcp_servers:
   toolhive:
     url: http://vmcp-unified.ai.svc.cluster.local:4483/mcp
     timeout: 300
     connect_timeout: 180
+    # The resource and prompt utility schemas cost ~350 tokens a call and were used 7 times in 30 days.
+    tools:
+      resources: false
+      prompts: false
+    sampling:
+      enabled: false
 memory:
   provider: memini
   # memini is the only long-term memory; the built-in MEMORY.md/USER.md stores stay off.
@@ -28,19 +37,46 @@ memory:
 sessions:
   # Pinned because a whole-file config rewrite dropped it from every profile once.
   auto_prune: true
+compression:
+  context_timeout_seconds: 600
+  hygiene_hard_message_limit: 400
+auxiliary:
+  compression:
+    timeout: 600
+  approval:
+    timeout: 60
+  triage_specifier:
+    timeout: 300
 tools:
   tool_search:
     enabled: false
+browser:
+  chromium_args:
+    - --no-sandbox
+    - --disable-dev-shm-usage
 gateway:
   # Long-lived chats otherwise only know the date of their last compaction.
   message_timestamps:
     enabled: true
+# Also reaches cron jobs that deliver to Discord.
+platform_hints:
+  discord:
+    append: >-
+      Format Discord messages per the discord-markdown skill: a one-line **TL;DR:** first, short
+      bullets, masked links, no headings in messages under 6 lines.
 skills:
   # Defaults to false, so named profiles wrote skills unscanned; root already had it on.
   guard_agent_created: true
 agent:
+  reasoning_effort: medium
   # Unlike SOUL.md, this block also reaches delegate_task subagents, which trip the breaker most.
   environment_hint: >-
     ToolHive: never guess a tool name or argument; call mcp__toolhive__find_tool first when unsure.
     Three failed ToolHive calls in a row (find_tool included) pause every ToolHive tool for 60 s for
     all sessions of this profile.
+
+    This pod: never run ML inference, torch/transformers installs or other multi-GB work here; every
+    profile shares the gateway's 6Gi limit, so one runaway process OOM-kills them all. Scratch goes in
+    /opt/data, never /tmp. The /opt/data/cluster clone is stale: `git fetch origin` and read
+    `origin/main` with git show before any current-state claim. Cluster changes go through GitOps
+    only (PR plus Flux sync; secret rotations as a sops PR); live kubectl is for diagnostics.
