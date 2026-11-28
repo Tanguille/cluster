@@ -1,8 +1,10 @@
 ---
 # TrueNAS hypervisor VM on 192.168.0.27. Only GPU node: R9700 (amdgpu) and RTX 2070 (nvidia).
-machine:
-  install:
-    disk: /dev/vda
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/vda"
 ---
 # GPU label for applications; the amdgpu kernel module is loaded
 # automatically by the siderolabs/amdgpu system extension

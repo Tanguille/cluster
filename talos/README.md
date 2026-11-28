@@ -68,7 +68,7 @@ documents that are identical per node but would reorder the stream stay put.
 ## Schematics
 
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID. `render-config` puts it in `machine.install.image`
+content-addressed ID. `render-config` puts it in `UnattendedInstallConfig.installer.image`
 (`factory.talos.dev/metal-installer/<id>:<version>`), and `download-image` uses it to fetch the ISO.
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
