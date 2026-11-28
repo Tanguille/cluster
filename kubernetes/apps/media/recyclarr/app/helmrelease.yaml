@@ -12,8 +12,8 @@ spec:
 
   values:
     controllers:
+      # v9 runs a server that syncs on its own schedule (default midnight daily).
       recyclarr:
-        # v9 runs a server that syncs on its own schedule (default midnight daily).
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -31,7 +31,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &livez
                     path: /livez
                     port: &port 7983
                   periodSeconds: 30
@@ -51,9 +51,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /livez
-                    port: *port
+                  httpGet: *livez
                   periodSeconds: 10
                   failureThreshold: 60
             securityContext:
