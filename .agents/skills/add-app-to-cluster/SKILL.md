@@ -54,7 +54,8 @@ Scaffold YAML: [references/manifest-templates.md](references/manifest-templates.
 |----------|--------------|
 | `kubernetes/apps/media/qui` | kopiur persistence, dependsOn, probes, hardened securityContext |
 | `kubernetes/apps/media/sonarr` | sops secret, valuesFrom, homepage annotations |
-| `kubernetes/apps/media/recyclarr` | configMapGenerator config files |
+| `kubernetes/apps/default/homepage` | configMapGenerator config files |
+| `kubernetes/apps/media/recyclarr` | upstream OCI chart, inline config, PrometheusRule |
 
 ### 5. HelmRelease essentials
 

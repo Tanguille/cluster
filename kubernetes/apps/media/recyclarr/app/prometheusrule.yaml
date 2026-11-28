@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: recyclarr-rules
+spec:
+  groups:
+    - name: recyclarr.rules
+      rules:
+        # Timeouts end as failed. A pod that is down is covered by the generic pod alerts.
+        - alert: RecyclarrSyncFailed
+          expr: |-
+            sum by (recyclarr_sync_job_status) (
+              increase(recyclarr_sync_job_duration_seconds_count{recyclarr_sync_job_status=~"failed|partial|interrupted"}[1h])
+            ) > 0
+          annotations:
+            summary: >-
+              A recyclarr sync ended {{ $labels.recyclarr_sync_job_status }}; check
+              `kubectl -n media logs deploy/recyclarr`
+          labels:
+            severity: warning
