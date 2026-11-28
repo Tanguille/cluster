@@ -34,8 +34,9 @@ jobs:
           cluster=kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml
           rset=kubernetes/apps/database/cloudnative-pg/databases/resourceset.yaml
           img=$(yq -e '.spec.imageName' "$cluster")
-          want=$(docker run --rm --entrypoint sed "$img" -n "s/^default_version = '\(.*\)'/\1/p" \
-            /usr/share/postgresql/18/extension/vector.control)
+          # sh for the glob: the path carries the PostgreSQL major.
+          want=$(docker run --rm --entrypoint sh "$img" -c \
+            "sed -n \"s/^default_version = '\(.*\)'/\1/p\" /usr/share/postgresql/*/extension/vector.control")
           got=$(yq -e '.spec.inputs[].extensions[] | select(.name == "vector") | .version' "$rset" | sort -u)
           echo "image ${img} ships vector ${want}; ResourceSet pins ${got}"
           [ "$want" = "$got" ] || { echo "::error::vector pin '${got}' != image default_version '${want}'"; exit 1; }

@@ -20,3 +20,20 @@ data:
         - drifted:
             usage: GAUGE
             description: 1 if the installed vector extension differs from the image's default version
+    pg_stat_lock:
+      # PostgreSQL 19+. Waits count only past deadlock_timeout; fastpath_exceeded sizes max_locks_per_transaction.
+      query: >-
+        SELECT locktype, waits, wait_time / 1000 AS wait_seconds, fastpath_exceeded FROM pg_catalog.pg_stat_lock
+      metrics:
+        - locktype:
+            usage: LABEL
+            description: Lock type
+        - waits:
+            usage: COUNTER
+            description: Lock acquisitions that waited longer than deadlock_timeout
+        - wait_seconds:
+            usage: COUNTER
+            description: Seconds spent in those waits
+        - fastpath_exceeded:
+            usage: COUNTER
+            description: Locks that missed the fast path because its slots were full
